@@ -4,7 +4,10 @@ import { eq } from "drizzle-orm";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import { updateBuyerProfileAction } from "@/lib/account/profile-actions";
+import {
+  changeBuyerPasswordAction,
+  updateBuyerProfileAction,
+} from "@/lib/account/profile-actions";
 import { requireUser } from "@/lib/auth/session";
 
 type ProfilePageProps = {
@@ -14,6 +17,13 @@ type ProfilePageProps = {
 const errorMessages: Record<string, string> = {
   required: "Заполните email и телефон.",
   email: "Пользователь с таким email уже зарегистрирован.",
+};
+
+const passwordErrorMessages: Record<string, string> = {
+  required: "Заполните текущий пароль, новый пароль и подтверждение.",
+  current: "Текущий пароль указан неверно.",
+  length: "Новый пароль должен быть не короче 8 символов.",
+  match: "Новый пароль и подтверждение не совпадают.",
 };
 
 function getParam(
@@ -30,7 +40,9 @@ export default async function AccountProfilePage({
   const currentUser = await requireUser(["buyer"]);
   const params = (await searchParams) ?? {};
   const error = getParam(params, "error");
+  const passwordError = getParam(params, "passwordError");
   const saved = getParam(params, "saved") === "1";
+  const passwordChanged = getParam(params, "passwordChanged") === "1";
   const [user] = await db
     .select({
       name: users.name,
@@ -116,16 +128,74 @@ export default async function AccountProfilePage({
               </label>
             </div>
 
-            <div className="rounded-xl bg-slate-50 p-4 text-sm leading-6 text-slate-600">
-              Смена пароля будет добавлена вместе с восстановлением пароля и
-              email-настройками. Сейчас пароль не меняется с этой страницы.
-            </div>
-
             <SubmitButton
               className="h-12 justify-self-start rounded-lg bg-[#1157ff] px-6 font-bold text-white transition hover:bg-[#0b49e0]"
               pendingText="Сохраняем"
             >
               Сохранить
+            </SubmitButton>
+          </form>
+        </section>
+
+        <section className="mt-5 rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
+          <h2 className="text-2xl font-black text-slate-950">Смена пароля</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+            Для безопасности укажите текущий пароль и новый пароль не короче 8
+            символов.
+          </p>
+
+          {passwordChanged ? (
+            <div className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
+              Пароль изменен.
+            </div>
+          ) : null}
+
+          {passwordError ? (
+            <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+              {passwordErrorMessages[passwordError] ??
+                "Не удалось изменить пароль."}
+            </div>
+          ) : null}
+
+          <form action={changeBuyerPasswordAction} className="mt-6 grid gap-5">
+            <label className="grid gap-2 text-sm font-bold text-slate-700">
+              Текущий пароль
+              <input
+                name="currentPassword"
+                type="password"
+                required
+                className="h-12 rounded-lg border border-slate-200 px-4 font-normal text-slate-950"
+              />
+            </label>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="grid gap-2 text-sm font-bold text-slate-700">
+                Новый пароль
+                <input
+                  name="newPassword"
+                  type="password"
+                  minLength={8}
+                  required
+                  className="h-12 rounded-lg border border-slate-200 px-4 font-normal text-slate-950"
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-bold text-slate-700">
+                Повторите пароль
+                <input
+                  name="confirmPassword"
+                  type="password"
+                  minLength={8}
+                  required
+                  className="h-12 rounded-lg border border-slate-200 px-4 font-normal text-slate-950"
+                />
+              </label>
+            </div>
+
+            <SubmitButton
+              className="h-12 justify-self-start rounded-lg bg-slate-900 px-6 font-bold text-white transition hover:bg-slate-800"
+              pendingText="Меняем пароль"
+            >
+              Изменить пароль
             </SubmitButton>
           </form>
         </section>

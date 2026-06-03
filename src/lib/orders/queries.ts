@@ -78,6 +78,7 @@ export async function getCurrentBuyerOrders() {
           inArray(documents.type, [
             "payment_invoice",
             "invoice",
+            "contract",
             "upd",
             "specification",
             "act",
@@ -98,6 +99,7 @@ export async function getCurrentBuyerOrders() {
     string,
     {
       hasInvoice: boolean;
+      hasContract: boolean;
       hasUpd: boolean;
       hasSpecification: boolean;
       hasAct: boolean;
@@ -111,6 +113,7 @@ export async function getCurrentBuyerOrders() {
 
     const flags = documentsByOrder.get(document.orderId) ?? {
       hasInvoice: false,
+      hasContract: false,
       hasUpd: false,
       hasSpecification: false,
       hasAct: false,
@@ -118,6 +121,10 @@ export async function getCurrentBuyerOrders() {
 
     if (document.type === "payment_invoice" || document.type === "invoice") {
       flags.hasInvoice = true;
+    }
+
+    if (document.type === "contract") {
+      flags.hasContract = true;
     }
 
     if (document.type === "upd") {
@@ -142,6 +149,7 @@ export async function getCurrentBuyerOrders() {
     hasInvoice:
       Boolean(order.invoiceNumber) ||
       (documentsByOrder.get(order.id)?.hasInvoice ?? false),
+    hasContract: documentsByOrder.get(order.id)?.hasContract ?? false,
     hasUpd: documentsByOrder.get(order.id)?.hasUpd ?? false,
     hasSpecification: documentsByOrder.get(order.id)?.hasSpecification ?? false,
     hasAct: documentsByOrder.get(order.id)?.hasAct ?? false,

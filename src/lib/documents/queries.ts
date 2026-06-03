@@ -119,6 +119,50 @@ export async function getCurrentBuyerOrderDocuments(orderId: string) {
     .orderBy(desc(documents.createdAt));
 }
 
+export async function getCurrentBuyerOrderCompanyContract(orderId: string) {
+  const user = await requireUser(["buyer"]);
+
+  if (!user.buyerCompanyId) {
+    return null;
+  }
+
+  const [contract] = await db
+    .select({
+      id: documents.id,
+      type: documents.type,
+      title: documents.title,
+      currentVersion: documents.currentVersion,
+      versionId: documentVersions.id,
+      fileName: files.originalName,
+      mimeType: files.mimeType,
+      sizeBytes: files.sizeBytes,
+      uploadedAt: documentVersions.createdAt,
+    })
+    .from(documents)
+    .innerJoin(orders, eq(orders.buyerCompanyId, documents.buyerCompanyId))
+    .innerJoin(
+      documentVersions,
+      and(
+        eq(documentVersions.documentId, documents.id),
+        eq(documentVersions.version, documents.currentVersion),
+      ),
+    )
+    .innerJoin(files, eq(files.id, documentVersions.fileId))
+    .where(
+      and(
+        eq(orders.id, orderId),
+        eq(orders.buyerCompanyId, user.buyerCompanyId),
+        eq(documents.type, "contract"),
+        eq(documents.isActive, true),
+        eq(documents.isVisibleToBuyer, true),
+      ),
+    )
+    .orderBy(desc(documents.createdAt))
+    .limit(1);
+
+  return contract ?? null;
+}
+
 export async function getCurrentBuyerCompanyDocuments() {
   const user = await requireUser(["buyer"]);
 

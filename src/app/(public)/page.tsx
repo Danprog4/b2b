@@ -1,8 +1,12 @@
 import {
   Building2,
+  ClipboardCheck,
+  FileText,
   ImageIcon,
+  ShieldCheck,
   Truck,
 } from "lucide-react";
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { ProductCard } from "@/components/catalog/product-card";
@@ -12,6 +16,35 @@ import { getActiveCategories, getCatalogProducts } from "@/lib/catalog/queries";
 import { getActiveHomeBanners } from "@/lib/content/queries";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Сити Маркет — B2B-маркетплейс для юридических лиц и ИП",
+  description:
+    "Каталог товаров для бизнеса, корзина, счета на оплату и документы для закупок юридических лиц и ИП.",
+};
+
+const advantages = [
+  {
+    title: "Закупки для бизнеса",
+    description: "Регистрация компании, реквизиты и оформление заказов от юрлица.",
+    icon: Building2,
+  },
+  {
+    title: "Документы в кабинете",
+    description: "Счета, договоры, УПД и статусы документов доступны по заказам.",
+    icon: FileText,
+  },
+  {
+    title: "Контроль заказов",
+    description: "История статусов, повтор заказа и связь с оператором в одном месте.",
+    icon: ClipboardCheck,
+  },
+  {
+    title: "Проверенные поставщики",
+    description: "Категории, продавцы и условия поставки ведутся через админку.",
+    icon: ShieldCheck,
+  },
+];
 
 export default async function Home() {
   const [categories, popularProducts, banners, currentUser] = await Promise.all([
@@ -46,6 +79,29 @@ export default async function Home() {
               </p>
             </div>
           </aside>
+        </div>
+      </section>
+
+      <section>
+        <div className="mx-auto grid max-w-[1480px] gap-4 px-5 py-8 md:grid-cols-2 xl:grid-cols-4">
+          {advantages.map((advantage) => {
+            const Icon = advantage.icon;
+
+            return (
+              <div
+                className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm"
+                key={advantage.title}
+              >
+                <Icon className="text-[#1157ff]" size={28} />
+                <h2 className="mt-4 text-lg font-black text-slate-950">
+                  {advantage.title}
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  {advantage.description}
+                </p>
+              </div>
+            );
+          })}
         </div>
       </section>
 

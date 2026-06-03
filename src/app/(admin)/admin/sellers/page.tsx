@@ -1,9 +1,9 @@
-import { asc, count, desc, isNotNull, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, isNotNull, sql } from "drizzle-orm";
 import { Building2, Plus } from "lucide-react";
 import Link from "next/link";
 
 import { db } from "@/db";
-import { orderItems, products, sellers } from "@/db/schema";
+import { documents, orderItems, products, sellers } from "@/db/schema";
 import { requireUser } from "@/lib/auth/session";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
@@ -14,7 +14,7 @@ function getSellerStatusLabel(status: string) {
 export default async function AdminSellersPage() {
   await requireUser(["admin"]);
 
-  const [sellerRows, productStats, orderStats] = await Promise.all([
+  const [sellerRows, productStats, orderStats, updStats] = await Promise.all([
     db
       .select()
       .from(sellers)
@@ -31,17 +31,34 @@ export default async function AdminSellersPage() {
       .select({
         sellerId: orderItems.sellerId,
         orderCount: sql<number>`count(distinct ${orderItems.orderId})`,
+        salesAmount: sql<string>`coalesce(sum(${orderItems.lineTotal}), 0)`,
         commissionAmount: sql<string>`coalesce(sum(${orderItems.commissionAmount}), 0)`,
       })
       .from(orderItems)
       .where(isNotNull(orderItems.sellerId))
       .groupBy(orderItems.sellerId),
+    db
+      .select({
+        sellerId: documents.sellerId,
+        count: count(documents.id),
+      })
+      .from(documents)
+      .where(
+        and(
+          isNotNull(documents.sellerId),
+          eq(documents.target, "seller"),
+          eq(documents.type, "upd"),
+          eq(documents.isActive, true),
+        ),
+      )
+      .groupBy(documents.sellerId),
   ]);
 
   const productsBySeller = new Map(
     productStats.map((row) => [row.sellerId, row.productCount]),
   );
   const ordersBySeller = new Map(orderStats.map((row) => [row.sellerId, row]));
+  const hasUpdBySeller = new Set(updStats.map((row) => row.sellerId));
 
   return (
     <main className="min-h-screen bg-slate-100 px-6 py-8 text-slate-900">
@@ -80,14 +97,17 @@ export default async function AdminSellersPage() {
         </div>
 
         <section className="mt-8 overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
-          <table className="w-full min-w-[1100px] border-collapse text-left">
+          <table className="w-full min-w-[1360px] border-collapse text-left">
             <thead className="bg-slate-50 text-xs uppercase text-slate-500">
               <tr>
                 <th className="px-5 py-4">Продавец</th>
+                <th className="px-5 py-4">Номер договора</th>
                 <th className="px-5 py-4">Контакты</th>
                 <th className="px-5 py-4">Комиссия</th>
                 <th className="px-5 py-4">Товары</th>
                 <th className="px-5 py-4">Заказы</th>
+                <th className="px-5 py-4">Сумма продаж</th>
+                <th className="px-5 py-4">УПД</th>
                 <th className="px-5 py-4">Статус</th>
                 <th className="px-5 py-4">Обновлен</th>
               </tr>
@@ -95,7 +115,7 @@ export default async function AdminSellersPage() {
             <tbody className="divide-y divide-slate-100 text-sm">
               {sellerRows.length === 0 ? (
                 <tr>
-                  <td className="px-5 py-8 text-center text-slate-500" colSpan={7}>
+                  <td className="px-5 py-8 text-center text-slate-500" colSpan={10}>
                     Продавцов пока нет.
                   </td>
                 </tr>
@@ -122,6 +142,14 @@ export default async function AdminSellersPage() {
                             {seller.kpp ? ` · КПП ${seller.kpp}` : ""}
                           </span>
                         </span>
+                      </Link>
+                    </td>
+                    <td className="p-0">
+                      <Link
+                        className="block px-5 py-4 font-black text-slate-950"
+                        href={`/admin/sellers/${seller.id}`}
+                      >
+                        {seller.contractNumber ?? "—"}
                       </Link>
                     </td>
                     <td className="p-0">
@@ -163,6 +191,30 @@ export default async function AdminSellersPage() {
                         </span>
                         <span className="mt-1 block text-slate-500">
                           {formatCurrency(orderStat?.commissionAmount ?? "0")}
+                        </span>
+                      </Link>
+                    </td>
+                    <td className="p-0">
+                      <Link
+                        className="block px-5 py-4 font-black"
+                        href={`/admin/sellers/${seller.id}`}
+                      >
+                        {formatCurrency(orderStat?.salesAmount ?? "0")}
+                      </Link>
+                    </td>
+                    <td className="p-0">
+                      <Link
+                        className="block px-5 py-4"
+                        href={`/admin/sellers/${seller.id}`}
+                      >
+                        <span
+                          className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${
+                            hasUpdBySeller.has(seller.id)
+                              ? "bg-emerald-50 text-emerald-700"
+                              : "bg-amber-50 text-amber-700"
+                          }`}
+                        >
+                          {hasUpdBySeller.has(seller.id) ? "Есть" : "Нет"}
                         </span>
                       </Link>
                     </td>

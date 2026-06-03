@@ -1,4 +1,4 @@
-import { and, count, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq, sql } from "drizzle-orm";
 import Link from "next/link";
 
 import { LogoutButton } from "@/components/logout-button";
@@ -6,14 +6,17 @@ import { db } from "@/db";
 import {
   buyerCompanies,
   chats,
+  documents,
   emailOutbox,
   invoices,
   messages,
   notifications,
   orders,
+  sellers,
   systemEvents,
 } from "@/db/schema";
 import { requireUser } from "@/lib/auth/session";
+import { getDocumentTypeLabel } from "@/lib/documents/types";
 import { getOrderStatusLabel } from "@/lib/orders/status";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
@@ -132,6 +135,8 @@ export default async function AdminPage() {
     latestOrders,
     latestCompanies,
     latestMessages,
+    companyDocumentReadiness,
+    latestDocuments,
     invoiceErrorCounter,
     emailErrorCounter,
     telegramErrorCounter,
@@ -186,6 +191,50 @@ export default async function AdminPage() {
       .orderBy(desc(messages.createdAt))
       .limit(5),
     db
+      .select({
+        id: buyerCompanies.id,
+        name: buyerCompanies.name,
+        inn: buyerCompanies.inn,
+        hasCompanyCard: sql<boolean>`exists (
+          select 1
+          from ${documents}
+          where ${documents.buyerCompanyId} = ${buyerCompanies.id}
+            and ${documents.type} = 'company_card'
+            and ${documents.isActive} = true
+        )`,
+        hasCharter: sql<boolean>`exists (
+          select 1
+          from ${documents}
+          where ${documents.buyerCompanyId} = ${buyerCompanies.id}
+            and ${documents.type} = 'charter'
+            and ${documents.isActive} = true
+        )`,
+      })
+      .from(buyerCompanies)
+      .orderBy(desc(buyerCompanies.createdAt))
+      .limit(80),
+    db
+      .select({
+        id: documents.id,
+        type: documents.type,
+        title: documents.title,
+        target: documents.target,
+        createdAt: documents.createdAt,
+        buyerCompanyName: buyerCompanies.name,
+        sellerName: sellers.name,
+      })
+      .from(documents)
+      .leftJoin(buyerCompanies, eq(buyerCompanies.id, documents.buyerCompanyId))
+      .leftJoin(sellers, eq(sellers.id, documents.sellerId))
+      .where(
+        and(
+          eq(documents.isActive, true),
+          sql`${documents.target} in ('buyer_company', 'seller')`,
+        ),
+      )
+      .orderBy(desc(documents.createdAt))
+      .limit(8),
+    db
       .select({ count: count() })
       .from(invoices)
       .where(eq(invoices.status, "failed"))
@@ -207,6 +256,9 @@ export default async function AdminPage() {
       .then(([row]) => row),
   ]);
   const unreadNotifications = notificationCounter?.count ?? 0;
+  const companiesMissingRequiredDocuments = companyDocumentReadiness
+    .filter((company) => !company.hasCompanyCard || !company.hasCharter)
+    .slice(0, 6);
   const statusCounters = [
     [dashboardStatuses[0][1], newOrdersCount, "/admin/orders?status=new"],
     [
@@ -391,6 +443,87 @@ export default async function AdminPage() {
                 </div>
               ))
             )}
+          </div>
+        </section>
+
+        <section className="mt-6 grid gap-4 xl:grid-cols-2">
+          <div className="rounded-lg bg-white p-5 shadow-sm ring-1 ring-slate-200">
+            <div className="flex items-center justify-between gap-4">
+              <h2 className="text-xl font-black text-slate-950">
+                Компании без обязательных документов
+              </h2>
+              <Link
+                className="text-sm font-bold text-[#1157ff]"
+                href="/admin/companies"
+              >
+                Все компании
+              </Link>
+            </div>
+            <div className="mt-4 divide-y divide-slate-100">
+              {companiesMissingRequiredDocuments.length === 0 ? (
+                <div className="flex min-h-20 items-center justify-center text-sm font-bold text-emerald-700">
+                  У всех компаний есть обязательные документы.
+                </div>
+              ) : (
+                companiesMissingRequiredDocuments.map((company) => (
+                  <Link
+                    className="block py-3 text-sm transition hover:text-[#1157ff]"
+                    href={`/admin/companies/${company.id}`}
+                    key={company.id}
+                  >
+                    <p className="font-black text-slate-950">{company.name}</p>
+                    <p className="mt-1 font-semibold text-slate-500">
+                      ИНН {company.inn}
+                    </p>
+                    <p className="mt-1 text-xs font-bold text-amber-700">
+                      {!company.hasCompanyCard ? "Нет карточки компании" : null}
+                      {!company.hasCompanyCard && !company.hasCharter ? " · " : null}
+                      {!company.hasCharter ? "Нет уставных документов" : null}
+                    </p>
+                  </Link>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-lg bg-white p-5 shadow-sm ring-1 ring-slate-200">
+            <div className="flex items-center justify-between gap-4">
+              <h2 className="text-xl font-black text-slate-950">
+                Новые документы покупателей и продавцов
+              </h2>
+              <Link
+                className="text-sm font-bold text-[#1157ff]"
+                href="/admin/documents"
+              >
+                Все документы
+              </Link>
+            </div>
+            <div className="mt-4 divide-y divide-slate-100">
+              {latestDocuments.length === 0 ? (
+                <div className="flex min-h-20 items-center justify-center text-sm font-bold text-slate-500">
+                  Новых документов пока нет.
+                </div>
+              ) : (
+                latestDocuments.map((document) => (
+                  <Link
+                    className="block py-3 text-sm transition hover:text-[#1157ff]"
+                    href="/admin/documents"
+                    key={document.id}
+                  >
+                    <p className="font-black text-slate-950">{document.title}</p>
+                    <p className="mt-1 font-semibold text-slate-500">
+                      {getDocumentTypeLabel(document.type)} ·{" "}
+                      {document.buyerCompanyName ??
+                        document.sellerName ??
+                        document.target}
+                    </p>
+                    <p className="mt-1 text-xs font-bold text-slate-500">
+                      {formatDateTime(document.createdAt)}
+                    </p>
+                  </Link>
+                ))
+              )}
+            </div>
           </div>
         </section>
 

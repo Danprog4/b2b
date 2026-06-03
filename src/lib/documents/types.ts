@@ -39,16 +39,10 @@ export const orderDocumentTypes = [
 export const buyerCompanyDocumentTypes = [
   ["company_card", "Карточка компании"],
   ["charter", "Уставные документы"],
-  ["contract", "Договор"],
-  ["other", "Прочий документ"],
 ] as const;
 
 export const sellerDocumentTypes = [
   ["upd", "УПД"],
-  ["company_card", "Карточка компании"],
-  ["charter", "Уставные документы"],
-  ["contract", "Договор"],
-  ["other", "Прочий документ"],
 ] as const;
 
 const documentTypeLabels = new Map<string, string>(documentTypeLabelsSource);

@@ -2,7 +2,10 @@ import { Clock3, Download, FileText, Paperclip, ShoppingCart } from "lucide-reac
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { getCurrentBuyerOrderDocuments } from "@/lib/documents/queries";
+import {
+  getCurrentBuyerOrderCompanyContract,
+  getCurrentBuyerOrderDocuments,
+} from "@/lib/documents/queries";
 import { formatFileSize, getDocumentTypeLabel } from "@/lib/documents/types";
 import { getOrderStatusLabel } from "@/lib/orders/status";
 import {
@@ -36,8 +39,9 @@ export default async function AccountOrderPage({
 
   await markCurrentBuyerOrderViewed(order.id);
 
-  const [orderDocuments, statusHistory] = await Promise.all([
+  const [orderDocuments, companyContract, statusHistory] = await Promise.all([
     getCurrentBuyerOrderDocuments(order.id),
+    getCurrentBuyerOrderCompanyContract(order.id),
     getCurrentBuyerOrderStatusHistory(order.id),
   ]);
 
@@ -259,6 +263,44 @@ export default async function AccountOrderPage({
                   </Link>
                 </article>
               ))
+            )}
+          </div>
+        </section>
+
+        <section className="mt-5 rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
+          <div className="flex items-center gap-2">
+            <FileText className="text-[#1157ff]" size={22} />
+            <h2 className="text-2xl font-black text-slate-950">
+              Договор компании
+            </h2>
+          </div>
+
+          <div className="mt-5">
+            {companyContract ? (
+              <article className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 p-4">
+                <div>
+                  <h3 className="font-black text-slate-950">
+                    {companyContract.title}
+                  </h3>
+                  <p className="mt-1 text-sm font-semibold text-slate-500">
+                    {getDocumentTypeLabel(companyContract.type)} · версия{" "}
+                    {companyContract.currentVersion} ·{" "}
+                    {formatFileSize(companyContract.sizeBytes)} ·{" "}
+                    {formatDateTime(companyContract.uploadedAt)}
+                  </p>
+                </div>
+                <Link
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#1157ff] px-4 text-sm font-bold text-white transition hover:bg-[#0b49e0]"
+                  href={`/documents/${companyContract.versionId}/download`}
+                >
+                  <Download size={16} />
+                  Скачать
+                </Link>
+              </article>
+            ) : (
+              <div className="flex min-h-24 items-center justify-center rounded-xl border border-dashed border-slate-200 text-sm font-bold text-slate-500">
+                Договор компании пока не загружен.
+              </div>
             )}
           </div>
         </section>

@@ -236,6 +236,12 @@ export default async function AdminSellerPage({
               <h2 className="text-xl font-black text-slate-950">Сводка</h2>
               <div className="mt-5 grid gap-3 text-sm">
                 <div className="flex justify-between gap-3">
+                  <span className="text-slate-500">Номер договора</span>
+                  <span className="font-black">
+                    {seller.contractNumber ?? "—"}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-3">
                   <span className="text-slate-500">Товары</span>
                   <span className="font-black">{productCounter?.count ?? 0}</span>
                 </div>

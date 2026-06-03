@@ -106,15 +106,30 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
   );
   const pageTitle =
     activeSubcategory?.name ?? activeCategory?.name ?? "Каталог товаров";
-  const hasActiveFilters = Boolean(
-    q ||
-      categorySlug ||
-      subcategorySlug ||
-      minPriceValue ||
-      maxPriceValue ||
-      unit ||
-      sort !== "popular",
+  const hasActiveTopFilters = Boolean(
+    q || minPriceValue || maxPriceValue || unit || sort !== "popular",
   );
+  const hasActiveCategoryFilters = Boolean(categorySlug || subcategorySlug);
+  const resetTopFiltersHref = catalogHref({
+    category: categorySlug,
+    subcategory: subcategorySlug,
+  });
+  const resetCategoryFiltersHref = catalogHref({
+    q,
+    sort: sort === "popular" ? undefined : sort,
+    minPrice: minPriceValue,
+    maxPrice: maxPriceValue,
+    unit,
+  });
+  const filterStateKey = [
+    categorySlug ?? "",
+    subcategorySlug ?? "",
+    q,
+    minPriceValue,
+    maxPriceValue,
+    unit,
+    sort,
+  ].join(":");
 
   return (
     <main className="min-h-screen bg-[#f4f6fb] px-5 py-6 text-slate-900">
@@ -137,7 +152,10 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
           </span>
         </div>
 
-        <form className="mt-6 grid gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-100 lg:grid-cols-[1fr_180px_180px_170px_220px_auto_auto]">
+        <form
+          key={filterStateKey}
+          className="mt-6 grid gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-100 lg:grid-cols-[1fr_180px_180px_170px_220px_auto_auto]"
+        >
           {categorySlug ? (
             <input name="category" type="hidden" value={categorySlug} />
           ) : null}
@@ -203,10 +221,10 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
           >
             Применить
           </SubmitButton>
-          {hasActiveFilters ? (
+          {hasActiveTopFilters ? (
             <Link
               className="inline-flex h-12 items-center justify-center rounded-lg bg-slate-100 px-5 text-sm font-black text-slate-700 transition hover:bg-slate-200"
-              href="/catalog"
+              href={resetTopFiltersHref}
             >
               Сбросить
             </Link>
@@ -220,7 +238,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
             </h2>
             <nav className="mt-4 grid gap-1">
               <Link
-                className={`rounded-lg px-3 py-2 text-sm font-bold ${
+                className={`w-[calc(100%-20px)] rounded-lg px-3 py-2 text-sm font-bold ${
                   !categorySlug && !subcategorySlug
                     ? "bg-[#eaf1ff] text-[#1157ff]"
                     : "text-slate-700 hover:bg-slate-50"
@@ -248,7 +266,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
                 return (
                   <Link
                     key={category.id}
-                    className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold ${
+                    className={`flex w-[calc(100%-20px)] items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold ${
                       category.slug === categorySlug
                         ? "bg-[#eaf1ff] text-[#1157ff]"
                         : "text-slate-700 hover:bg-slate-50"
@@ -292,7 +310,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
                     return (
                       <Link
                         key={subcategory.id}
-                        className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold ${
+                        className={`flex w-[calc(100%-20px)] items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold ${
                           subcategory.slug === subcategorySlug
                             ? "bg-[#eaf1ff] text-[#1157ff]"
                             : "text-slate-700 hover:bg-slate-50"
@@ -325,12 +343,14 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
               </div>
             ) : null}
 
-            <Link
-              className="mt-6 inline-flex w-full justify-center rounded-lg bg-slate-100 px-4 py-3 text-sm font-black text-slate-700 hover:bg-slate-200"
-              href="/catalog"
-            >
-              Сбросить фильтры
-            </Link>
+            {hasActiveCategoryFilters ? (
+              <Link
+                className="mt-6 inline-flex w-full justify-center rounded-lg bg-slate-100 px-4 py-3 text-sm font-black text-slate-700 hover:bg-slate-200"
+                href={resetCategoryFiltersHref}
+              >
+                Сбросить категории
+              </Link>
+            ) : null}
           </aside>
 
           {products.length > 0 ? (
@@ -343,10 +363,10 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
             <section className="flex min-h-[420px] items-center justify-center rounded-xl bg-white p-10 text-center shadow-sm ring-1 ring-slate-100">
               <div>
                 <h2 className="text-xl font-black text-slate-950">
-                  Товары не найдены
+                  Товары не найдены.
                 </h2>
                 <p className="mt-2 text-slate-600">
-                  Попробуйте изменить запрос или сбросить фильтры.
+                  Попробуйте изменить запрос или перейти в каталог.
                 </p>
                 <Link
                   className="mt-6 inline-flex rounded-lg bg-[#1157ff] px-5 py-3 font-bold text-white"

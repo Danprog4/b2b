@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 
 import { db } from "@/db";
 import { auditEvents, users } from "@/db/schema";
+import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { requireUser } from "@/lib/auth/session";
 
 function getString(formData: FormData, key: string) {
@@ -59,4 +60,55 @@ export async function updateBuyerProfileAction(formData: FormData) {
   revalidatePath("/account/profile");
 
   redirect("/account/profile?saved=1");
+}
+
+export async function changeBuyerPasswordAction(formData: FormData) {
+  const user = await requireUser(["buyer"]);
+  const currentPassword = getString(formData, "currentPassword");
+  const newPassword = getString(formData, "newPassword");
+  const confirmPassword = getString(formData, "confirmPassword");
+
+  if (!currentPassword || !newPassword || !confirmPassword) {
+    redirect("/account/profile?passwordError=required");
+  }
+
+  if (newPassword.length < 8) {
+    redirect("/account/profile?passwordError=length");
+  }
+
+  if (newPassword !== confirmPassword) {
+    redirect("/account/profile?passwordError=match");
+  }
+
+  const [storedUser] = await db
+    .select({ passwordHash: users.passwordHash })
+    .from(users)
+    .where(eq(users.id, user.id))
+    .limit(1);
+
+  if (!storedUser || !verifyPassword(currentPassword, storedUser.passwordHash)) {
+    redirect("/account/profile?passwordError=current");
+  }
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(users)
+      .set({
+        passwordHash: hashPassword(newPassword),
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, user.id));
+
+    await tx.insert(auditEvents).values({
+      actorId: user.id,
+      action: "buyer_profile.password_change",
+      entityType: "user",
+      entityId: user.id,
+      metadata: {
+        source: "account_profile",
+      },
+    });
+  });
+
+  redirect("/account/profile?passwordChanged=1");
 }

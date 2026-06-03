@@ -43,6 +43,13 @@
       "when": 1780472520000,
       "tag": "0005_number_sequences",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1780487184684,
+      "tag": "0006_bizarre_wendell_vaughn",
+      "breakpoints": true
     }
   ]
 }

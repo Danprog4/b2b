@@ -6,6 +6,7 @@ import {
   PackageCheck,
   ShoppingCart,
 } from "lucide-react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -15,6 +16,12 @@ import { formatCurrency, formatDateTime } from "@/lib/utils";
 
 type CheckoutSuccessPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export const metadata: Metadata = {
+  title: "Заказ оформлен — Сити Маркет",
+  description:
+    "Подтверждение оформления заказа в Сити Маркет, статус счета и быстрый переход к документам заказа.",
 };
 
 export default async function CheckoutSuccessPage({

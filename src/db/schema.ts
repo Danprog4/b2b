@@ -97,6 +97,7 @@ export const sellers = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     name: varchar("name", { length: 255 }).notNull(),
     inn: varchar("inn", { length: 12 }).notNull(),
+    contractNumber: varchar("contract_number", { length: 32 }),
     kpp: varchar("kpp", { length: 9 }),
     ogrn: varchar("ogrn", { length: 15 }),
     legalAddress: text("legal_address"),
@@ -110,7 +111,10 @@ export const sellers = pgTable(
     status: sellerStatusEnum("status").default("active").notNull(),
     ...timestamps,
   },
-  (table) => [uniqueIndex("sellers_inn_idx").on(table.inn)],
+  (table) => [
+    uniqueIndex("sellers_inn_idx").on(table.inn),
+    uniqueIndex("sellers_contract_number_idx").on(table.contractNumber),
+  ],
 );
 
 export const users = pgTable(

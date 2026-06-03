@@ -1,10 +1,17 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 
 import { SubmitButton } from "@/components/ui/submit-button";
 import { registerBuyerAction } from "@/lib/auth/actions";
 
 type RegisterPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export const metadata: Metadata = {
+  title: "Регистрация покупателя — Сити Маркет",
+  description:
+    "Регистрация юридического лица или ИП для закупок в B2B-маркетплейсе Сити Маркет.",
 };
 
 const errorMessages: Record<string, string> = {

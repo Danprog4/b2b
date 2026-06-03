@@ -79,6 +79,18 @@ function buildExportHref(searchParams: Record<string, string | string[] | undefi
   return query ? `/admin/orders/export?${query}` : "/admin/orders/export";
 }
 
+function DocumentFlag({ active, label }: { active: boolean; label: string }) {
+  return (
+    <span
+      className={`rounded-full px-2.5 py-1 text-xs font-black ${
+        active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-400"
+      }`}
+    >
+      {label}
+    </span>
+  );
+}
+
 export default async function AdminOrdersPage({
   searchParams,
 }: AdminOrdersPageProps) {
@@ -183,6 +195,80 @@ export default async function AdminOrdersPage({
     .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
     .orderBy(desc(orders.createdAt));
 
+  const documentRows =
+    rows.length > 0
+      ? await db
+          .select({
+            orderId: documents.orderId,
+            type: documents.type,
+          })
+          .from(documents)
+          .where(
+            and(
+              inArray(
+                documents.orderId,
+                rows.map((order) => order.id),
+              ),
+              eq(documents.isActive, true),
+              inArray(documents.type, [
+                "payment_invoice",
+                "invoice",
+                "contract",
+                "upd",
+                "specification",
+                "act",
+              ]),
+            ),
+          )
+      : [];
+
+  const documentFlagsByOrder = new Map<
+    string,
+    {
+      hasInvoice: boolean;
+      hasContract: boolean;
+      hasUpd: boolean;
+      hasSpecification: boolean;
+      hasAct: boolean;
+    }
+  >();
+
+  for (const document of documentRows) {
+    if (!document.orderId) {
+      continue;
+    }
+
+    const flags = documentFlagsByOrder.get(document.orderId) ?? {
+      hasInvoice: false,
+      hasContract: false,
+      hasUpd: false,
+      hasSpecification: false,
+      hasAct: false,
+    };
+
+    if (document.type === "payment_invoice" || document.type === "invoice") {
+      flags.hasInvoice = true;
+    }
+
+    if (document.type === "contract") {
+      flags.hasContract = true;
+    }
+
+    if (document.type === "upd") {
+      flags.hasUpd = true;
+    }
+
+    if (document.type === "specification") {
+      flags.hasSpecification = true;
+    }
+
+    if (document.type === "act") {
+      flags.hasAct = true;
+    }
+
+    documentFlagsByOrder.set(document.orderId, flags);
+  }
+
   const viewedRows =
     rows.length > 0
       ? await db
@@ -211,6 +297,14 @@ export default async function AdminOrdersPage({
   const ordersWithViewState = rows.map((order) => ({
     ...order,
     isNew: !viewedOrderIds.has(order.id),
+    hasInvoice:
+      Boolean(order.invoiceNumber) ||
+      (documentFlagsByOrder.get(order.id)?.hasInvoice ?? false),
+    hasContract: documentFlagsByOrder.get(order.id)?.hasContract ?? false,
+    hasUpd: documentFlagsByOrder.get(order.id)?.hasUpd ?? false,
+    hasSpecification:
+      documentFlagsByOrder.get(order.id)?.hasSpecification ?? false,
+    hasAct: documentFlagsByOrder.get(order.id)?.hasAct ?? false,
   }));
 
   return (
@@ -463,12 +557,14 @@ export default async function AdminOrdersPage({
                   </td>
                   <td className="p-0">
                     <Link
-                      className="block px-5 py-4 text-slate-600"
+                      className="flex flex-wrap gap-1.5 px-5 py-4 text-slate-600"
                       href={`/admin/orders/${order.id}`}
                     >
-                      {Number(order.documentsCount ?? 0) > 0
-                        ? Number(order.documentsCount)
-                      : "—"}
+                      <DocumentFlag active={order.hasInvoice} label="Счет" />
+                      <DocumentFlag active={order.hasContract} label="Договор" />
+                      <DocumentFlag active={order.hasUpd} label="УПД" />
+                      <DocumentFlag active={order.hasSpecification} label="Спец." />
+                      <DocumentFlag active={order.hasAct} label="Акт" />
                     </Link>
                   </td>
                   <td className="p-0">

@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { auditEvents, sellers } from "@/db/schema";
 import { requireUser } from "@/lib/auth/session";
+import { getNextSellerContractNumber } from "@/lib/numbering/sequences";
 
 const allowedStatuses = new Set(["active", "inactive"]);
 
@@ -95,12 +96,14 @@ export async function createSellerAction(formData: FormData) {
   }
 
   const commissionRate = values.commissionRate ?? "5.00";
+  const contractNumber = await getNextSellerContractNumber();
 
   const [seller] = await db
     .insert(sellers)
     .values({
       name: values.name,
       inn: values.inn,
+      contractNumber,
       kpp: nullableValue(values.kpp),
       ogrn: nullableValue(values.ogrn),
       legalAddress: nullableValue(values.legalAddress),
@@ -122,6 +125,7 @@ export async function createSellerAction(formData: FormData) {
       inn: values.inn,
       name: values.name,
       status: values.status,
+      contractNumber,
     },
   });
 

@@ -1,5 +1,6 @@
-import { and, asc, count, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, or, sql } from "drizzle-orm";
 import {
+  Bell,
   Boxes,
   Download,
   FileText,
@@ -18,6 +19,7 @@ import { db } from "@/db";
 import {
   categories,
   files,
+  notifications,
   orderItems,
   orders,
   products,
@@ -97,6 +99,7 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
     orderRows,
     financeSummary,
     productCounter,
+    notificationRows,
   ] = await Promise.all([
     getCurrentSellerDocuments(),
     db
@@ -105,6 +108,7 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
         sku: products.sku,
         name: products.name,
         priceWithVat: products.priceWithVat,
+        vatRate: products.vatRate,
         unit: products.unit,
         isActive: products.isActive,
         categoryName: categories.name,
@@ -156,16 +160,39 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
       .from(products)
       .where(eq(products.sellerId, seller.id))
       .then(([row]) => row),
+    db
+      .select({
+        id: notifications.id,
+        type: notifications.type,
+        title: notifications.title,
+        body: notifications.body,
+        isRead: notifications.isRead,
+        createdAt: notifications.createdAt,
+      })
+      .from(notifications)
+      .where(
+        or(
+          eq(notifications.sellerId, seller.id),
+          eq(notifications.userId, user.id),
+        ),
+      )
+      .orderBy(desc(notifications.createdAt))
+      .limit(20),
   ]);
 
   const salesAmount = Number(financeSummary?.salesAmount ?? 0);
   const commissionAmount = Number(financeSummary?.commissionAmount ?? 0);
   const payoutAmount = salesAmount - commissionAmount;
+  const sellerUpdDocument = documents.find((document) => document.type === "upd");
+  const unreadSellerNotifications = notificationRows.filter(
+    (notification) => !notification.isRead,
+  ).length;
   const summaryCards = [
     ["Товары", productCounter?.count ?? 0, Boxes],
     ["К выплате", financeSummary?.orderCount ?? 0, ReceiptText],
     ["Продажи", formatCurrency(salesAmount), Landmark],
     ["Комиссия", formatCurrency(commissionAmount), Percent],
+    ["УПД", sellerUpdDocument ? "Загружен" : "Не загружен", Paperclip],
   ] as const;
 
   return (
@@ -183,7 +210,7 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
           <LogoutButton />
         </div>
 
-        <section className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <section className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           {summaryCards.map(([title, value, Icon]) => (
             <article
               className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-100"
@@ -265,13 +292,14 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                       <th className="px-4 py-3">Товар</th>
                       <th className="px-4 py-3">Категория</th>
                       <th className="px-4 py-3">Цена</th>
+                      <th className="px-4 py-3">НДС</th>
                       <th className="px-4 py-3">Статус</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {productRows.length === 0 ? (
                       <tr>
-                        <td className="px-4 py-8 text-center text-slate-500" colSpan={4}>
+                        <td className="px-4 py-8 text-center text-slate-500" colSpan={5}>
                           Товаров пока нет.
                         </td>
                       </tr>
@@ -319,6 +347,9 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                           </td>
                           <td className="px-4 py-3 font-black">
                             {formatCurrency(product.priceWithVat)}
+                          </td>
+                          <td className="px-4 py-3 font-bold text-slate-700">
+                            {Number(product.vatRate ?? 22).toFixed(0)}%
                           </td>
                           <td className="px-4 py-3">
                             <span
@@ -392,6 +423,60 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
           </div>
 
           <aside className="grid gap-5 self-start">
+            <section className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Bell className="text-[#1157ff]" size={22} />
+                  <h2 className="text-xl font-black text-slate-950">
+                    Уведомления
+                  </h2>
+                </div>
+                {unreadSellerNotifications > 0 ? (
+                  <span className="rounded-full bg-[#1157ff] px-2.5 py-1 text-xs font-black text-white">
+                    {unreadSellerNotifications}
+                  </span>
+                ) : null}
+              </div>
+
+              <div className="mt-4 grid gap-3">
+                {notificationRows.length === 0 ? (
+                  <div className="flex min-h-24 items-center justify-center rounded-xl border border-dashed border-slate-200 text-center text-sm font-bold text-slate-500">
+                    Уведомлений пока нет.
+                  </div>
+                ) : (
+                  notificationRows.map((notification) => (
+                    <article
+                      className={`rounded-xl border p-4 ${
+                        notification.isRead
+                          ? "border-slate-200"
+                          : "border-blue-100 bg-blue-50/50"
+                      }`}
+                      key={notification.id}
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <h3 className="font-black text-slate-950">
+                            {notification.title}
+                          </h3>
+                          {notification.body ? (
+                            <p className="mt-1 text-sm leading-6 text-slate-600">
+                              {notification.body}
+                            </p>
+                          ) : null}
+                        </div>
+                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-500">
+                          {notification.type}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-xs font-semibold text-slate-500">
+                        {formatDateTime(notification.createdAt)}
+                      </p>
+                    </article>
+                  ))
+                )}
+              </div>
+            </section>
+
             <section className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
               <div className="flex items-center gap-2">
                 <Percent className="text-[#1157ff]" size={22} />

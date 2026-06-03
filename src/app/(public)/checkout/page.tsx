@@ -1,4 +1,5 @@
 import { AlertTriangle, ShoppingCart } from "lucide-react";
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -14,6 +15,12 @@ import { eq } from "drizzle-orm";
 
 type CheckoutPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export const metadata: Metadata = {
+  title: "Оформление заказа — Сити Маркет",
+  description:
+    "Оформление B2B-заказа в Сити Маркет с проверкой реквизитов компании и обязательных документов.",
 };
 
 const errorMessages: Record<string, string> = {

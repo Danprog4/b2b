@@ -82,6 +82,7 @@ export default async function AccountOrdersPage() {
                     </p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <DocumentFlag active={order.hasInvoice} label="Счет" />
+                      <DocumentFlag active={order.hasContract} label="Договор" />
                       <DocumentFlag active={order.hasUpd} label="УПД" />
                       <DocumentFlag active={order.hasSpecification} label="Спец." />
                       <DocumentFlag active={order.hasAct} label="Акт" />

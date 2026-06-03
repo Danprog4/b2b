@@ -1,4 +1,5 @@
 import { AlertTriangle, ShoppingCart } from "lucide-react";
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { CartLineControls } from "@/components/cart/cart-line-controls";
@@ -8,6 +9,12 @@ import { formatCurrency } from "@/lib/utils";
 
 type CartPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export const metadata: Metadata = {
+  title: "Корзина — Сити Маркет",
+  description:
+    "Корзина B2B-маркетплейса Сити Маркет: проверьте товары и перейдите к оформлению заказа.",
 };
 
 const errorMessages: Record<string, string> = {

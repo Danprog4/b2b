@@ -17,8 +17,9 @@ export function HeaderCartLink({ count }: HeaderCartLinkProps) {
 
   return (
     <Link
-      className="flex min-w-14 flex-col items-center gap-1 text-xs font-bold text-slate-500 transition hover:text-[#1157ff] sm:text-sm"
+      className="flex h-10 w-10 items-center justify-center rounded-md text-xs font-bold text-slate-500 transition hover:bg-slate-50 hover:text-[#1157ff] sm:h-auto sm:w-auto sm:min-w-14 sm:flex-col sm:gap-1 sm:rounded-none sm:hover:bg-transparent sm:text-sm"
       href={href}
+      title="Корзина"
     >
       <span className="relative">
         <ShoppingCart size={22} />
@@ -28,7 +29,7 @@ export function HeaderCartLink({ count }: HeaderCartLinkProps) {
           </span>
         ) : null}
       </span>
-      Корзина
+      <span className="sr-only sm:not-sr-only">Корзина</span>
     </Link>
   );
 }

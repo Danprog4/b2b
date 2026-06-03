@@ -1,7 +1,15 @@
-import { and, asc, desc, eq, gte, ilike, lte, ne, notInArray, or } from "drizzle-orm";
+import { and, asc, desc, eq, gte, ilike, lte, ne, notInArray, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { categories, files, productImages, products, sellers, subcategories } from "@/db/schema";
+import {
+  categories,
+  files,
+  orderItems,
+  productImages,
+  products,
+  sellers,
+  subcategories,
+} from "@/db/schema";
 import { getPublicFileUrl } from "@/lib/files/urls";
 
 export type CatalogSort = "price_asc" | "price_desc" | "new" | "popular";
@@ -203,6 +211,15 @@ export async function getCatalogProducts({
     }
   }
 
+  const productOrderStats = db
+    .select({
+      productId: orderItems.productId,
+      orderItemCount: sql<number>`count(${orderItems.id})`.as("order_item_count"),
+    })
+    .from(orderItems)
+    .groupBy(orderItems.productId)
+    .as("product_order_stats");
+
   const orderBy =
     sort === "price_asc"
       ? [asc(products.priceWithVat)]
@@ -210,7 +227,11 @@ export async function getCatalogProducts({
         ? [desc(products.priceWithVat)]
         : sort === "new"
           ? [desc(products.createdAt)]
-          : [desc(products.isPopular), desc(products.createdAt)];
+          : [
+              desc(sql`coalesce(${productOrderStats.orderItemCount}, 0)`),
+              desc(products.isPopular),
+              desc(products.createdAt),
+            ];
 
   const rows = await db
     .select({
@@ -234,6 +255,7 @@ export async function getCatalogProducts({
     .innerJoin(categories, eq(products.categoryId, categories.id))
     .leftJoin(subcategories, eq(products.subcategoryId, subcategories.id))
     .leftJoin(files, eq(files.id, products.mainImageFileId))
+    .leftJoin(productOrderStats, eq(productOrderStats.productId, products.id))
     .where(and(...filters))
     .orderBy(...orderBy)
     .limit(limit);

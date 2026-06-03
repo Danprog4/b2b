@@ -1,5 +1,12 @@
 import { and, count, eq } from "drizzle-orm";
-import { ClipboardList, Grid3X3, LogIn, Search, UserRound } from "lucide-react";
+import {
+  ChevronDown,
+  ClipboardList,
+  Grid3X3,
+  LogIn,
+  Search,
+  UserRound,
+} from "lucide-react";
 import Link from "next/link";
 
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -35,17 +42,17 @@ export async function PublicHeader() {
 
   return (
     <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
-      <div className="mx-auto flex max-w-[1480px] flex-wrap items-center gap-3 px-5 py-4 lg:flex-nowrap">
+      <div className="mx-auto grid max-w-[1480px] grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-3 px-4 py-3 sm:px-5 sm:py-4 lg:flex lg:flex-nowrap">
         <Link
           href="/"
-          className="shrink-0 text-2xl font-black tracking-tight text-[#1157ff]"
+          className="shrink-0 text-xl font-black tracking-tight text-[#1157ff] sm:text-2xl"
         >
           {APP_NAME}
         </Link>
 
         <Link
           href="/catalog"
-          className="flex h-11 shrink-0 items-center gap-2 rounded-lg bg-[#1157ff] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0b49e0] sm:h-12 sm:px-5 sm:text-base"
+          className="row-start-2 flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#1157ff] px-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0b49e0] sm:h-12 sm:px-5 sm:text-base lg:row-auto"
         >
           <Grid3X3 size={20} />
           Каталог
@@ -53,24 +60,30 @@ export async function PublicHeader() {
 
         <form
           action="/catalog"
-          className="order-3 flex h-11 min-w-full overflow-hidden rounded-lg border-2 border-[#1157ff] bg-white lg:order-none lg:h-12 lg:min-w-0 lg:flex-1"
+          className="row-start-2 flex h-11 min-w-0 overflow-hidden rounded-lg border-2 border-[#1157ff] bg-white lg:row-auto lg:h-12 lg:flex-1"
         >
-          <select
-            className="hidden border-r border-slate-200 bg-slate-50 px-3 text-sm text-slate-600 md:block"
-            aria-label="Область поиска"
-          >
-            <option>Везде</option>
-            <option>Товары</option>
-            <option>Категории</option>
-          </select>
+          <div className="relative hidden shrink-0 border-r border-slate-200 bg-slate-50 md:block">
+            <select
+              className="h-full appearance-none bg-transparent pl-4 pr-4 text-sm text-slate-600 outline-none"
+              aria-label="Область поиска"
+            >
+              <option>Везде</option>
+              <option>Товары</option>
+              <option>Категории</option>
+            </select>
+            <ChevronDown
+              className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-500"
+              size={18}
+            />
+          </div>
           <input
-            className="min-w-0 flex-1 px-4 text-base text-slate-900 outline-none placeholder:text-slate-400"
+            className="min-w-0 flex-1 px-3 text-base text-slate-900 outline-none placeholder:text-slate-400 sm:px-4"
             name="q"
             placeholder="Искать товары, артикулы, категории"
             type="search"
           />
           <SubmitButton
-            className="flex w-14 items-center justify-center bg-[#1157ff] text-white sm:w-16"
+            className="flex w-12 shrink-0 items-center justify-center bg-[#1157ff] text-white sm:w-16"
             aria-label="Найти"
             pendingText={<span className="sr-only">Ищем</span>}
           >
@@ -78,10 +91,11 @@ export async function PublicHeader() {
           </SubmitButton>
         </form>
 
-        <nav className="ml-auto flex shrink-0 items-center gap-3 sm:gap-5">
+        <nav className="ml-auto flex shrink-0 items-center justify-self-end gap-1 sm:gap-5">
           <Link
-            className="flex min-w-12 flex-col items-center gap-1 text-xs font-bold text-slate-500 transition hover:text-[#1157ff] sm:text-sm"
+            className="flex h-10 w-10 items-center justify-center rounded-md text-xs font-bold text-slate-500 transition hover:bg-slate-50 hover:text-[#1157ff] sm:h-auto sm:w-auto sm:min-w-12 sm:flex-col sm:gap-1 sm:rounded-none sm:hover:bg-transparent sm:text-sm"
             href={isAuthenticated ? profileHref : "/login"}
+            title={profileLabel}
           >
             <span className="relative">
               {isAuthenticated ? <UserRound size={22} /> : <LogIn size={22} />}
@@ -91,16 +105,17 @@ export async function PublicHeader() {
                 </span>
               ) : null}
             </span>
-            {profileLabel}
+            <span className="sr-only sm:not-sr-only">{profileLabel}</span>
           </Link>
           {!isAdmin ? (
             <>
               <Link
-                className="flex min-w-12 flex-col items-center gap-1 text-xs font-bold text-slate-500 transition hover:text-[#1157ff] sm:text-sm"
+                className="flex h-10 w-10 items-center justify-center rounded-md text-xs font-bold text-slate-500 transition hover:bg-slate-50 hover:text-[#1157ff] sm:h-auto sm:w-auto sm:min-w-12 sm:flex-col sm:gap-1 sm:rounded-none sm:hover:bg-transparent sm:text-sm"
                 href="/account/orders"
+                title="Заказы"
               >
                 <ClipboardList size={22} />
-                Заказы
+                <span className="sr-only sm:not-sr-only">Заказы</span>
               </Link>
               <HeaderCartLink count={cart.count} />
             </>
