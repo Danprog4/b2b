@@ -27,10 +27,13 @@ function getEnvValue(...keys: string[]) {
 }
 
 function getS3StorageConfig(): S3StorageConfig | null {
-  const endpoint = getEnvValue("S3_ENDPOINT");
-  const bucket = getEnvValue("S3_BUCKET");
-  const accessKeyId = getEnvValue("S3_ACCESS_KEY_ID");
-  const secretAccessKey = getEnvValue("S3_SECRET_ACCESS_KEY");
+  const endpoint = getEnvValue("S3_ENDPOINT", "R2_ENDPOINT");
+  const bucket = getEnvValue("S3_BUCKET", "R2_BUCKET_NAME");
+  const accessKeyId = getEnvValue("S3_ACCESS_KEY_ID", "R2_ACCESS_KEY_ID");
+  const secretAccessKey = getEnvValue(
+    "S3_SECRET_ACCESS_KEY",
+    "R2_SECRET_ACCESS_KEY",
+  );
 
   if (!endpoint || !bucket || !accessKeyId || !secretAccessKey) {
     return null;
@@ -41,7 +44,7 @@ function getS3StorageConfig(): S3StorageConfig | null {
     bucket,
     accessKeyId,
     secretAccessKey,
-    region: getEnvValue("S3_REGION") ?? "auto",
+    region: getEnvValue("S3_REGION", "R2_REGION") ?? "auto",
   };
 }
 
@@ -50,7 +53,7 @@ function requireS3StorageConfig() {
 
   if (!config) {
     throw new Error(
-      "S3 storage is not configured. Set S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY_ID, and S3_SECRET_ACCESS_KEY.",
+      "S3 storage is not configured. Set S3_* variables or R2_* aliases.",
     );
   }
 
@@ -75,14 +78,14 @@ export function isS3StorageEnabled() {
 }
 
 export function getPublicStorageUrl(storageKey: string) {
-  const publicUrl = getEnvValue("S3_PUBLIC_URL");
+  const publicUrl = getEnvValue("S3_PUBLIC_URL", "R2_PUBLIC_URL");
 
   if (!publicUrl) {
     return null;
   }
 
   let storagePrefix = "";
-  const endpoint = getEnvValue("S3_ENDPOINT");
+  const endpoint = getEnvValue("S3_ENDPOINT", "R2_ENDPOINT");
 
   if (endpoint) {
     try {
