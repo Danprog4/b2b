@@ -15,6 +15,7 @@ import {
   sellers,
   systemEvents,
 } from "@/db/schema";
+import { getCompanyDocumentReadiness } from "@/lib/account/company-documents";
 import { requireUser } from "@/lib/auth/session";
 import { getDocumentTypeLabel } from "@/lib/documents/types";
 import { getOrderStatusLabel } from "@/lib/orders/status";
@@ -135,7 +136,7 @@ export default async function AdminPage() {
     latestOrders,
     latestCompanies,
     latestMessages,
-    companyDocumentReadiness,
+    companyDocumentCandidates,
     latestDocuments,
     invoiceErrorCounter,
     emailErrorCounter,
@@ -195,22 +196,6 @@ export default async function AdminPage() {
         id: buyerCompanies.id,
         name: buyerCompanies.name,
         inn: buyerCompanies.inn,
-        hasCompanyCard: sql<boolean>`exists (
-          select 1
-          from ${documents}
-          where ${documents.buyerCompanyId} = ${buyerCompanies.id}
-            and ${documents.type} = 'company_card'
-            and ${documents.target} = 'buyer_company'
-            and ${documents.isActive} = true
-        )`,
-        hasCharter: sql<boolean>`exists (
-          select 1
-          from ${documents}
-          where ${documents.buyerCompanyId} = ${buyerCompanies.id}
-            and ${documents.type} = 'charter'
-            and ${documents.target} = 'buyer_company'
-            and ${documents.isActive} = true
-        )`,
       })
       .from(buyerCompanies)
       .orderBy(desc(buyerCompanies.createdAt))
@@ -258,6 +243,17 @@ export default async function AdminPage() {
       .then(([row]) => row),
   ]);
   const unreadNotifications = notificationCounter?.count ?? 0;
+  const companyDocumentReadiness = await Promise.all(
+    companyDocumentCandidates.map(async (company) => {
+      const readiness = await getCompanyDocumentReadiness(company.id);
+
+      return {
+        ...company,
+        hasCompanyCard: readiness.uploadedTypes.includes("company_card"),
+        hasCharter: readiness.uploadedTypes.includes("charter"),
+      };
+    }),
+  );
   const companiesMissingRequiredDocuments = companyDocumentReadiness
     .filter((company) => !company.hasCompanyCard || !company.hasCharter)
     .slice(0, 6);
