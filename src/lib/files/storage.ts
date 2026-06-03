@@ -1,8 +1,4 @@
 import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
-
-const STORAGE_DIR = path.join(/* turbopackIgnore: true */ process.cwd(), "storage");
 
 type StorageWriteOptions = {
   contentType?: string;
@@ -31,13 +27,10 @@ function getEnvValue(...keys: string[]) {
 }
 
 function getS3StorageConfig(): S3StorageConfig | null {
-  const endpoint = getEnvValue("R2_ENDPOINT", "S3_ENDPOINT");
-  const bucket = getEnvValue("R2_BUCKET_NAME", "S3_BUCKET");
-  const accessKeyId = getEnvValue("R2_ACCESS_KEY_ID", "S3_ACCESS_KEY_ID");
-  const secretAccessKey = getEnvValue(
-    "R2_SECRET_ACCESS_KEY",
-    "S3_SECRET_ACCESS_KEY",
-  );
+  const endpoint = getEnvValue("S3_ENDPOINT");
+  const bucket = getEnvValue("S3_BUCKET");
+  const accessKeyId = getEnvValue("S3_ACCESS_KEY_ID");
+  const secretAccessKey = getEnvValue("S3_SECRET_ACCESS_KEY");
 
   if (!endpoint || !bucket || !accessKeyId || !secretAccessKey) {
     return null;
@@ -48,8 +41,20 @@ function getS3StorageConfig(): S3StorageConfig | null {
     bucket,
     accessKeyId,
     secretAccessKey,
-    region: getEnvValue("R2_REGION", "S3_REGION") ?? "auto",
+    region: getEnvValue("S3_REGION") ?? "auto",
   };
+}
+
+function requireS3StorageConfig() {
+  const config = getS3StorageConfig();
+
+  if (!config) {
+    throw new Error(
+      "S3 storage is not configured. Set S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY_ID, and S3_SECRET_ACCESS_KEY.",
+    );
+  }
+
+  return config;
 }
 
 function getS3Client(config: S3StorageConfig) {
@@ -65,23 +70,19 @@ function getS3Client(config: S3StorageConfig) {
   return s3Client;
 }
 
-export function getStoragePath(storageKey: string) {
-  return path.join(STORAGE_DIR, storageKey);
-}
-
 export function isS3StorageEnabled() {
   return getS3StorageConfig() !== null;
 }
 
 export function getPublicStorageUrl(storageKey: string) {
-  const publicUrl = getEnvValue("R2_PUBLIC_URL", "S3_PUBLIC_URL");
+  const publicUrl = getEnvValue("S3_PUBLIC_URL");
 
   if (!publicUrl) {
     return null;
   }
 
   let storagePrefix = "";
-  const endpoint = getEnvValue("R2_ENDPOINT", "S3_ENDPOINT");
+  const endpoint = getEnvValue("S3_ENDPOINT");
 
   if (endpoint) {
     try {
@@ -112,33 +113,19 @@ export async function writeStorageFile(
   bytes: Uint8Array,
   options: StorageWriteOptions = {},
 ) {
-  const config = getS3StorageConfig();
-
-  if (config) {
-    await getS3Client(config).send(
-      new PutObjectCommand({
-        Bucket: config.bucket,
-        Key: storageKey,
-        Body: Buffer.from(bytes),
-        ContentType: options.contentType ?? "application/octet-stream",
-      }),
-    );
-
-    return {
-      filePath: null,
-      sizeBytes: bytes.byteLength,
-      storageProvider: "s3" as const,
-    };
-  }
-
-  const filePath = getStoragePath(storageKey);
-  await mkdir(path.dirname(filePath), { recursive: true });
-  await writeFile(filePath, bytes);
+  const config = requireS3StorageConfig();
+  await getS3Client(config).send(
+    new PutObjectCommand({
+      Bucket: config.bucket,
+      Key: storageKey,
+      Body: Buffer.from(bytes),
+      ContentType: options.contentType ?? "application/octet-stream",
+    }),
+  );
 
   return {
-    filePath,
     sizeBytes: bytes.byteLength,
-    storageProvider: "local" as const,
+    storageProvider: "s3" as const,
   };
 }
 
@@ -181,25 +168,18 @@ function isS3NotFoundError(error: unknown) {
   return name === "NoSuchKey" || name === "NotFound" || statusCode === 404;
 }
 
+export function isStorageFileNotFoundError(error: unknown) {
+  return isS3NotFoundError(error);
+}
+
 export async function readStorageFile(storageKey: string) {
-  const config = getS3StorageConfig();
+  const config = requireS3StorageConfig();
+  const response = await getS3Client(config).send(
+    new GetObjectCommand({
+      Bucket: config.bucket,
+      Key: storageKey,
+    }),
+  );
 
-  if (config) {
-    try {
-      const response = await getS3Client(config).send(
-        new GetObjectCommand({
-          Bucket: config.bucket,
-          Key: storageKey,
-        }),
-      );
-
-      return bodyToBuffer(response.Body);
-    } catch (error) {
-      if (!isS3NotFoundError(error)) {
-        throw error;
-      }
-    }
-  }
-
-  return readFile(getStoragePath(storageKey));
+  return bodyToBuffer(response.Body);
 }

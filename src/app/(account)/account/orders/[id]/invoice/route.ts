@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { files, invoices, orders } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/session";
-import { readStorageFile } from "@/lib/files/storage";
+import { isStorageFileNotFoundError, readStorageFile } from "@/lib/files/storage";
 
 type InvoiceRouteProps = {
   params: Promise<{ id: string }>;
@@ -39,10 +39,19 @@ export async function GET(_request: Request, { params }: InvoiceRouteProps) {
     return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
   }
 
-  const bytes = await readStorageFile(invoice.storageKey);
+  let bytes: Buffer;
+  try {
+    bytes = await readStorageFile(invoice.storageKey);
+  } catch (error) {
+    if (isStorageFileNotFoundError(error)) {
+      return NextResponse.json({ error: "Invoice file not found" }, { status: 404 });
+    }
+
+    throw error;
+  }
   const encodedName = encodeURIComponent(invoice.originalName);
 
-  return new Response(bytes, {
+  return new Response(new Uint8Array(bytes), {
     headers: {
       "Content-Type": invoice.mimeType,
       "Content-Disposition": `inline; filename*=UTF-8''${encodedName}`,

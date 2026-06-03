@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { documentVersions, documents, files, orders } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/session";
-import { readStorageFile } from "@/lib/files/storage";
+import { isStorageFileNotFoundError, readStorageFile } from "@/lib/files/storage";
 
 type DocumentDownloadRouteProps = {
   params: Promise<{ versionId: string }>;
@@ -62,7 +62,16 @@ export async function GET(_request: Request, { params }: DocumentDownloadRoutePr
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const bytes = await readStorageFile(document.storageKey);
+  let bytes: Buffer;
+  try {
+    bytes = await readStorageFile(document.storageKey);
+  } catch (error) {
+    if (isStorageFileNotFoundError(error)) {
+      return NextResponse.json({ error: "File not found" }, { status: 404 });
+    }
+
+    throw error;
+  }
   const encodedFileName = encodeURIComponent(document.fileName);
 
   return new Response(new Uint8Array(bytes), {
