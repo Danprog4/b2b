@@ -1,5 +1,6 @@
 import fontkit from "@pdf-lib/fontkit";
 import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { PDFDocument, type PDFFont, type PDFPage, rgb, type RGB } from "pdf-lib";
 
 type InvoicePdfItem = {
@@ -25,6 +26,12 @@ type InvoicePdfInput = {
 };
 
 const FONT_PATHS = [
+  path.join(
+    /* turbopackIgnore: true */ process.cwd(),
+    "public",
+    "fonts",
+    "Geist-Regular.ttf",
+  ),
   "/System/Library/Fonts/Supplemental/Arial.ttf",
   "/Library/Fonts/Arial Unicode.ttf",
   "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",

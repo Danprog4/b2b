@@ -200,6 +200,7 @@ export default async function AdminPage() {
           from ${documents}
           where ${documents.buyerCompanyId} = ${buyerCompanies.id}
             and ${documents.type} = 'company_card'
+            and ${documents.target} = 'buyer_company'
             and ${documents.isActive} = true
         )`,
         hasCharter: sql<boolean>`exists (
@@ -207,6 +208,7 @@ export default async function AdminPage() {
           from ${documents}
           where ${documents.buyerCompanyId} = ${buyerCompanies.id}
             and ${documents.type} = 'charter'
+            and ${documents.target} = 'buyer_company'
             and ${documents.isActive} = true
         )`,
       })
