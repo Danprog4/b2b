@@ -16,25 +16,46 @@
 # next.js
 /.next/
 /out/
+/.turbo/
 
 # production
 /build
+/dist
+/storage
+/uploads
+/public/uploads
 
 # misc
 .DS_Store
 *.pem
+*.local
+/tmp
+/temp
+
+# local project notes and audits
+/ADMIN_INSTRUCTION.md
+/CHECKPOINTS.md
+/IMPLEMENTATION_SPEC.md
+/TZ_DEEP_AUDIT.md
+/TZ_FULL_IMPLEMENTATION_AUDIT.md
+/TZ_GAP_ANALYSIS.md
+/TZ_V6_CHANGELOG_AND_IMPACT.md
 
 # debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+bun-debug.log*
+*.log
 
-# env files (can opt-in for committing if needed)
+# env files
 .env*
+!.env.example
 
-# vercel
+# deployment local state
 .vercel
+.railway
 
 # typescript
 *.tsbuildinfo
