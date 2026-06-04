@@ -97,6 +97,8 @@ export async function generateOrderInvoice(
       createdAt: orders.createdAt,
       buyerName: buyerCompanies.name,
       buyerInn: buyerCompanies.inn,
+      buyerKpp: buyerCompanies.kpp,
+      buyerOgrn: buyerCompanies.ogrn,
       buyerAddress: buyerCompanies.legalAddress,
       buyerEmail: users.email,
     })
@@ -155,6 +157,8 @@ export async function generateOrderInvoice(
       createdAt: now,
       buyerName: order.buyerName,
       buyerInn: order.buyerInn,
+      buyerKpp: order.buyerKpp,
+      buyerOgrn: order.buyerOgrn,
       buyerAddress: order.buyerAddress,
       totalAmount: order.totalAmount,
       vatAmount: order.vatAmount,
