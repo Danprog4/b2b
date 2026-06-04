@@ -1,32 +1,36 @@
-import { and, asc, desc, eq, gte, ilike, lte, ne, notInArray, or, sql } from "drizzle-orm";
+import { and, asc, eq, ilike } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
   categories,
   files,
-  orderItems,
   productImages,
   products,
-  sellers,
+  sellerOffers,
   subcategories,
 } from "@/db/schema";
 import { getPublicFileUrl } from "@/lib/files/urls";
 
-export type CatalogSort = "price_asc" | "price_desc" | "new" | "popular";
+export type CatalogSort = "price_asc" | "price_desc" | "new";
 
 export type ProductListItem = {
   id: string;
   sku: string;
   name: string;
   slug: string;
+  description: string | null;
+  categoryId: string;
   categoryName: string;
   categorySlug: string;
+  subcategoryId: string | null;
   subcategoryName: string | null;
   subcategorySlug: string | null;
+  sellerOfferId: string;
   priceWithVat: string;
+  vatRate: string;
   unit: string;
   size: string | null;
-  isPopular: boolean;
+  isActive: boolean;
   mainImageUrl: string | null;
 };
 
@@ -114,13 +118,58 @@ export async function getActiveSubcategories(categorySlug?: string) {
 }
 
 export async function getActiveProductUnits() {
-  const rows = await db
-    .select({ unit: products.unit })
-    .from(products)
-    .where(eq(products.isActive, true))
-    .orderBy(asc(products.unit));
+  return [];
+}
 
-  return Array.from(new Set(rows.map((row) => row.unit)));
+type ProductOfferRow = {
+  id: string;
+  sku: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  categoryId: string;
+  categoryName: string;
+  categorySlug: string;
+  subcategoryId: string | null;
+  subcategoryName: string | null;
+  subcategorySlug: string | null;
+  priorityOfferId: string | null;
+  sellerOfferId: string;
+  offerPriceWithVat: string;
+  offerVatRate: string;
+  unit: string;
+  size: string | null;
+  isActive: boolean;
+  createdAt: Date;
+  mainImageFileId: string | null;
+  mainImageStorageKey: string | null;
+  mainImageIsActive: boolean | null;
+};
+
+function toProductListItems(rows: ProductOfferRow[]) {
+  const byProduct = new Map<string, ProductOfferRow[]>();
+
+  for (const row of rows) {
+    byProduct.set(row.id, [...(byProduct.get(row.id) ?? []), row]);
+  }
+
+  return Array.from(byProduct.values()).map((offerRows) => {
+    const priorityOffer = offerRows.find(
+      (row) => row.sellerOfferId === row.priorityOfferId,
+    );
+    const selectedOffer =
+      priorityOffer ??
+      offerRows.reduce((best, row) =>
+        Number(row.offerPriceWithVat) < Number(best.offerPriceWithVat) ? row : best,
+      );
+
+    return withMainImageUrl({
+      ...selectedOffer,
+      sellerOfferId: selectedOffer.sellerOfferId,
+      priceWithVat: selectedOffer.offerPriceWithVat,
+      vatRate: selectedOffer.offerVatRate,
+    });
+  });
 }
 
 export async function getCatalogProducts({
@@ -129,8 +178,7 @@ export async function getCatalogProducts({
   subcategorySlug,
   minPrice,
   maxPrice,
-  unit,
-  sort = "popular",
+  sort = "new",
   limit = 60,
 }: {
   q?: string;
@@ -138,7 +186,6 @@ export async function getCatalogProducts({
   subcategorySlug?: string;
   minPrice?: number;
   maxPrice?: number;
-  unit?: string;
   sort?: CatalogSort;
   limit?: number;
 } = {}): Promise<ProductListItem[]> {
@@ -184,54 +231,10 @@ export async function getCatalogProducts({
     }
   }
 
-  if (typeof minPrice === "number" && Number.isFinite(minPrice) && minPrice >= 0) {
-    filters.push(gte(products.priceWithVat, minPrice.toFixed(2)));
-  }
-
-  if (typeof maxPrice === "number" && Number.isFinite(maxPrice) && maxPrice >= 0) {
-    filters.push(lte(products.priceWithVat, maxPrice.toFixed(2)));
-  }
-
-  if (unit) {
-    filters.push(eq(products.unit, unit));
-  }
-
   if (normalizedQuery && normalizedQuery.length >= 2) {
     const pattern = `%${normalizedQuery}%`;
-    const searchCondition = or(
-      ilike(products.name, pattern),
-      ilike(products.sku, pattern),
-      ilike(products.description, pattern),
-      ilike(categories.name, pattern),
-      ilike(subcategories.name, pattern),
-    );
-
-    if (searchCondition) {
-      filters.push(searchCondition);
-    }
+    filters.push(ilike(products.name, pattern));
   }
-
-  const productOrderStats = db
-    .select({
-      productId: orderItems.productId,
-      orderItemCount: sql<number>`count(${orderItems.id})`.as("order_item_count"),
-    })
-    .from(orderItems)
-    .groupBy(orderItems.productId)
-    .as("product_order_stats");
-
-  const orderBy =
-    sort === "price_asc"
-      ? [asc(products.priceWithVat)]
-      : sort === "price_desc"
-        ? [desc(products.priceWithVat)]
-        : sort === "new"
-          ? [desc(products.createdAt)]
-          : [
-              desc(sql`coalesce(${productOrderStats.orderItemCount}, 0)`),
-              desc(products.isPopular),
-              desc(products.createdAt),
-            ];
 
   const rows = await db
     .select({
@@ -239,63 +242,104 @@ export async function getCatalogProducts({
       sku: products.sku,
       name: products.name,
       slug: products.slug,
-      categoryName: categories.name,
-      categorySlug: categories.slug,
-      subcategoryName: subcategories.name,
-      subcategorySlug: subcategories.slug,
-      priceWithVat: products.priceWithVat,
-      unit: products.unit,
-      size: products.size,
-      isPopular: products.isPopular,
-      mainImageFileId: files.id,
-      mainImageStorageKey: files.storageKey,
-      mainImageIsActive: files.isActive,
-    })
-    .from(products)
-    .innerJoin(categories, eq(products.categoryId, categories.id))
-    .leftJoin(subcategories, eq(products.subcategoryId, subcategories.id))
-    .leftJoin(files, eq(files.id, products.mainImageFileId))
-    .leftJoin(productOrderStats, eq(productOrderStats.productId, products.id))
-    .where(and(...filters))
-    .orderBy(...orderBy)
-    .limit(limit);
-
-  return rows.map(withMainImageUrl);
-}
-
-export async function getProductBySlug(slug: string) {
-  const [product] = await db
-    .select({
-      id: products.id,
-      sku: products.sku,
-      name: products.name,
-      slug: products.slug,
       description: products.description,
-      priceWithVat: products.priceWithVat,
-      vatRate: products.vatRate,
-      size: products.size,
-      unit: products.unit,
       categoryId: products.categoryId,
       categoryName: categories.name,
       categorySlug: categories.slug,
       subcategoryId: products.subcategoryId,
       subcategoryName: subcategories.name,
       subcategorySlug: subcategories.slug,
-      sellerName: sellers.name,
+      priorityOfferId: products.priorityOfferId,
+      sellerOfferId: sellerOffers.id,
+      offerPriceWithVat: sellerOffers.priceWithVat,
+      offerVatRate: sellerOffers.vatRate,
+      unit: products.unit,
+      size: products.size,
       isActive: products.isActive,
+      createdAt: products.createdAt,
       mainImageFileId: files.id,
       mainImageStorageKey: files.storageKey,
       mainImageIsActive: files.isActive,
     })
     .from(products)
     .innerJoin(categories, eq(products.categoryId, categories.id))
+    .innerJoin(sellerOffers, eq(sellerOffers.productId, products.id))
     .leftJoin(subcategories, eq(products.subcategoryId, subcategories.id))
-    .leftJoin(sellers, eq(products.sellerId, sellers.id))
     .leftJoin(files, eq(files.id, products.mainImageFileId))
-    .where(eq(products.slug, slug))
-    .limit(1);
+    .where(and(...filters, eq(sellerOffers.status, "published")))
+    .orderBy(asc(products.name));
 
-  return product ? withMainImageUrl(product) : null;
+  const items = toProductListItems(rows).filter((item) => {
+    const price = Number(item.priceWithVat);
+
+    if (typeof minPrice === "number" && Number.isFinite(minPrice) && price < minPrice) {
+      return false;
+    }
+
+    if (typeof maxPrice === "number" && Number.isFinite(maxPrice) && price > maxPrice) {
+      return false;
+    }
+
+    return true;
+  });
+
+  items.sort((a, b) => {
+    if (sort === "price_asc") {
+      return Number(a.priceWithVat) - Number(b.priceWithVat);
+    }
+
+    if (sort === "price_desc") {
+      return Number(b.priceWithVat) - Number(a.priceWithVat);
+    }
+
+    return 0;
+  });
+
+  return items.slice(0, limit);
+}
+
+export async function getProductBySlug(slug: string) {
+  const productRows = await db
+    .select({
+      id: products.id,
+      sku: products.sku,
+      name: products.name,
+      slug: products.slug,
+      description: products.description,
+      categoryId: products.categoryId,
+      priceWithVat: products.priceWithVat,
+      vatRate: products.vatRate,
+      size: products.size,
+      unit: products.unit,
+      categoryName: categories.name,
+      categorySlug: categories.slug,
+      subcategoryId: products.subcategoryId,
+      subcategoryName: subcategories.name,
+      subcategorySlug: subcategories.slug,
+      priorityOfferId: products.priorityOfferId,
+      sellerOfferId: sellerOffers.id,
+      offerPriceWithVat: sellerOffers.priceWithVat,
+      offerVatRate: sellerOffers.vatRate,
+      isActive: products.isActive,
+      createdAt: products.createdAt,
+      mainImageFileId: files.id,
+      mainImageStorageKey: files.storageKey,
+      mainImageIsActive: files.isActive,
+    })
+    .from(products)
+    .innerJoin(categories, eq(products.categoryId, categories.id))
+    .innerJoin(sellerOffers, eq(sellerOffers.productId, products.id))
+    .leftJoin(subcategories, eq(products.subcategoryId, subcategories.id))
+    .leftJoin(files, eq(files.id, products.mainImageFileId))
+    .where(
+      and(
+        eq(products.slug, slug),
+        eq(products.isActive, true),
+        eq(sellerOffers.status, "published"),
+      ),
+    );
+
+  return productRows.length > 0 ? toProductListItems(productRows)[0] : null;
 }
 
 export async function getProductGalleryImages(productId: string) {
@@ -319,96 +363,4 @@ export async function getProductGalleryImages(productId: string) {
       storageKey: row.storageKey,
     }),
   }));
-}
-
-export async function getRecommendedProducts(
-  productId: string,
-  categoryId: string,
-  subcategoryId?: string | null,
-) {
-  const selected: ProductListItem[] = [];
-
-  if (subcategoryId) {
-    selected.push(
-      ...(await db
-        .select({
-          id: products.id,
-          sku: products.sku,
-          name: products.name,
-          slug: products.slug,
-          categoryName: categories.name,
-          categorySlug: categories.slug,
-          subcategoryName: subcategories.name,
-          subcategorySlug: subcategories.slug,
-          priceWithVat: products.priceWithVat,
-          unit: products.unit,
-          size: products.size,
-          isPopular: products.isPopular,
-          mainImageFileId: files.id,
-          mainImageStorageKey: files.storageKey,
-          mainImageIsActive: files.isActive,
-        })
-        .from(products)
-        .innerJoin(categories, eq(products.categoryId, categories.id))
-        .leftJoin(subcategories, eq(products.subcategoryId, subcategories.id))
-        .leftJoin(files, eq(files.id, products.mainImageFileId))
-        .where(
-          and(
-            eq(products.isActive, true),
-            eq(products.subcategoryId, subcategoryId),
-            ne(products.id, productId),
-          ),
-        )
-        .orderBy(desc(products.isPopular), desc(products.createdAt))
-        .limit(4)
-        .then((rows) => rows.map(withMainImageUrl))),
-    );
-  }
-
-  if (selected.length >= 4) {
-    return selected;
-  }
-
-  const excludedIds = [productId, ...selected.map((product) => product.id)];
-  const fallbackFilters = [
-    eq(products.isActive, true),
-    eq(products.categoryId, categoryId),
-  ];
-
-  if (excludedIds.length === 1) {
-    fallbackFilters.push(ne(products.id, productId));
-  } else {
-    fallbackFilters.push(notInArray(products.id, excludedIds));
-  }
-
-  selected.push(
-    ...(await db
-    .select({
-      id: products.id,
-      sku: products.sku,
-      name: products.name,
-      slug: products.slug,
-      categoryName: categories.name,
-      categorySlug: categories.slug,
-      subcategoryName: subcategories.name,
-      subcategorySlug: subcategories.slug,
-      priceWithVat: products.priceWithVat,
-      unit: products.unit,
-      size: products.size,
-      isPopular: products.isPopular,
-      mainImageFileId: files.id,
-      mainImageStorageKey: files.storageKey,
-      mainImageIsActive: files.isActive,
-    })
-    .from(products)
-    .innerJoin(categories, eq(products.categoryId, categories.id))
-    .leftJoin(subcategories, eq(products.subcategoryId, subcategories.id))
-    .leftJoin(files, eq(files.id, products.mainImageFileId))
-    .where(and(...fallbackFilters))
-    .orderBy(desc(products.isPopular), desc(products.createdAt))
-    .limit(4 - selected.length)
-    .then((rows) => rows.map(withMainImageUrl))),
-  );
-
-  return selected;
 }

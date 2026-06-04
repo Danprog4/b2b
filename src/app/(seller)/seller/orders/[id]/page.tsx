@@ -1,5 +1,5 @@
 import { and, eq, sql } from "drizzle-orm";
-import { Building2, Package, Percent, ReceiptText } from "lucide-react";
+import { Building2, Package, ReceiptText } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -26,7 +26,6 @@ export default async function SellerOrderPage({ params }: SellerOrderPageProps) 
       id: sellers.id,
       name: sellers.name,
       inn: sellers.inn,
-      commissionRate: sellers.commissionRate,
     })
     .from(sellers)
     .where(eq(sellers.id, user.sellerId))
@@ -70,7 +69,6 @@ export default async function SellerOrderPage({ params }: SellerOrderPageProps) 
         vatRate: orderItems.vatRate,
         vatAmount: orderItems.vatAmount,
         lineTotal: orderItems.lineTotal,
-        commissionAmount: orderItems.commissionAmount,
       })
       .from(orderItems)
       .where(and(eq(orderItems.orderId, order.id), eq(orderItems.sellerId, seller.id)))
@@ -80,7 +78,6 @@ export default async function SellerOrderPage({ params }: SellerOrderPageProps) 
         itemCount: sql<number>`count(${orderItems.id})`,
         sellerAmount: sql<string>`coalesce(sum(${orderItems.lineTotal}), 0)`,
         vatAmount: sql<string>`coalesce(sum(${orderItems.vatAmount}), 0)`,
-        commissionAmount: sql<string>`coalesce(sum(${orderItems.commissionAmount}), 0)`,
       })
       .from(orderItems)
       .where(and(eq(orderItems.orderId, order.id), eq(orderItems.sellerId, seller.id)))
@@ -88,8 +85,6 @@ export default async function SellerOrderPage({ params }: SellerOrderPageProps) 
   ]);
 
   const sellerAmount = Number(summary?.sellerAmount ?? 0);
-  const commissionAmount = Number(summary?.commissionAmount ?? 0);
-  const payoutAmount = sellerAmount - commissionAmount;
 
   return (
     <main className="min-h-screen bg-[#f4f6fb] px-6 py-8 text-slate-900">
@@ -159,9 +154,6 @@ export default async function SellerOrderPage({ params }: SellerOrderPageProps) 
                       НДС {Number(item.vatRate)}%:{" "}
                       {formatCurrency(item.vatAmount)}
                     </p>
-                    <p className="mt-2 text-sm text-slate-500">
-                      Комиссия: {formatCurrency(item.commissionAmount)}
-                    </p>
                   </div>
                   <div className="text-right">
                     <div className="text-xl font-black">
@@ -194,16 +186,10 @@ export default async function SellerOrderPage({ params }: SellerOrderPageProps) 
                     {formatCurrency(summary?.vatAmount ?? "0")}
                   </span>
                 </div>
-                <div className="flex justify-between gap-3">
-                  <span className="text-slate-500">Комиссия</span>
-                  <span className="font-bold">
-                    {formatCurrency(commissionAmount)}
-                  </span>
-                </div>
                 <div className="mt-2 flex justify-between gap-3 border-t border-slate-100 pt-4 text-base">
                   <span className="font-black text-slate-950">К выплате</span>
                   <span className="font-black text-slate-950">
-                    {formatCurrency(payoutAmount)}
+                    {formatCurrency(sellerAmount)}
                   </span>
                 </div>
               </div>
@@ -211,16 +197,13 @@ export default async function SellerOrderPage({ params }: SellerOrderPageProps) 
 
             <section className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
               <h2 className="flex items-center gap-2 text-xl font-black text-slate-950">
-                <Percent className="text-[#1157ff]" size={20} />
+                <ReceiptText className="text-[#1157ff]" size={20} />
                 Продавец
               </h2>
               <p className="mt-3 text-sm font-black text-slate-950">
                 {seller.name}
               </p>
-              <p className="mt-2 text-sm text-slate-500">
-                ИНН {seller.inn} · комиссия{" "}
-                {Number(seller.commissionRate).toFixed(2)}%
-              </p>
+              <p className="mt-2 text-sm text-slate-500">ИНН {seller.inn}</p>
             </section>
 
             <section className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-100">

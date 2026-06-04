@@ -25,12 +25,26 @@ export const sellerStatusEnum = pgEnum("seller_status", [
   "inactive",
 ]);
 export const orderStatusEnum = pgEnum("order_status", [
+  "accepted",
   "new",
   "awaiting_payment",
   "paid",
   "issued",
   "closed",
   "cancelled",
+]);
+export const sellerOfferStatusEnum = pgEnum("seller_offer_status", [
+  "draft",
+  "on_moderation",
+  "published",
+  "rejected",
+  "hidden",
+]);
+export const contractStatusEnum = pgEnum("contract_status", [
+  "pending",
+  "generated",
+  "requires_update",
+  "failed",
 ]);
 export const invoiceStatusEnum = pgEnum("invoice_status", [
   "pending",
@@ -81,6 +95,7 @@ export const buyerCompanies = pgTable(
     inn: varchar("inn", { length: 12 }).notNull(),
     kpp: varchar("kpp", { length: 9 }),
     ogrn: varchar("ogrn", { length: 15 }),
+    directorName: varchar("director_name", { length: 255 }),
     legalAddress: text("legal_address"),
     bankDetails: jsonb("bank_details").$type<Record<string, string>>(),
     contactEmail: varchar("contact_email", { length: 255 }),
@@ -248,6 +263,7 @@ export const products = pgTable(
     unit: varchar("unit", { length: 32 }).notNull(),
     isPopular: boolean("is_popular").default(false).notNull(),
     isActive: boolean("is_active").default(true).notNull(),
+    priorityOfferId: uuid("priority_offer_id"),
     ...timestamps,
   },
   (table) => [
@@ -256,6 +272,37 @@ export const products = pgTable(
     index("products_category_idx").on(table.categoryId),
     index("products_subcategory_idx").on(table.subcategoryId),
     index("products_seller_idx").on(table.sellerId),
+  ],
+);
+
+export const sellerOffers = pgTable(
+  "seller_offers",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    productId: uuid("product_id")
+      .references(() => products.id)
+      .notNull(),
+    sellerId: uuid("seller_id")
+      .references(() => sellers.id)
+      .notNull(),
+    priceWithVat: numeric("price_with_vat", {
+      precision: 12,
+      scale: 2,
+    }).notNull(),
+    vatRate: numeric("vat_rate", { precision: 5, scale: 2 }).default("22.00").notNull(),
+    status: sellerOfferStatusEnum("status").default("published").notNull(),
+    isPriority: boolean("is_priority").default(false).notNull(),
+    moderationComment: text("moderation_comment"),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    moderatedAt: timestamp("moderated_at", { withTimezone: true }),
+    moderatedById: uuid("moderated_by_id").references(() => users.id),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("seller_offers_product_seller_idx").on(table.productId, table.sellerId),
+    index("seller_offers_product_idx").on(table.productId),
+    index("seller_offers_seller_idx").on(table.sellerId),
+    index("seller_offers_status_idx").on(table.status),
   ],
 );
 
@@ -292,6 +339,7 @@ export const cartItems = pgTable(
     productId: uuid("product_id")
       .references(() => products.id)
       .notNull(),
+    sellerOfferId: uuid("seller_offer_id").references(() => sellerOffers.id),
     quantity: numeric("quantity", { precision: 12, scale: 3 }).notNull(),
     priceSnapshot: numeric("price_snapshot", { precision: 12, scale: 2 }).notNull(),
     ...timestamps,
@@ -334,6 +382,7 @@ export const orderItems = pgTable(
       .references(() => orders.id)
       .notNull(),
     productId: uuid("product_id").references(() => products.id),
+    sellerOfferId: uuid("seller_offer_id").references(() => sellerOffers.id),
     sellerId: uuid("seller_id").references(() => sellers.id),
     productNameSnapshot: varchar("product_name_snapshot", { length: 255 }).notNull(),
     skuSnapshot: varchar("sku_snapshot", { length: 32 }).notNull(),
@@ -351,6 +400,7 @@ export const orderItems = pgTable(
   },
   (table) => [
     index("order_items_order_idx").on(table.orderId),
+    index("order_items_offer_idx").on(table.sellerOfferId),
     index("order_items_seller_idx").on(table.sellerId),
   ],
 );
@@ -369,11 +419,62 @@ export const invoices = pgTable(
     generatedAt: timestamp("generated_at", { withTimezone: true }),
     emailedAt: timestamp("emailed_at", { withTimezone: true }),
     emailErrorMessage: text("email_error_message"),
+    isCurrent: boolean("is_current").default(true).notNull(),
+    replacedById: uuid("replaced_by_id"),
     ...timestamps,
   },
   (table) => [
     uniqueIndex("invoices_number_idx").on(table.number),
-    uniqueIndex("invoices_order_idx").on(table.orderId),
+    index("invoices_order_idx").on(table.orderId),
+    index("invoices_current_idx").on(table.orderId, table.isCurrent),
+  ],
+);
+
+export const contracts = pgTable(
+  "contracts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    number: varchar("number", { length: 32 }).notNull(),
+    buyerCompanyId: uuid("buyer_company_id")
+      .references(() => buyerCompanies.id)
+      .notNull(),
+    fileId: uuid("file_id").references(() => files.id),
+    status: contractStatusEnum("status").default("pending").notNull(),
+    errorMessage: text("error_message"),
+    isCurrent: boolean("is_current").default(true).notNull(),
+    generatedAt: timestamp("generated_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("contracts_number_idx").on(table.number),
+    index("contracts_company_idx").on(table.buyerCompanyId),
+    index("contracts_current_idx").on(table.buyerCompanyId, table.isCurrent),
+  ],
+);
+
+export const paymentsToSeller = pgTable(
+  "payments_to_seller",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    sellerId: uuid("seller_id")
+      .references(() => sellers.id)
+      .notNull(),
+    periodFrom: timestamp("period_from", { withTimezone: true }).notNull(),
+    periodTo: timestamp("period_to", { withTimezone: true }).notNull(),
+    salesAmount: numeric("sales_amount", { precision: 12, scale: 2 }).notNull(),
+    commissionAmount: numeric("commission_amount", {
+      precision: 12,
+      scale: 2,
+    }).notNull(),
+    payoutAmount: numeric("payout_amount", { precision: 12, scale: 2 }).notNull(),
+    paidAt: timestamp("paid_at", { withTimezone: true }),
+    comment: text("comment"),
+    createdById: uuid("created_by_id").references(() => users.id),
+    ...timestamps,
+  },
+  (table) => [
+    index("payments_to_seller_seller_idx").on(table.sellerId),
+    index("payments_to_seller_period_idx").on(table.periodFrom, table.periodTo),
   ],
 );
 

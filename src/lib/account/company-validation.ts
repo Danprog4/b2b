@@ -6,6 +6,7 @@ export type CompanyForCheckoutValidation = {
   inn: string | null;
   kpp: string | null;
   ogrn: string | null;
+  directorName: string | null;
   legalAddress: string | null;
   bankDetails: BankDetails;
   contactEmail: string | null;
@@ -38,6 +39,10 @@ export function getCompanyMissingFields(company: CompanyForCheckoutValidation) {
 
   if (!hasValue(company.ogrn)) {
     missingFields.push(company.type === "ip" ? "ОГРНИП" : "ОГРН");
+  }
+
+  if (!hasValue(company.directorName)) {
+    missingFields.push("Руководитель");
   }
 
   if (!hasValue(company.legalAddress)) {

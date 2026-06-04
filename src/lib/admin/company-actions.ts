@@ -76,6 +76,7 @@ export async function updateBuyerCompanyAdminAction(formData: FormData) {
       inn,
       kpp: type === "ooo" ? nullableValue(getString(formData, "kpp") || null) : sql`null`,
       ogrn: nullableValue(getString(formData, "ogrn") || null),
+      directorName: nullableValue(getString(formData, "directorName") || null),
       legalAddress: nullableValue(getString(formData, "legalAddress") || null),
       bankDetails: getBankDetails(formData),
       contactEmail: nullableValue(getString(formData, "contactEmail") || null),

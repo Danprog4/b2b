@@ -4,11 +4,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AddToCartButton } from "@/components/cart/add-to-cart-button";
-import { ProductCard } from "@/components/catalog/product-card";
 import {
   getProductBySlug,
   getProductGalleryImages,
-  getRecommendedProducts,
 } from "@/lib/catalog/queries";
 import { formatCurrency } from "@/lib/utils";
 
@@ -44,12 +42,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
     notFound();
   }
 
-  const [galleryImages, recommendations] = await Promise.all([
-    getProductGalleryImages(product.id),
-    product.isActive
-      ? getRecommendedProducts(product.id, product.categoryId, product.subcategoryId)
-      : [],
-  ]);
+  const galleryImages = await getProductGalleryImages(product.id);
 
   return (
     <main className="min-h-screen bg-[#f4f6fb] px-5 py-6 text-slate-900">
@@ -173,6 +166,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
             <div className="mt-8 flex flex-wrap gap-3">
               <AddToCartButton
                 productId={product.id}
+                sellerOfferId={product.sellerOfferId}
                 disabled={!product.isActive}
                 showQuantityInput
               />
@@ -186,16 +180,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
           </div>
         </section>
 
-        {recommendations.length > 0 ? (
-          <section className="mt-8">
-            <h2 className="mb-4 text-2xl font-black">Рекомендуем также</h2>
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              {recommendations.map((item) => (
-                <ProductCard key={item.id} product={item} />
-              ))}
-            </div>
-          </section>
-        ) : null}
       </div>
     </main>
   );

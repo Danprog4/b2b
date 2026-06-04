@@ -106,11 +106,9 @@ const adminModules = [
 ];
 
 const dashboardStatuses = [
-  ["new", "Новые"],
-  ["awaiting_payment", "Ожидают оплаты"],
+  ["accepted", "Приняты"],
   ["paid", "Оплачены"],
   ["issued", "Выданные"],
-  ["closed", "Закрытые"],
   ["cancelled", "Отменены"],
 ] as const;
 
@@ -127,11 +125,9 @@ export default async function AdminPage() {
   const user = await requireUser(["admin"]);
   const [
     notificationCounter,
-    newOrdersCount,
-    awaitingPaymentCount,
+    acceptedOrdersCount,
     paidOrdersCount,
     issuedOrdersCount,
-    closedOrdersCount,
     cancelledOrdersCount,
     latestOrders,
     latestCompanies,
@@ -148,11 +144,9 @@ export default async function AdminPage() {
       .from(notifications)
       .where(and(eq(notifications.userId, user.id), eq(notifications.isRead, false)))
       .then(([row]) => row),
-    countOrdersByStatus("new"),
-    countOrdersByStatus("awaiting_payment"),
+    countOrdersByStatus("accepted"),
     countOrdersByStatus("paid"),
     countOrdersByStatus("issued"),
-    countOrdersByStatus("closed"),
     countOrdersByStatus("cancelled"),
     db
       .select({
@@ -258,17 +252,11 @@ export default async function AdminPage() {
     .filter((company) => !company.hasCompanyCard || !company.hasCharter)
     .slice(0, 6);
   const statusCounters = [
-    [dashboardStatuses[0][1], newOrdersCount, "/admin/orders?status=new"],
+    [dashboardStatuses[0][1], acceptedOrdersCount, "/admin/orders?status=accepted"],
+    [dashboardStatuses[1][1], paidOrdersCount, "/admin/orders?status=paid"],
+    [dashboardStatuses[2][1], issuedOrdersCount, "/admin/orders?status=issued"],
     [
-      dashboardStatuses[1][1],
-      awaitingPaymentCount,
-      "/admin/orders?status=awaiting_payment",
-    ],
-    [dashboardStatuses[2][1], paidOrdersCount, "/admin/orders?status=paid"],
-    [dashboardStatuses[3][1], issuedOrdersCount, "/admin/orders?status=issued"],
-    [dashboardStatuses[4][1], closedOrdersCount, "/admin/orders?status=closed"],
-    [
-      dashboardStatuses[5][1],
+      dashboardStatuses[3][1],
       cancelledOrdersCount,
       "/admin/orders?status=cancelled",
     ],

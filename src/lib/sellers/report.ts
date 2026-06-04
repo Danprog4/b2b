@@ -23,7 +23,7 @@ function getPayoutPeriod(value: Date) {
 }
 
 function getPayoutStatus(status: string) {
-  if (status === "paid" || status === "issued" || status === "closed") {
+  if (status === "paid" || status === "issued") {
     return "К ручной выплате";
   }
 
@@ -64,7 +64,6 @@ export async function getSellerReportSource(sellerId: string) {
       priceWithVat: orderItems.priceWithVat,
       lineTotal: orderItems.lineTotal,
       vatAmount: orderItems.vatAmount,
-      commissionAmount: orderItems.commissionAmount,
     })
     .from(orderItems)
     .innerJoin(orders, eq(orders.id, orderItems.orderId))
@@ -81,8 +80,6 @@ export function buildSellerReportWorkbook(
   const worksheet = XLSX.utils.json_to_sheet(
     source.rows.map((row) => {
       const lineTotal = Number(row.lineTotal);
-      const commission = Number(row.commissionAmount);
-
       return {
         Продавец: source.seller.name,
         "ИНН продавца": source.seller.inn,
@@ -101,8 +98,7 @@ export function buildSellerReportWorkbook(
         "Цена с НДС": Number(row.priceWithVat),
         "Сумма позиции": lineTotal,
         "НДС позиции": Number(row.vatAmount),
-        Комиссия: commission,
-        "К выплате": lineTotal - commission,
+        "К выплате": lineTotal,
       };
     }),
   );
@@ -122,8 +118,6 @@ export function buildSellerReportWorkbook(
     { wch: 36 },
     { wch: 12 },
     { wch: 10 },
-    { wch: 14 },
-    { wch: 14 },
     { wch: 14 },
     { wch: 14 },
     { wch: 14 },

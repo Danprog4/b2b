@@ -20,7 +20,6 @@ export default async function AdminProductsPage() {
       priceWithVat: products.priceWithVat,
       unit: products.unit,
       isActive: products.isActive,
-      isPopular: products.isPopular,
       updatedAt: products.updatedAt,
       categoryName: categories.name,
       subcategoryName: subcategories.name,
@@ -132,7 +131,6 @@ export default async function AdminProductsPage() {
                           </span>
                           <span className="mt-1 block text-slate-500">
                             {product.sku} · {product.unit}
-                            {product.isPopular ? " · популярный" : ""}
                           </span>
                         </span>
                       </Link>

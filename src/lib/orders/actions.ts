@@ -13,9 +13,9 @@ import {
   orders,
   orderItems,
   products,
+  sellerOffers,
   sellers,
 } from "@/db/schema";
-import { getCompanyDocumentReadiness } from "@/lib/account/company-documents";
 import { getCompanyMissingFields } from "@/lib/account/company-validation";
 import { requireUser } from "@/lib/auth/session";
 import { addProductToBuyerCart } from "@/lib/cart/actions";
@@ -69,11 +69,6 @@ export async function createOrderAction(formData: FormData) {
 
   const comment = getString(formData, "comment");
   let createdOrderId = "";
-  const documentReadiness = await getCompanyDocumentReadiness(buyerCompanyId);
-
-  if (!documentReadiness.isReady) {
-    redirect("/checkout?error=company_documents");
-  }
 
   await db.transaction(async (tx) => {
     const [company] = await tx
@@ -83,6 +78,7 @@ export async function createOrderAction(formData: FormData) {
         inn: buyerCompanies.inn,
         kpp: buyerCompanies.kpp,
         ogrn: buyerCompanies.ogrn,
+        directorName: buyerCompanies.directorName,
         legalAddress: buyerCompanies.legalAddress,
         bankDetails: buyerCompanies.bankDetails,
         contactEmail: buyerCompanies.contactEmail,
@@ -109,22 +105,28 @@ export async function createOrderAction(formData: FormData) {
       .select({
         itemId: cartItems.id,
         productId: products.id,
-        sellerId: products.sellerId,
+        sellerOfferId: sellerOffers.id,
+        sellerId: sellerOffers.sellerId,
         sellerCommissionRate: sellers.commissionRate,
         productName: products.name,
         sku: products.sku,
         unit: products.unit,
         quantity: cartItems.quantity,
-        priceWithVat: products.priceWithVat,
-        vatRate: products.vatRate,
+        priceWithVat: sellerOffers.priceWithVat,
+        vatRate: sellerOffers.vatRate,
         isActive: products.isActive,
+        offerStatus: sellerOffers.status,
       })
       .from(cartItems)
       .innerJoin(products, eq(cartItems.productId, products.id))
-      .leftJoin(sellers, eq(products.sellerId, sellers.id))
+      .innerJoin(sellerOffers, eq(cartItems.sellerOfferId, sellerOffers.id))
+      .innerJoin(sellers, eq(sellerOffers.sellerId, sellers.id))
       .where(eq(cartItems.cartId, cartId));
 
-    if (rows.length === 0 || rows.some((row) => !row.isActive)) {
+    if (
+      rows.length === 0 ||
+      rows.some((row) => !row.isActive || row.offerStatus !== "published")
+    ) {
       throw new Error("cart_unavailable");
     }
 
@@ -138,6 +140,7 @@ export async function createOrderAction(formData: FormData) {
 
       return {
         productId: row.productId,
+        sellerOfferId: row.sellerOfferId,
         sellerId: row.sellerId,
         productNameSnapshot: row.productName,
         skuSnapshot: row.sku,
@@ -166,7 +169,7 @@ export async function createOrderAction(formData: FormData) {
         number: orderNumber,
         userId: user.id,
         buyerCompanyId,
-        status: "new",
+        status: "accepted",
         totalAmount: formatMoney(totalAmount),
         vatAmount: formatMoney(vatAmount),
         comment: comment || null,
@@ -182,6 +185,7 @@ export async function createOrderAction(formData: FormData) {
       number: invoiceNumber,
       orderId: order.id,
       status: "pending",
+      isCurrent: true,
     });
 
     await tx.insert(orderItems).values(
@@ -197,7 +201,7 @@ export async function createOrderAction(formData: FormData) {
       entityType: "order",
       entityId: order.id,
       metadata: {
-        status: "new",
+        status: "accepted",
         totalAmount: formatMoney(totalAmount),
       },
     });
@@ -240,23 +244,30 @@ export async function repeatOrderAction(formData: FormData) {
   const items = await db
     .select({
       productId: orderItems.productId,
+      sellerOfferId: orderItems.sellerOfferId,
       quantity: orderItems.quantity,
       isActive: products.isActive,
+      offerStatus: sellerOffers.status,
     })
     .from(orderItems)
     .leftJoin(products, eq(products.id, orderItems.productId))
+    .leftJoin(sellerOffers, eq(sellerOffers.id, orderItems.sellerOfferId))
     .where(eq(orderItems.orderId, order.id));
 
   let addedCount = 0;
   let skippedCount = 0;
 
   for (const item of items) {
-    if (!item.productId || !item.isActive) {
+    if (!item.productId || !item.isActive || item.offerStatus !== "published") {
       skippedCount += 1;
       continue;
     }
 
-    const result = await addProductToBuyerCart(item.productId, Number(item.quantity));
+    const result = await addProductToBuyerCart(
+      item.productId,
+      Number(item.quantity),
+      item.sellerOfferId,
+    );
 
     if (result.ok) {
       addedCount += 1;

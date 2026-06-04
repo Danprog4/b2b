@@ -318,6 +318,17 @@ export default async function AdminCompanyPage({
 
               <label className="grid gap-2">
                 <span className="text-sm font-bold text-slate-600">
+                  Руководитель
+                </span>
+                <input
+                  className="h-11 rounded-lg border border-slate-200 px-4 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
+                  defaultValue={company.directorName ?? ""}
+                  name="directorName"
+                />
+              </label>
+
+              <label className="grid gap-2">
+                <span className="text-sm font-bold text-slate-600">
                   Юридический адрес
                 </span>
                 <textarea

@@ -32,7 +32,6 @@ const exampleColumns = [
   "unit",
   "description",
   "isActive",
-  "isPopular",
 ];
 
 const errorMessages: Record<string, string> = {

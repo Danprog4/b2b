@@ -39,6 +39,7 @@ export async function updateBuyerCompanyAction(formData: FormData) {
   const inn = getString(formData, "inn");
   const kpp = getString(formData, "kpp");
   const ogrn = getString(formData, "ogrn");
+  const directorName = getString(formData, "directorName");
   const legalAddress = getString(formData, "legalAddress");
   const contactEmail = getString(formData, "contactEmail");
   const contactPhone = getString(formData, "contactPhone");
@@ -56,6 +57,7 @@ export async function updateBuyerCompanyAction(formData: FormData) {
     inn,
     kpp,
     ogrn,
+    directorName,
     legalAddress,
     bankDetails,
     contactEmail,
@@ -85,6 +87,7 @@ export async function updateBuyerCompanyAction(formData: FormData) {
         inn,
         kpp: type === "ooo" ? kpp : null,
         ogrn,
+        directorName,
         legalAddress,
         bankDetails,
         contactEmail,

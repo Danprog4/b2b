@@ -32,11 +32,9 @@ type AdminOrdersPageProps = {
 };
 
 const statusOptions = [
-  "new",
-  "awaiting_payment",
+  "accepted",
   "paid",
   "issued",
-  "closed",
   "cancelled",
 ] as const;
 
@@ -190,7 +188,10 @@ export default async function AdminOrdersPage({
     .from(orders)
     .innerJoin(buyerCompanies, eq(orders.buyerCompanyId, buyerCompanies.id))
     .innerJoin(users, eq(orders.userId, users.id))
-    .leftJoin(invoices, eq(invoices.orderId, orders.id))
+    .leftJoin(
+      invoices,
+      and(eq(invoices.orderId, orders.id), eq(invoices.isCurrent, true)),
+    )
     .leftJoin(documentCounts, eq(documentCounts.orderId, orders.id))
     .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
     .orderBy(desc(orders.createdAt));

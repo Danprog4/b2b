@@ -219,6 +219,17 @@ export default async function AccountCompanyPage({
             </div>
 
             <label className="grid gap-2 text-sm font-bold text-slate-700">
+              Руководитель
+              <input
+                name="directorName"
+                required
+                className="h-12 rounded-lg border border-slate-200 px-4 font-normal text-slate-950"
+                defaultValue={company.directorName ?? ""}
+                placeholder="ФИО руководителя"
+              />
+            </label>
+
+            <label className="grid gap-2 text-sm font-bold text-slate-700">
               Юридический адрес
               <textarea
                 name="legalAddress"

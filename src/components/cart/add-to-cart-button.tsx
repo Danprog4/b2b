@@ -15,12 +15,14 @@ type CartLineState = {
 
 export function AddToCartButton({
   productId,
+  sellerOfferId,
   className,
   quantity = 1,
   disabled = false,
   showQuantityInput = false,
 }: {
   productId: string;
+  sellerOfferId?: string;
   className?: string;
   quantity?: number;
   disabled?: boolean;
@@ -54,6 +56,9 @@ export function AddToCartButton({
   function add(quantityToAdd: number) {
     const formData = new FormData();
     formData.set("productId", productId);
+    if (sellerOfferId) {
+      formData.set("sellerOfferId", sellerOfferId);
+    }
     formData.set("quantity", String(quantityToAdd));
     setPendingAction("add");
 

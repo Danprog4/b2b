@@ -21,8 +21,8 @@ async function getNextSequenceValue(sequenceName: string) {
   return value;
 }
 
-function formatNumber(prefix: string, value: number) {
-  return `${prefix}-${String(value).padStart(6, "0")}`;
+function formatNumber(prefix: string, value: number, length = 6) {
+  return `${prefix}-${String(value).padStart(length, "0")}`;
 }
 
 export async function getNextOrderNumber() {
@@ -46,8 +46,9 @@ export async function getNextOrderNumber() {
 export async function getNextInvoiceNumber() {
   while (true) {
     const number = formatNumber(
-      "INV",
+      "СТ",
       await getNextSequenceValue("city_market_invoice_number_seq"),
+      5,
     );
     const [existing] = await db
       .select({ id: invoices.id })

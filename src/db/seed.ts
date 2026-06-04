@@ -9,6 +9,7 @@ import {
   categories,
   contentPages,
   products,
+  sellerOffers,
   sellers,
   subcategories,
   users,
@@ -191,7 +192,6 @@ async function main() {
       unit: "мешок",
       size: "50 кг",
       description: "Демо-товар для стартового каталога.",
-      isPopular: true,
     },
     {
       sku: "CM-000002",
@@ -204,7 +204,6 @@ async function main() {
       unit: "шт",
       size: "2 мм",
       description: "Демо-позиция металлопроката.",
-      isPopular: true,
     },
     {
       sku: "CM-000003",
@@ -217,7 +216,6 @@ async function main() {
       unit: "шт",
       size: "стандарт",
       description: "Демо-товар для складского оснащения.",
-      isPopular: false,
     },
     {
       sku: "CM-000004",
@@ -230,7 +228,6 @@ async function main() {
       unit: "шт",
       size: "180 мм",
       description: "Демо-оборудование для каталога.",
-      isPopular: true,
     },
   ];
 
@@ -243,7 +240,7 @@ async function main() {
       throw new Error(`Missing seed relation for product ${product.sku}`);
     }
 
-    await db
+    const [storedProduct] = await db
       .insert(products)
       .values({
         sku: product.sku,
@@ -257,7 +254,6 @@ async function main() {
         vatRate: "22.00",
         size: product.size,
         unit: product.unit,
-        isPopular: product.isPopular,
       })
       .onConflictDoUpdate({
         target: products.sku,
@@ -271,7 +267,26 @@ async function main() {
           description: product.description,
           size: product.size,
           unit: product.unit,
-          isPopular: product.isPopular,
+        },
+      })
+      .returning({ id: products.id });
+
+    await db
+      .insert(sellerOffers)
+      .values({
+        productId: storedProduct.id,
+        sellerId: seller.id,
+        priceWithVat: product.priceWithVat,
+        vatRate: "22.00",
+        status: "published",
+      })
+      .onConflictDoUpdate({
+        target: [sellerOffers.productId, sellerOffers.sellerId],
+        set: {
+          priceWithVat: product.priceWithVat,
+          vatRate: "22.00",
+          status: "published",
+          updatedAt: new Date(),
         },
       });
   }

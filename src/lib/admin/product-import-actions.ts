@@ -55,7 +55,6 @@ type ImportPayload = {
   unit: string;
   description: string;
   isActive: boolean;
-  isPopular: boolean;
 };
 
 type ResolvedImportRow = {
@@ -216,12 +215,6 @@ function getMissingRequiredColumns(rows: Record<string, unknown>[]) {
 
 function getPayload(row: Record<string, unknown>): ImportPayload {
   const isActiveRaw = readField(row, ["isActive", "active", "активен", "статус"]);
-  const isPopularRaw = readField(row, [
-    "isPopular",
-    "popular",
-    "популярный",
-    "хит",
-  ]);
 
   return {
     sku: readField(row, ["sku", "артикул"]),
@@ -256,7 +249,6 @@ function getPayload(row: Record<string, unknown>): ImportPayload {
     unit: readField(row, ["unit", "единица", "единица измерения", "ед"]),
     description: readField(row, ["description", "описание"]),
     isActive: normalizeBoolean(isActiveRaw, true),
-    isPopular: normalizeBoolean(isPopularRaw, false),
   };
 }
 
@@ -482,7 +474,6 @@ async function applyResolvedRow(row: ResolvedImportRow, adminId: string) {
     size: row.payload.size || null,
     unit: row.payload.unit,
     isActive: row.payload.isActive,
-    isPopular: row.payload.isPopular,
     updatedAt: new Date(),
   };
 
@@ -693,7 +684,6 @@ function getResolvedRowFromPreview(row: {
       unit: getPayloadString(row.payload, "unit"),
       description: getPayloadString(row.payload, "description"),
       isActive: getPayloadBoolean(row.payload, "isActive"),
-      isPopular: getPayloadBoolean(row.payload, "isPopular"),
     },
     errors: row.errors ?? [],
     categoryId: getPayloadString(row.payload, "categoryId"),

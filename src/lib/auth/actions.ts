@@ -78,6 +78,7 @@ export async function registerBuyerAction(formData: FormData) {
   const companyName = getString(formData, "companyName");
   const kpp = getString(formData, "kpp");
   const ogrn = getString(formData, "ogrn");
+  const directorName = getString(formData, "directorName");
   const legalAddress = getString(formData, "legalAddress");
 
   if (!email || !password || !inn || !companyName || !phone) {
@@ -133,6 +134,7 @@ export async function registerBuyerAction(formData: FormData) {
       inn,
       kpp: kpp || null,
       ogrn: ogrn || null,
+      directorName: directorName || null,
       legalAddress: legalAddress || null,
       contactEmail: email,
       contactPhone: phone,

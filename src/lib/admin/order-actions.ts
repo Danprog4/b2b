@@ -12,11 +12,9 @@ import { insertBuyerCompanyNotifications } from "@/lib/notifications/helpers";
 import { getOrderStatusLabel } from "@/lib/orders/status";
 
 const allowedStatuses = new Set([
-  "new",
-  "awaiting_payment",
+  "accepted",
   "paid",
   "issued",
-  "closed",
   "cancelled",
 ]);
 

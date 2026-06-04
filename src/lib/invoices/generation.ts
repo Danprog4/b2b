@@ -36,7 +36,7 @@ async function ensureInvoice(orderId: string) {
       fileId: invoices.fileId,
     })
     .from(invoices)
-    .where(eq(invoices.orderId, orderId))
+    .where(and(eq(invoices.orderId, orderId), eq(invoices.isCurrent, true)))
     .limit(1);
 
   if (existingInvoice) {
@@ -50,6 +50,7 @@ async function ensureInvoice(orderId: string) {
       number,
       orderId,
       status: "pending",
+      isCurrent: true,
     })
     .returning({
       id: invoices.id,
@@ -231,13 +232,9 @@ export async function generateOrderInvoice(
         uploadedById: actorId,
       });
 
-      const nextOrderStatus =
-        order.status === "new" ? "awaiting_payment" : order.status;
-
       await tx
         .update(orders)
         .set({
-          status: nextOrderStatus,
           technicalState: {
             invoiceGenerated: true,
             invoiceGenerating: false,
@@ -247,20 +244,6 @@ export async function generateOrderInvoice(
           updatedAt: now,
         })
         .where(eq(orders.id, order.id));
-
-      if (order.status === "new") {
-        await tx.insert(auditEvents).values({
-          action: "order.status_update",
-          entityType: "order",
-          entityId: order.id,
-          metadata: {
-            from: "new",
-            to: "awaiting_payment",
-            actor: "system",
-            reason: "invoice_generated",
-          },
-        });
-      }
 
       await tx.insert(auditEvents).values({
         actorId,

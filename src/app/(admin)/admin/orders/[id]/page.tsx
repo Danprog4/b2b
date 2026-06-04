@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import {
   AlertTriangle,
   Clock3,
@@ -48,11 +48,9 @@ type AdminOrderPageProps = {
 };
 
 const statusOptions = [
-  "new",
-  "awaiting_payment",
+  "accepted",
   "paid",
   "issued",
-  "closed",
   "cancelled",
 ] as const;
 
@@ -97,7 +95,10 @@ export default async function AdminOrderPage({
     .from(orders)
     .innerJoin(buyerCompanies, eq(orders.buyerCompanyId, buyerCompanies.id))
     .innerJoin(users, eq(orders.userId, users.id))
-    .leftJoin(invoices, eq(invoices.orderId, orders.id))
+    .leftJoin(
+      invoices,
+      and(eq(invoices.orderId, orders.id), eq(invoices.isCurrent, true)),
+    )
     .leftJoin(emailOutbox, eq(emailOutbox.invoiceId, invoices.id))
     .where(eq(orders.id, id))
     .limit(1);
@@ -629,8 +630,8 @@ export default async function AdminOrderPage({
                 </SubmitButton>
               </form>
               <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs font-semibold leading-5 text-slate-600">
-                После перевода заказа из «Выдан» в «Закрыт» проверьте, что УПД
-                загружен и видим покупателю в документах заказа.
+                Для первой версии используются статусы: «Принят», «Оплачен»,
+                «Выдан», «Отменен». УПД, спецификацию и акт загружает администратор.
               </p>
             </section>
 

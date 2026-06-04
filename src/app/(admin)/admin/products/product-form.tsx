@@ -27,7 +27,6 @@ type ProductFormProps = {
     size: string | null;
     unit: string;
     description: string | null;
-    isPopular: boolean;
     isActive: boolean;
     mainImageUrl?: string | null;
     galleryImages?: Array<{
@@ -270,7 +269,7 @@ export function ProductForm({
         </div>
       </section>
 
-      <div className="grid gap-3 rounded-xl bg-slate-50 p-4 text-sm font-bold text-slate-700 md:grid-cols-2">
+      <div className="grid gap-3 rounded-xl bg-slate-50 p-4 text-sm font-bold text-slate-700">
         <label className="flex items-center gap-3">
           <input
             name="isActive"
@@ -278,10 +277,6 @@ export function ProductForm({
             defaultChecked={product?.isActive ?? true}
           />
           Активен в каталоге
-        </label>
-        <label className="flex items-center gap-3">
-          <input name="isPopular" type="checkbox" defaultChecked={product?.isPopular} />
-          Популярный товар
         </label>
       </div>
 

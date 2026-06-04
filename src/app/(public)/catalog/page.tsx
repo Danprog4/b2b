@@ -7,7 +7,6 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import {
   type CatalogSort,
   getActiveCategories,
-  getActiveProductUnits,
   getActiveSubcategories,
   getCatalogProducts,
 } from "@/lib/catalog/queries";
@@ -31,16 +30,11 @@ function getParam(
 }
 
 function normalizeSort(value?: string): CatalogSort {
-  if (
-    value === "price_asc" ||
-    value === "price_desc" ||
-    value === "new" ||
-    value === "popular"
-  ) {
+  if (value === "price_asc" || value === "price_desc" || value === "new") {
     return value;
   }
 
-  return "popular";
+  return "new";
 }
 
 function normalizePrice(value?: string) {
@@ -82,20 +76,17 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
   const maxPriceValue = getParam(params, "maxPrice") ?? "";
   const minPrice = normalizePrice(minPriceValue);
   const maxPrice = normalizePrice(maxPriceValue);
-  const unit = getParam(params, "unit") ?? "";
   const sort = normalizeSort(getParam(params, "sort"));
 
-  const [categories, subcategories, units, products] = await Promise.all([
+  const [categories, subcategories, products] = await Promise.all([
     getActiveCategories(),
     getActiveSubcategories(categorySlug),
-    getActiveProductUnits(),
     getCatalogProducts({
       q,
       categorySlug,
       subcategorySlug,
       minPrice,
       maxPrice,
-      unit,
       sort,
     }),
   ]);
@@ -107,7 +98,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
   const pageTitle =
     activeSubcategory?.name ?? activeCategory?.name ?? "Каталог товаров";
   const hasActiveTopFilters = Boolean(
-    q || minPriceValue || maxPriceValue || unit || sort !== "popular",
+    q || minPriceValue || maxPriceValue || sort !== "new",
   );
   const hasActiveCategoryFilters = Boolean(categorySlug || subcategorySlug);
   const resetTopFiltersHref = catalogHref({
@@ -116,10 +107,9 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
   });
   const resetCategoryFiltersHref = catalogHref({
     q,
-    sort: sort === "popular" ? undefined : sort,
+    sort: sort === "new" ? undefined : sort,
     minPrice: minPriceValue,
     maxPrice: maxPriceValue,
-    unit,
   });
   const filterStateKey = [
     categorySlug ?? "",
@@ -127,7 +117,6 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
     q,
     minPriceValue,
     maxPriceValue,
-    unit,
     sort,
   ].join(":");
 
@@ -143,8 +132,8 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
               {pageTitle}
             </h1>
             <p className="mt-2 text-slate-600">
-              Поиск работает по названию, артикулу, категории, подкатегории и описанию.
-              Остатки в первой версии не отображаются.
+              Поиск работает по названию товара. Остатки в первой версии не
+              отображаются.
             </p>
           </div>
           <span className="rounded-lg bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm">
@@ -154,7 +143,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
 
         <form
           key={filterStateKey}
-          className="mt-6 grid gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-100 lg:grid-cols-[1fr_180px_180px_170px_220px_auto_auto]"
+          className="mt-6 grid gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-100 lg:grid-cols-[1fr_180px_180px_220px_auto_auto]"
         >
           {categorySlug ? (
             <input name="category" type="hidden" value={categorySlug} />
@@ -170,7 +159,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
             <input
               className="h-12 w-full rounded-lg border border-slate-200 pl-11 pr-4"
               name="q"
-              placeholder="Искать товары или артикул"
+              placeholder="Искать товары"
               type="search"
               defaultValue={q}
             />
@@ -195,22 +184,9 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
           />
           <select
             className="h-12 rounded-lg border border-slate-200 px-4"
-            name="unit"
-            defaultValue={unit}
-          >
-            <option value="">Все ед.</option>
-            {units.map((unitOption) => (
-              <option key={unitOption} value={unitOption}>
-                {unitOption}
-              </option>
-            ))}
-          </select>
-          <select
-            className="h-12 rounded-lg border border-slate-200 px-4"
             name="sort"
             defaultValue={sort}
           >
-            <option value="popular">По популярности</option>
             <option value="new">По новизне</option>
             <option value="price_asc">Сначала дешевле</option>
             <option value="price_desc">Сначала дороже</option>
@@ -248,7 +224,6 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
                   sort,
                   minPrice: minPriceValue,
                   maxPrice: maxPriceValue,
-                  unit,
                 })}
               >
                 Все товары
@@ -260,7 +235,6 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
                   sort,
                   minPrice: minPriceValue,
                   maxPrice: maxPriceValue,
-                  unit,
                 });
 
                 return (
@@ -304,7 +278,6 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
                       sort,
                       minPrice: minPriceValue,
                       maxPrice: maxPriceValue,
-                      unit,
                     });
 
                     return (

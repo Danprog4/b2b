@@ -62,7 +62,7 @@ export async function getBannerLinkSuggestions(): Promise<BannerLinkSuggestion[]
       })
       .from(products)
       .where(eq(products.isActive, true))
-      .orderBy(desc(products.isPopular), desc(products.createdAt))
+      .orderBy(desc(products.createdAt))
       .limit(20),
     db
       .select({

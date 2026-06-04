@@ -181,9 +181,7 @@ export default async function AccountOrderPage({
                 Письмо со счетом поставлено в очередь на отправку.
               </p>
             ) : null}
-            {order.status !== "cancelled" &&
-            order.status !== "issued" &&
-            order.status !== "closed" ? (
+            {order.status === "accepted" ? (
               <EditOrderButton orderId={order.id} />
             ) : null}
             <form action={repeatOrderAction} className="mt-5">

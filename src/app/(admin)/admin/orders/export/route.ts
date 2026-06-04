@@ -27,11 +27,9 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { getOrderStatusLabel } from "@/lib/orders/status";
 
 const statusOptions = [
-  "new",
-  "awaiting_payment",
+  "accepted",
   "paid",
   "issued",
-  "closed",
   "cancelled",
 ] as const;
 
@@ -185,7 +183,10 @@ export async function GET(request: Request) {
     .innerJoin(buyerCompanies, eq(orders.buyerCompanyId, buyerCompanies.id))
     .innerJoin(users, eq(orders.userId, users.id))
     .innerJoin(orderItems, eq(orderItems.orderId, orders.id))
-    .leftJoin(invoices, eq(invoices.orderId, orders.id))
+    .leftJoin(
+      invoices,
+      and(eq(invoices.orderId, orders.id), eq(invoices.isCurrent, true)),
+    )
     .leftJoin(documentCounts, eq(documentCounts.orderId, orders.id))
     .leftJoin(sellers, eq(sellers.id, orderItems.sellerId))
     .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)

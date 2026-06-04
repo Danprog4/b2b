@@ -33,7 +33,10 @@ export async function getCurrentBuyerOrders() {
       invoiceStatus: invoices.status,
     })
     .from(orders)
-    .leftJoin(invoices, eq(invoices.orderId, orders.id))
+    .leftJoin(
+      invoices,
+      and(eq(invoices.orderId, orders.id), eq(invoices.isCurrent, true)),
+    )
     .where(eq(orders.buyerCompanyId, user.buyerCompanyId))
     .orderBy(desc(orders.createdAt));
 
@@ -180,7 +183,10 @@ export async function getCurrentBuyerOrder(orderId: string) {
     })
     .from(orders)
     .innerJoin(buyerCompanies, eq(orders.buyerCompanyId, buyerCompanies.id))
-    .leftJoin(invoices, eq(invoices.orderId, orders.id))
+    .leftJoin(
+      invoices,
+      and(eq(invoices.orderId, orders.id), eq(invoices.isCurrent, true)),
+    )
     .where(
       and(eq(orders.id, orderId), eq(orders.buyerCompanyId, user.buyerCompanyId)),
     )

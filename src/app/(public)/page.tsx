@@ -47,9 +47,9 @@ const advantages = [
 ];
 
 export default async function Home() {
-  const [categories, popularProducts, banners, currentUser] = await Promise.all([
+  const [categories, latestProducts, banners, currentUser] = await Promise.all([
     getActiveCategories(),
-    getCatalogProducts({ sort: "popular", limit: 4 }),
+    getCatalogProducts({ sort: "new", limit: 4 }),
     getActiveHomeBanners(),
     getCurrentUser(),
   ]);
@@ -134,13 +134,13 @@ export default async function Home() {
 
       <section className="mx-auto max-w-[1480px] px-5 pb-12">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-2xl font-black">Популярные товары</h2>
+          <h2 className="text-2xl font-black">Новые товары</h2>
           <Link className="text-sm font-bold text-[#1157ff]" href="/catalog">
             Смотреть все
           </Link>
         </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {popularProducts.map((product) => (
+          {latestProducts.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
         </div>

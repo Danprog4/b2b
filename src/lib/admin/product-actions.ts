@@ -270,7 +270,6 @@ function getProductValues(formData: FormData) {
   const unit = getString(formData, "unit");
   const size = getString(formData, "size");
   const description = getString(formData, "description");
-  const isPopular = formData.get("isPopular") === "on";
   const isActive = formData.get("isActive") === "on";
 
   if (!name || !categoryId || !unit || Number(priceWithVat) <= 0) {
@@ -287,7 +286,6 @@ function getProductValues(formData: FormData) {
     unit,
     size: size || null,
     description: description || null,
-    isPopular,
     isActive,
   };
 }

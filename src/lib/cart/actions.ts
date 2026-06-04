@@ -7,7 +7,7 @@ import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 
 import { db } from "@/db";
-import { cartItems, carts, products } from "@/db/schema";
+import { cartItems, carts, products, sellerOffers } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/session";
 import { CART_SESSION_COOKIE, findCartItem } from "@/lib/cart/queries";
 
@@ -61,14 +61,50 @@ async function getOrCreateCart() {
   return cart;
 }
 
-async function addProductToCurrentCart(productId: string, quantity: number) {
-  const [product] = await db
-    .select()
-    .from(products)
-    .where(and(eq(products.id, productId), eq(products.isActive, true)))
-    .limit(1);
+async function getSelectedOffer(productId: string, sellerOfferId?: string) {
+  const filters = [
+    eq(products.id, productId),
+    eq(products.isActive, true),
+    eq(sellerOffers.productId, products.id),
+    eq(sellerOffers.status, "published" as const),
+  ];
 
-  if (!product) {
+  if (sellerOfferId) {
+    filters.push(eq(sellerOffers.id, sellerOfferId));
+  }
+
+  const rows = await db
+    .select({
+      productId: products.id,
+      productName: products.name,
+      priorityOfferId: products.priorityOfferId,
+      offerId: sellerOffers.id,
+      priceWithVat: sellerOffers.priceWithVat,
+    })
+    .from(products)
+    .innerJoin(sellerOffers, eq(sellerOffers.productId, products.id))
+    .where(and(...filters));
+
+  if (rows.length === 0) {
+    return null;
+  }
+
+  return (
+    rows.find((row) => row.offerId === row.priorityOfferId) ??
+    rows.reduce((best, row) =>
+      Number(row.priceWithVat) < Number(best.priceWithVat) ? row : best,
+    )
+  );
+}
+
+async function addProductToCurrentCart(
+  productId: string,
+  quantity: number,
+  sellerOfferId?: string,
+) {
+  const selectedOffer = await getSelectedOffer(productId, sellerOfferId);
+
+  if (!selectedOffer) {
     return {
       ok: false,
       error: "product_unavailable",
@@ -83,7 +119,7 @@ async function addProductToCurrentCart(productId: string, quantity: number) {
     };
   }
 
-  const existingItem = await findCartItem(cart.id, product.id);
+  const existingItem = await findCartItem(cart.id, selectedOffer.offerId);
   let cartItemId = existingItem?.id;
   let nextQuantity = quantity;
 
@@ -94,7 +130,7 @@ async function addProductToCurrentCart(productId: string, quantity: number) {
       .update(cartItems)
       .set({
         quantity: String(nextQuantity),
-        priceSnapshot: product.priceWithVat,
+        priceSnapshot: selectedOffer.priceWithVat,
         updatedAt: new Date(),
       })
       .where(eq(cartItems.id, existingItem.id));
@@ -103,9 +139,10 @@ async function addProductToCurrentCart(productId: string, quantity: number) {
       .insert(cartItems)
       .values({
         cartId: cart.id,
-        productId: product.id,
+        productId: selectedOffer.productId,
+        sellerOfferId: selectedOffer.offerId,
         quantity: String(quantity),
-        priceSnapshot: product.priceWithVat,
+        priceSnapshot: selectedOffer.priceWithVat,
       })
       .returning({ id: cartItems.id });
 
@@ -115,8 +152,8 @@ async function addProductToCurrentCart(productId: string, quantity: number) {
   return {
     ok: true,
     itemId: cartItemId,
-    productId: product.id,
-    productName: product.name,
+    productId: selectedOffer.productId,
+    productName: selectedOffer.productName,
     quantity: nextQuantity,
   };
 }
@@ -170,8 +207,9 @@ function sanitizeQuantity(value: string) {
 
 export async function addToCartAction(formData: FormData) {
   const productId = getString(formData, "productId");
+  const sellerOfferId = getString(formData, "sellerOfferId") || undefined;
   const quantity = sanitizeQuantity(getString(formData, "quantity") || "1");
-  const result = await addProductToCurrentCart(productId, quantity);
+  const result = await addProductToCurrentCart(productId, quantity, sellerOfferId);
 
   revalidatePath("/");
   revalidatePath("/catalog");
@@ -180,8 +218,16 @@ export async function addToCartAction(formData: FormData) {
   return result;
 }
 
-export async function addProductToBuyerCart(productId: string, quantity: number) {
-  return addProductToCurrentCart(productId, Math.max(1, Math.min(quantity, 9999)));
+export async function addProductToBuyerCart(
+  productId: string,
+  quantity: number,
+  sellerOfferId?: string | null,
+) {
+  return addProductToCurrentCart(
+    productId,
+    Math.max(1, Math.min(quantity, 9999)),
+    sellerOfferId ?? undefined,
+  );
 }
 
 export async function updateCartItemAction(formData: FormData) {

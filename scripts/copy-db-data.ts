@@ -147,10 +147,11 @@ async function resetNumberSequences(sql: UnsafeSqlRunner) {
     select setval(
       '"city_market_invoice_number_seq"',
       coalesce(
+        (select max(substring(number from 4)::bigint) from invoices where number ~ '^СТ-[0-9]+$'),
         (select max(substring(number from 5)::bigint) from invoices where number ~ '^INV-[0-9]+$'),
         1
       ),
-      exists(select 1 from invoices where number ~ '^INV-[0-9]+$')
+      exists(select 1 from invoices where number ~ '^СТ-[0-9]+$' or number ~ '^INV-[0-9]+$')
     )
   `);
   await sql.unsafe(`

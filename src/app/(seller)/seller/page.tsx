@@ -7,7 +7,6 @@ import {
   Landmark,
   Package,
   Paperclip,
-  Percent,
   ReceiptText,
 } from "lucide-react";
 import Link from "next/link";
@@ -132,7 +131,6 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
         createdAt: orders.createdAt,
         itemCount: count(orderItems.id),
         sellerAmount: sql<string>`coalesce(sum(${orderItems.lineTotal}), 0)`,
-        commissionAmount: sql<string>`coalesce(sum(${orderItems.commissionAmount}), 0)`,
       })
       .from(orderItems)
       .innerJoin(orders, eq(orders.id, orderItems.orderId))
@@ -144,14 +142,13 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
       .select({
         orderCount: sql<number>`count(distinct ${orderItems.orderId})`,
         salesAmount: sql<string>`coalesce(sum(${orderItems.lineTotal}), 0)`,
-        commissionAmount: sql<string>`coalesce(sum(${orderItems.commissionAmount}), 0)`,
       })
       .from(orderItems)
       .innerJoin(orders, eq(orders.id, orderItems.orderId))
       .where(
         and(
           eq(orderItems.sellerId, seller.id),
-          inArray(orders.status, ["paid", "issued", "closed"]),
+          inArray(orders.status, ["paid", "issued"]),
         ),
       )
       .then(([row]) => row),
@@ -181,17 +178,14 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
   ]);
 
   const salesAmount = Number(financeSummary?.salesAmount ?? 0);
-  const commissionAmount = Number(financeSummary?.commissionAmount ?? 0);
-  const payoutAmount = salesAmount - commissionAmount;
   const sellerUpdDocument = documents.find((document) => document.type === "upd");
   const unreadSellerNotifications = notificationRows.filter(
     (notification) => !notification.isRead,
   ).length;
   const summaryCards = [
     ["Товары", productCounter?.count ?? 0, Boxes],
-    ["К выплате", financeSummary?.orderCount ?? 0, ReceiptText],
+    ["Заказы к выплате", financeSummary?.orderCount ?? 0, ReceiptText],
     ["Продажи", formatCurrency(salesAmount), Landmark],
-    ["Комиссия", formatCurrency(commissionAmount), Percent],
     ["УПД", sellerUpdDocument ? "Загружен" : "Не загружен", Paperclip],
   ] as const;
 
@@ -210,7 +204,7 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
           <LogoutButton />
         </div>
 
-        <section className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <section className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {summaryCards.map(([title, value, Icon]) => (
             <article
               className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-100"
@@ -252,10 +246,6 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                 <p>
                   <span className="font-bold text-slate-950">ОГРН:</span>{" "}
                   {seller.ogrn ?? "Не указан"}
-                </p>
-                <p>
-                  <span className="font-bold text-slate-950">Комиссия:</span>{" "}
-                  {Number(seller.commissionRate).toFixed(2)}%
                 </p>
                 <p>
                   <span className="font-bold text-slate-950">Контакт:</span>{" "}
@@ -383,7 +373,6 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                 ) : (
                   orderRows.map((order) => {
                     const amount = Number(order.sellerAmount);
-                    const commission = Number(order.commissionAmount);
 
                     return (
                       <Link
@@ -406,13 +395,12 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                               {formatCurrency(amount)}
                             </p>
                             <p className="mt-1 text-sm font-semibold text-slate-500">
-                              {Number(order.itemCount)} поз. · комиссия{" "}
-                              {formatCurrency(commission)}
+                              {Number(order.itemCount)} поз.
                             </p>
                           </div>
                         </div>
                         <div className="mt-4 rounded-lg bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600">
-                          К выплате: {formatCurrency(amount - commission)}
+                          К выплате: {formatCurrency(amount)}
                         </div>
                       </Link>
                     );
@@ -479,7 +467,7 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
 
             <section className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
               <div className="flex items-center gap-2">
-                <Percent className="text-[#1157ff]" size={22} />
+                <ReceiptText className="text-[#1157ff]" size={22} />
                 <h2 className="text-xl font-black text-slate-950">Финансы</h2>
               </div>
               <div className="mt-5 grid gap-3 text-sm">
@@ -488,14 +476,8 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                   <span className="font-black">{formatCurrency(salesAmount)}</span>
                 </div>
                 <div className="flex justify-between gap-3">
-                  <span className="text-slate-500">Комиссия</span>
-                  <span className="font-black">
-                    {formatCurrency(commissionAmount)}
-                  </span>
-                </div>
-                <div className="flex justify-between gap-3">
                   <span className="text-slate-500">К выплате</span>
-                  <span className="font-black">{formatCurrency(payoutAmount)}</span>
+                  <span className="font-black">{formatCurrency(salesAmount)}</span>
                 </div>
               </div>
               <p className="mt-4 rounded-lg bg-slate-50 px-3 py-2 text-sm leading-6 text-slate-600">

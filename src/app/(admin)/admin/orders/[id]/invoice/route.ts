@@ -27,7 +27,7 @@ export async function GET(_request: Request, { params }: InvoiceRouteProps) {
     .from(invoices)
     .innerJoin(orders, eq(invoices.orderId, orders.id))
     .innerJoin(files, eq(invoices.fileId, files.id))
-    .where(and(eq(orders.id, id), eq(files.isActive, true)))
+    .where(and(eq(orders.id, id), eq(invoices.isCurrent, true), eq(files.isActive, true)))
     .limit(1);
 
   if (!invoice) {

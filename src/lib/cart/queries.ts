@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { cookies } from "next/headers";
 
 import { db } from "@/db";
-import { cartItems, carts, categories, files, products } from "@/db/schema";
+import { cartItems, carts, categories, files, products, sellerOffers } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getPublicFileUrl } from "@/lib/files/urls";
 
@@ -11,6 +11,7 @@ export const CART_SESSION_COOKIE = "city_market_cart";
 export type CartLine = {
   id: string;
   productId: string;
+  sellerOfferId: string;
   sku: string;
   name: string;
   slug: string;
@@ -98,6 +99,7 @@ export async function getCurrentCart(): Promise<CartView> {
     .select({
       id: cartItems.id,
       productId: products.id,
+      sellerOfferId: sellerOffers.id,
       sku: products.sku,
       name: products.name,
       slug: products.slug,
@@ -105,15 +107,17 @@ export async function getCurrentCart(): Promise<CartView> {
       mainImageFileId: files.id,
       mainImageStorageKey: files.storageKey,
       mainImageIsActive: files.isActive,
-      priceWithVat: products.priceWithVat,
+      priceWithVat: sellerOffers.priceWithVat,
       priceSnapshot: cartItems.priceSnapshot,
-      vatRate: products.vatRate,
+      vatRate: sellerOffers.vatRate,
       quantity: cartItems.quantity,
       unit: products.unit,
-      isActive: products.isActive,
+      isProductActive: products.isActive,
+      offerStatus: sellerOffers.status,
     })
     .from(cartItems)
     .innerJoin(products, eq(cartItems.productId, products.id))
+    .innerJoin(sellerOffers, eq(cartItems.sellerOfferId, sellerOffers.id))
     .innerJoin(categories, eq(products.categoryId, categories.id))
     .leftJoin(files, eq(files.id, products.mainImageFileId))
     .where(eq(cartItems.cartId, cart.id));
@@ -136,6 +140,7 @@ export async function getCurrentCart(): Promise<CartView> {
       lineTotal,
       vatAmount: calculateVatAmount(lineTotal, vatRate),
       priceChanged: price !== snapshot,
+      isActive: row.isProductActive && row.offerStatus === "published",
     };
   });
 
@@ -148,11 +153,13 @@ export async function getCurrentCart(): Promise<CartView> {
   };
 }
 
-export async function findCartItem(cartId: string, productId: string) {
+export async function findCartItem(cartId: string, sellerOfferId: string) {
   const [item] = await db
     .select()
     .from(cartItems)
-    .where(and(eq(cartItems.cartId, cartId), eq(cartItems.productId, productId)))
+    .where(
+      and(eq(cartItems.cartId, cartId), eq(cartItems.sellerOfferId, sellerOfferId)),
+    )
     .limit(1);
 
   return item ?? null;

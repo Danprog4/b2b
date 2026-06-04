@@ -51,7 +51,7 @@ export function ProductCard({ product }: { product: ProductListItem }) {
         <span className="text-xl font-black leading-none">
           {formatCurrency(product.priceWithVat)}
         </span>
-        <AddToCartButton productId={product.id} />
+        <AddToCartButton productId={product.id} sellerOfferId={product.sellerOfferId} />
       </div>
     </article>
   );

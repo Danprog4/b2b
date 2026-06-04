@@ -12,11 +12,9 @@ export const marketplaceCategories = [
 ];
 
 export const orderStatuses = [
-  "new",
-  "awaiting_payment",
+  "accepted",
   "paid",
   "issued",
-  "closed",
   "cancelled",
 ] as const;
 
