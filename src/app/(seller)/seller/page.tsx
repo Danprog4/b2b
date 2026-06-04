@@ -26,7 +26,6 @@ import {
   paymentsToSeller,
   products,
   sellerOffers,
-  sellerProductChangeRequests,
   sellers,
   subcategories,
 } from "@/db/schema";
@@ -53,13 +52,13 @@ function getSellerStatusLabel(status: string) {
   return status === "active" ? "Активен" : "Неактивен";
 }
 
-function getOfferStatusLabel(status: string, hasPendingRequest: boolean) {
-  if (hasPendingRequest || status === "on_moderation") {
-    return "На модерации";
+function getOfferStatusLabel(status: string) {
+  if (status === "published") {
+    return "Продается";
   }
 
-  if (status === "published") {
-    return "Опубликован";
+  if (status === "on_moderation") {
+    return "Не продается";
   }
 
   if (status === "rejected") {
@@ -73,13 +72,13 @@ function getOfferStatusLabel(status: string, hasPendingRequest: boolean) {
   return "Черновик";
 }
 
-function getOfferStatusClassName(status: string, hasPendingRequest: boolean) {
-  if (hasPendingRequest || status === "on_moderation") {
-    return "bg-amber-50 text-amber-700";
-  }
-
+function getOfferStatusClassName(status: string) {
   if (status === "published") {
     return "bg-emerald-50 text-emerald-700";
+  }
+
+  if (status === "on_moderation") {
+    return "bg-amber-50 text-amber-700";
   }
 
   if (status === "rejected") {
@@ -153,7 +152,16 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
         unit: products.unit,
         isActive: products.isActive,
         offerStatus: sellerOffers.status,
-        pendingRequestId: sellerProductChangeRequests.id,
+        pendingRequestId: sql<string | null>`(
+          select "id"
+          from "seller_product_change_requests"
+          where
+            "product_id" = ${products.id}
+            and "seller_id" = ${seller.id}
+            and "status" = 'on_moderation'
+          order by "submitted_at" desc
+          limit 1
+        )`,
         categoryName: categories.name,
         subcategoryName: subcategories.name,
         imageFileId: files.id,
@@ -166,14 +174,6 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
         and(
           eq(sellerOffers.productId, products.id),
           eq(sellerOffers.sellerId, seller.id),
-        ),
-      )
-      .leftJoin(
-        sellerProductChangeRequests,
-        and(
-          eq(sellerProductChangeRequests.productId, products.id),
-          eq(sellerProductChangeRequests.sellerId, seller.id),
-          eq(sellerProductChangeRequests.status, "on_moderation"),
         ),
       )
       .innerJoin(categories, eq(categories.id, products.categoryId))
@@ -262,18 +262,30 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
     (notification) => !notification.isRead,
   ).length;
   const summaryCards = [
-    [
-      "Товары",
-      `${publishedProductsCount}/${moderationProductsCount}/${rejectedProductsCount}`,
-      Boxes,
-    ],
-    ["Заказы к выплате", financeSummary?.orderCount ?? 0, ReceiptText],
-    ["Продажи", formatCurrency(salesAmount), Landmark],
-    [
-      "Карточка компании",
-      sellerCompanyCardDocument ? "Загружена" : "Не загружена",
-      Paperclip,
-    ],
+    {
+      title: "Товары",
+      value: publishedProductsCount,
+      description: `Продается · на модерации ${moderationProductsCount} · отклонено ${rejectedProductsCount}`,
+      Icon: Boxes,
+    },
+    {
+      title: "Заказы к выплате",
+      value: financeSummary?.orderCount ?? 0,
+      description: "Оплаченные и выданные заказы",
+      Icon: ReceiptText,
+    },
+    {
+      title: "Продажи",
+      value: formatCurrency(salesAmount),
+      description: "Сумма по оплаченным/выданным позициям",
+      Icon: Landmark,
+    },
+    {
+      title: "Карточка компании",
+      value: sellerCompanyCardDocument ? "Загружена" : "Не загружена",
+      description: "Документ продавца",
+      Icon: Paperclip,
+    },
   ] as const;
 
   return (
@@ -292,7 +304,7 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
         </div>
 
         <section className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {summaryCards.map(([title, value, Icon]) => (
+          {summaryCards.map(({ title, value, description, Icon }) => (
             <article
               className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-100"
               key={title}
@@ -300,6 +312,9 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
               <Icon className="text-[#1157ff]" size={24} />
               <p className="mt-4 text-sm font-bold text-slate-500">{title}</p>
               <p className="mt-2 text-2xl font-black text-slate-950">{value}</p>
+              <p className="mt-2 text-xs font-bold leading-5 text-slate-500">
+                {description}
+              </p>
             </article>
           ))}
         </section>
@@ -408,7 +423,10 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                       return (
                         <tr key={product.id}>
                           <td className="px-4 py-3">
-                            <div className="flex items-center gap-3">
+                            <Link
+                              className="flex items-center gap-3 transition hover:text-[#1157ff]"
+                              href={`/seller/products/${product.id}`}
+                            >
                               <span className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-100 text-slate-300">
                                 {imageUrl ? (
                                   <img
@@ -428,7 +446,7 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                                   {product.sku} · {product.unit}
                                 </span>
                               </span>
-                            </div>
+                            </Link>
                           </td>
                           <td className="px-4 py-3 text-slate-600">
                             <span className="block font-bold text-slate-950">
@@ -445,17 +463,25 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                             {Number(product.vatRate ?? 22).toFixed(0)}%
                           </td>
                           <td className="px-4 py-3">
-                            <span
-                              className={`rounded-full px-3 py-1 text-xs font-bold ${getOfferStatusClassName(
-                                product.offerStatus,
-                                Boolean(product.pendingRequestId),
-                              )}`}
-                            >
-                              {getOfferStatusLabel(
-                                product.offerStatus,
-                                Boolean(product.pendingRequestId),
-                              )}
-                            </span>
+                            <div className="flex flex-wrap gap-2">
+                              <span
+                                className={`rounded-full px-3 py-1 text-xs font-bold ${getOfferStatusClassName(
+                                  product.offerStatus,
+                                )}`}
+                              >
+                                {getOfferStatusLabel(product.offerStatus)}
+                              </span>
+                              {product.pendingRequestId ? (
+                                <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
+                                  Изменения на модерации
+                                </span>
+                              ) : null}
+                            </div>
+                            {product.offerStatus === "published" && product.pendingRequestId ? (
+                              <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
+                                Текущая версия остаётся в каталоге до решения админа.
+                              </p>
+                            ) : null}
                           </td>
                           <td className="px-4 py-3 text-right">
                             <Link

@@ -1,6 +1,6 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -99,7 +99,31 @@ export async function approveProductModerationRequestAction(formData: FormData) 
     redirect("/admin/products/moderation?error=payload");
   }
 
+  let wasAlreadyProcessed = false;
+
   await db.transaction(async (tx) => {
+    const [moderatedRequest] = await tx
+      .update(sellerProductChangeRequests)
+      .set({
+        status: "published",
+        moderationComment: comment || null,
+        moderatedAt: new Date(),
+        moderatedById: admin.id,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(sellerProductChangeRequests.id, request.id),
+          eq(sellerProductChangeRequests.status, "on_moderation"),
+        ),
+      )
+      .returning({ id: sellerProductChangeRequests.id });
+
+    if (!moderatedRequest) {
+      wasAlreadyProcessed = true;
+      return;
+    }
+
     await tx
       .update(products)
       .set({
@@ -132,22 +156,14 @@ export async function approveProductModerationRequestAction(formData: FormData) 
       })
       .where(eq(sellerOffers.id, sellerOfferId));
 
-    await tx
-      .update(sellerProductChangeRequests)
-      .set({
-        status: "published",
-        moderationComment: comment || null,
-        moderatedAt: new Date(),
-        moderatedById: admin.id,
-        updatedAt: new Date(),
-      })
-      .where(eq(sellerProductChangeRequests.id, request.id));
-
     await insertSellerNotifications(tx, {
       sellerId: request.sellerId,
       type: "product_published",
-      title: "Товар опубликован",
-      body: payload.name,
+      title:
+        request.type === "update"
+          ? "Изменения товара опубликованы"
+          : "Товар опубликован",
+      body: comment ? `${payload.name}: ${comment}` : payload.name,
     });
 
     await tx.insert(auditEvents).values({
@@ -162,6 +178,10 @@ export async function approveProductModerationRequestAction(formData: FormData) 
       },
     });
   });
+
+  if (wasAlreadyProcessed) {
+    redirect("/admin/products/moderation?error=not-found");
+  }
 
   revalidatePath("/");
   revalidatePath("/catalog");
@@ -187,8 +207,10 @@ export async function rejectProductModerationRequestAction(formData: FormData) {
     redirect("/admin/products/moderation?error=not-found");
   }
 
+  let wasAlreadyProcessed = false;
+
   await db.transaction(async (tx) => {
-    await tx
+    const [moderatedRequest] = await tx
       .update(sellerProductChangeRequests)
       .set({
         status: "rejected",
@@ -197,7 +219,18 @@ export async function rejectProductModerationRequestAction(formData: FormData) {
         moderatedById: admin.id,
         updatedAt: new Date(),
       })
-      .where(eq(sellerProductChangeRequests.id, request.id));
+      .where(
+        and(
+          eq(sellerProductChangeRequests.id, request.id),
+          eq(sellerProductChangeRequests.status, "on_moderation"),
+        ),
+      )
+      .returning({ id: sellerProductChangeRequests.id });
+
+    if (!moderatedRequest) {
+      wasAlreadyProcessed = true;
+      return;
+    }
 
     if (request.type === "create" && request.sellerOfferId) {
       await tx
@@ -215,8 +248,10 @@ export async function rejectProductModerationRequestAction(formData: FormData) {
     await insertSellerNotifications(tx, {
       sellerId: request.sellerId,
       type: "product_rejected",
-      title: "Товар отклонен",
-      body: comment || "Проверьте карточку товара.",
+      title: "Модерация товара не пройдена",
+      body: `${normalizePayload(request.payload).name || "Товар"}: ${
+        comment || "Проверьте карточку товара."
+      }`,
     });
 
     await tx.insert(auditEvents).values({
@@ -231,6 +266,10 @@ export async function rejectProductModerationRequestAction(formData: FormData) {
       },
     });
   });
+
+  if (wasAlreadyProcessed) {
+    redirect("/admin/products/moderation?error=not-found");
+  }
 
   revalidatePath("/seller");
   revalidatePath("/admin/products/moderation");

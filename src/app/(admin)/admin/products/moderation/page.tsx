@@ -7,6 +7,7 @@ import { db } from "@/db";
 import {
   categories,
   products,
+  sellerOffers,
   sellerProductChangeRequests,
   sellers,
   subcategories,
@@ -54,6 +55,11 @@ export default async function ProductModerationPage({
       productId: sellerProductChangeRequests.productId,
       productSku: products.sku,
       productName: products.name,
+      currentPriceWithVat: sellerOffers.priceWithVat,
+      currentVatRate: sellerOffers.vatRate,
+      currentOfferStatus: sellerOffers.status,
+      currentUnit: products.unit,
+      currentSize: products.size,
       sellerName: sellers.name,
       categoryName: categories.name,
       subcategoryName: subcategories.name,
@@ -61,6 +67,10 @@ export default async function ProductModerationPage({
     .from(sellerProductChangeRequests)
     .innerJoin(sellers, eq(sellers.id, sellerProductChangeRequests.sellerId))
     .leftJoin(products, eq(products.id, sellerProductChangeRequests.productId))
+    .leftJoin(
+      sellerOffers,
+      eq(sellerOffers.id, sellerProductChangeRequests.sellerOfferId),
+    )
     .leftJoin(
       categories,
       eq(categories.id, products.categoryId),
@@ -122,6 +132,8 @@ export default async function ProductModerationPage({
             const unit = getPayloadString(request.payload, "unit");
             const size = getPayloadString(request.payload, "size");
             const description = getPayloadString(request.payload, "description");
+            const isUpdate = request.type === "update";
+            const currentIsPublished = request.currentOfferStatus === "published";
 
             return (
               <article
@@ -185,6 +197,46 @@ export default async function ProductModerationPage({
                   <p className="mt-4 rounded-lg bg-slate-50 p-3 text-sm leading-6 text-slate-600">
                     {description}
                   </p>
+                ) : null}
+
+                {isUpdate ? (
+                  <div className="mt-5 grid gap-3 lg:grid-cols-2">
+                    <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-4">
+                      <p className="text-xs font-black uppercase text-emerald-700">
+                        Сейчас на витрине
+                      </p>
+                      <h3 className="mt-2 font-black text-slate-950">
+                        {request.productName ?? "Без названия"}
+                      </h3>
+                      <p className="mt-1 text-sm font-semibold text-slate-600">
+                        {formatCurrency(request.currentPriceWithVat ?? "0")} · НДС{" "}
+                        {Number(request.currentVatRate ?? 22).toFixed(0)}% ·{" "}
+                        {request.currentUnit}
+                        {request.currentSize ? ` · ${request.currentSize}` : ""}
+                      </p>
+                      <p className="mt-3 text-xs font-bold text-emerald-700">
+                        {currentIsPublished
+                          ? "Старая версия продаётся до одобрения изменений."
+                          : "Текущая версия не опубликована."}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-amber-100 bg-amber-50 p-4">
+                      <p className="text-xs font-black uppercase text-amber-700">
+                        Будет после одобрения
+                      </p>
+                      <h3 className="mt-2 font-black text-slate-950">
+                        {name || "Без названия"}
+                      </h3>
+                      <p className="mt-1 text-sm font-semibold text-slate-600">
+                        {formatCurrency(priceWithVat || "0")} · НДС{" "}
+                        {Number(vatRate).toFixed(0)}% · {unit}
+                        {size ? ` · ${size}` : ""}
+                      </p>
+                      <p className="mt-3 text-xs font-bold text-amber-700">
+                        Отклонение заявки не меняет текущую продажную версию.
+                      </p>
+                    </div>
+                  </div>
                 ) : null}
 
                 <div className="mt-5 grid gap-3 lg:grid-cols-2">

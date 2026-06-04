@@ -357,6 +357,25 @@ export async function requestSellerProductUpdateAction(formData: FormData) {
     redirect("/seller");
   }
 
+  const [existingPendingRequest] = await db
+    .select({ id: sellerProductChangeRequests.id })
+    .from(sellerProductChangeRequests)
+    .where(
+      and(
+        eq(sellerProductChangeRequests.productId, productId),
+        eq(sellerProductChangeRequests.sellerId, sellerId),
+        eq(sellerProductChangeRequests.status, "on_moderation"),
+      ),
+    )
+    .limit(1);
+
+  if (existingPendingRequest) {
+    redirectWithProductError(
+      returnPath,
+      "У товара уже есть изменения на модерации.",
+    );
+  }
+
   const nextPayload: SellerProductPayload = { ...payload };
   if (isUploadedFile(mainImage)) {
     nextPayload.mainImageFileId = await persistProductImageFile({

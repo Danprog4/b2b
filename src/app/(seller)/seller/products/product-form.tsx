@@ -1,7 +1,7 @@
 import { ImageIcon } from "lucide-react";
 
 import { FileUploadField } from "@/components/ui/file-upload-field";
-import { SubmitButton } from "@/components/ui/submit-button";
+import { ProductSubmitButton } from "./product-submit-button";
 
 type Option = {
   id: string;
@@ -166,12 +166,22 @@ export function SellerProductForm({
         </div>
       </section>
 
-      <SubmitButton
-        className="h-12 justify-self-start rounded-lg bg-[#1157ff] px-6 font-bold text-white transition hover:bg-[#0b49e0]"
-        pendingText="Отправляем"
+      {product ? (
+        <div className="rounded-lg bg-amber-50 px-4 py-3 text-sm font-semibold leading-6 text-amber-800">
+          После отправки текущая опубликованная версия останется в каталоге.
+          Новые данные применятся только после модерации администратора.
+        </div>
+      ) : null}
+
+      <ProductSubmitButton
+        confirmMessage={
+          product
+            ? "Отправить изменения на модерацию? Текущая опубликованная версия останется в продаже до решения администратора."
+            : undefined
+        }
       >
         {submitText}
-      </SubmitButton>
+      </ProductSubmitButton>
     </form>
   );
 }
