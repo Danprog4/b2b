@@ -1,4 +1,11 @@
-import { Clock3, Download, FileText, Paperclip, ShoppingCart } from "lucide-react";
+import {
+  Clock3,
+  Download,
+  FileText,
+  Paperclip,
+  ShoppingCart,
+  XCircle,
+} from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -12,7 +19,7 @@ import {
   getCurrentBuyerOrder,
   getCurrentBuyerOrderStatusHistory,
 } from "@/lib/orders/queries";
-import { repeatOrderAction } from "@/lib/orders/actions";
+import { cancelAcceptedOrderAction, repeatOrderAction } from "@/lib/orders/actions";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { markCurrentBuyerOrderViewed } from "@/lib/orders/view-actions";
@@ -31,6 +38,8 @@ export default async function AccountOrderPage({
   const search = (await searchParams) ?? {};
   const created = search.created === "1";
   const editError = search.editError === "status";
+  const cancelled = search.cancelled === "1";
+  const cancelError = search.cancelError === "status";
   const order = await getCurrentBuyerOrder(id);
 
   if (!order) {
@@ -77,6 +86,18 @@ export default async function AccountOrderPage({
         {editError ? (
           <div className="mt-5 rounded-lg bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
             Этот заказ нельзя переоформить: он уже выдан или отменен.
+          </div>
+        ) : null}
+
+        {cancelled ? (
+          <div className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
+            Заказ отменен.
+          </div>
+        ) : null}
+
+        {cancelError ? (
+          <div className="mt-5 rounded-lg bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
+            Отменить можно только заказ в статусе «Принят».
           </div>
         ) : null}
 
@@ -183,6 +204,18 @@ export default async function AccountOrderPage({
             ) : null}
             {order.status === "accepted" ? (
               <EditOrderButton orderId={order.id} />
+            ) : null}
+            {order.status === "accepted" ? (
+              <form action={cancelAcceptedOrderAction} className="mt-3">
+                <input name="orderId" type="hidden" value={order.id} />
+                <SubmitButton
+                  className="h-12 w-full rounded-lg bg-red-50 font-bold text-red-700 transition hover:bg-red-100"
+                  pendingText="Отменяем"
+                >
+                  <XCircle size={18} />
+                  Отменить заказ
+                </SubmitButton>
+              </form>
             ) : null}
             <form action={repeatOrderAction} className="mt-5">
               <input name="orderId" type="hidden" value={order.id} />

@@ -25,7 +25,11 @@ import {
   getNextInvoiceNumber,
   getNextOrderNumber,
 } from "@/lib/numbering/sequences";
-import { insertSellerNotifications } from "@/lib/notifications/helpers";
+import {
+  insertAdminNotifications,
+  insertBuyerCompanyNotifications,
+  insertSellerNotifications,
+} from "@/lib/notifications/helpers";
 
 function getString(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -306,4 +310,101 @@ export async function repeatOrderAction(formData: FormData) {
   }
 
   redirect(`/cart?${params.toString()}`);
+}
+
+export async function cancelAcceptedOrderAction(formData: FormData) {
+  const user = await requireUser(["buyer"]);
+  const orderId = getString(formData, "orderId");
+
+  if (!user.buyerCompanyId || !orderId) {
+    redirect("/account/orders");
+  }
+
+  const [order] = await db
+    .select({
+      id: orders.id,
+      number: orders.number,
+      status: orders.status,
+      buyerCompanyId: orders.buyerCompanyId,
+    })
+    .from(orders)
+    .where(eq(orders.id, orderId))
+    .limit(1);
+
+  if (!order || order.buyerCompanyId !== user.buyerCompanyId) {
+    redirect("/account/orders");
+  }
+
+  if (order.status !== "accepted") {
+    redirect(`/account/orders/${order.id}?cancelError=status`);
+  }
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(orders)
+      .set({
+        status: "cancelled",
+        updatedAt: new Date(),
+      })
+      .where(eq(orders.id, order.id));
+
+    const sellerRows = await tx
+      .select({ sellerId: orderItems.sellerId })
+      .from(orderItems)
+      .where(eq(orderItems.orderId, order.id));
+    const sellerIds = Array.from(
+      new Set(
+        sellerRows
+          .map((row) => row.sellerId)
+          .filter((sellerId): sellerId is string => Boolean(sellerId)),
+      ),
+    );
+
+    await insertBuyerCompanyNotifications(tx, {
+      buyerCompanyId: order.buyerCompanyId,
+      type: "order_cancelled",
+      title: `Заказ ${order.number} отменен`,
+      body: "Заказ отменен покупателем.",
+    });
+
+    await insertAdminNotifications(tx, {
+      type: "order_cancelled_by_buyer",
+      title: `Покупатель отменил заказ ${order.number}`,
+      body: "Заказ был в статусе «Принят».",
+      buyerCompanyId: order.buyerCompanyId,
+    });
+
+    for (const sellerId of sellerIds) {
+      await insertSellerNotifications(tx, {
+        sellerId,
+        type: "order_cancelled",
+        title: `Заказ ${order.number} отменен`,
+        body: "Покупатель отменил заказ до оплаты.",
+      });
+    }
+
+    await tx.insert(auditEvents).values({
+      actorId: user.id,
+      action: "order.status_update",
+      entityType: "order",
+      entityId: order.id,
+      metadata: {
+        from: "accepted",
+        to: "cancelled",
+        source: "buyer_cancel",
+      },
+    });
+  });
+
+  revalidatePath("/account");
+  revalidatePath("/account/orders");
+  revalidatePath(`/account/orders/${order.id}`);
+  revalidatePath("/account/notifications");
+  revalidatePath("/admin");
+  revalidatePath("/admin/orders");
+  revalidatePath(`/admin/orders/${order.id}`);
+  revalidatePath("/admin/notifications");
+  revalidatePath("/seller");
+
+  redirect(`/account/orders/${order.id}?cancelled=1`);
 }
