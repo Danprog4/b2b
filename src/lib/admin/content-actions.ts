@@ -231,6 +231,10 @@ export async function createBannerAction(formData: FormData) {
   const desktopImage = formData.get("desktopImage");
   const mobileImage = formData.get("mobileImage");
 
+  if (!isUploadedFile(desktopImage)) {
+    redirectWithBannerError(null, "Загрузите изображение баннера.");
+  }
+
   if (isUploadedFile(desktopImage)) {
     validateBannerImage(desktopImage, null);
   }

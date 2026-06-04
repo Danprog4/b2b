@@ -101,15 +101,6 @@ function BannerPreview({
       )}
       <div className="absolute inset-0 bg-white/45 backdrop-blur-[1px]" />
       <div className={isMobile ? "relative p-5" : "relative max-w-[62%] p-8"}>
-        <p
-          className={
-            isMobile
-              ? "mb-3 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1157ff]"
-              : "mb-3 text-xs font-bold uppercase tracking-[0.14em] text-[#1157ff]"
-          }
-        >
-          B2B закупки
-        </p>
         <h3
           className={
             isMobile
@@ -117,8 +108,19 @@ function BannerPreview({
               : "line-clamp-2 text-4xl font-black leading-tight text-slate-950"
           }
         >
-          {headline || title || "Название баннера"}
+          {title || "Название баннера"}
         </h3>
+        {headline ? (
+          <p
+            className={
+              isMobile
+                ? "mt-3 line-clamp-3 text-base font-black leading-5 text-slate-900"
+                : "mt-4 line-clamp-2 text-xl font-black leading-7 text-slate-900"
+            }
+          >
+            {headline}
+          </p>
+        ) : null}
         {subheadline ? (
           <p
             className={
@@ -276,7 +278,7 @@ export function BannerForm({
         {banner ? <input name="bannerId" type="hidden" value={banner.id} /> : null}
 
         <label className="grid gap-2 text-sm font-bold text-slate-700">
-          Внутреннее название
+          Название
           <input
             className="h-11 rounded-lg border border-slate-200 px-3 font-normal text-slate-950"
             name="title"
@@ -287,7 +289,7 @@ export function BannerForm({
         </label>
 
         <label className="grid gap-2 text-sm font-bold text-slate-700">
-          Заголовок
+          Дополнительный заголовок
           <input
             className="h-11 rounded-lg border border-slate-200 px-3 font-normal text-slate-950"
             name="headline"
@@ -443,6 +445,7 @@ export function BannerForm({
               buttonText="Загрузить"
               initialFileLabel={banner?.desktopImageUrl ? "Desktop-файл выбран" : undefined}
               name="desktopImage"
+              required={!isEdit}
               onFilesChange={(files) => {
                 setDesktopUploadUrl(files[0] ? URL.createObjectURL(files[0]) : null);
               }}

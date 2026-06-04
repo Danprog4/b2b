@@ -124,27 +124,24 @@ export function HomeBannerCarousel({
         }`}
       >
         <div className="max-w-2xl">
-          <p className="mb-3 text-sm font-bold uppercase tracking-[0.16em] text-[#1157ff]">
-            B2B закупки
-          </p>
           <h1 className="text-4xl font-black leading-tight text-slate-950 md:text-6xl">
-            {activeBanner.headline || activeBanner.title}
+            {activeBanner.title}
           </h1>
+          {activeBanner.headline ? (
+            <p className="mt-5 max-w-xl text-xl font-black leading-7 text-slate-900">
+              {activeBanner.headline}
+            </p>
+          ) : null}
           {activeBanner.subheadline ? (
             <p className="mt-5 max-w-xl text-lg leading-8 text-slate-600">
               {activeBanner.subheadline}
             </p>
           ) : null}
-          <div className="mt-8 flex flex-wrap gap-3">
-            {activeBanner.ctaText ? (
+          {activeBanner.ctaText ? (
+            <div className="mt-8 flex flex-wrap gap-3">
               <BannerAction href={activeBanner.href}>{activeBanner.ctaText}</BannerAction>
-            ) : null}
-            {!isAuthenticated ? (
-              <BannerAction href="/register" variant="secondary">
-                Зарегистрировать компанию
-              </BannerAction>
-            ) : null}
-          </div>
+            </div>
+          ) : null}
         </div>
       </div>
 

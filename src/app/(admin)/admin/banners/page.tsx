@@ -15,7 +15,6 @@ export default async function AdminBannersPage() {
     .select({
       id: banners.id,
       title: banners.title,
-      headline: banners.headline,
       href: banners.href,
       sortOrder: banners.sortOrder,
       isActive: banners.isActive,
@@ -115,7 +114,7 @@ export default async function AdminBannersPage() {
                             {banner.title}
                           </span>
                           <span className="mt-1 block text-slate-500">
-                            {banner.headline ?? "Без заголовка"}
+                            {imageUrl ? "Изображение загружено" : "Нет изображения"}
                           </span>
                         </span>
                       </Link>
