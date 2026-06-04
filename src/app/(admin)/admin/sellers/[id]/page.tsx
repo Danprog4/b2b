@@ -1,5 +1,5 @@
 import { and, asc, count, desc, eq, sql } from "drizzle-orm";
-import { Download, FileText, Package } from "lucide-react";
+import { CreditCard, Download, FileText, Package, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -13,10 +13,16 @@ import {
   files,
   orderItems,
   orders,
+  paymentsToSeller,
   products,
   sellers,
 } from "@/db/schema";
-import { updateSellerAction } from "@/lib/admin/seller-actions";
+import {
+  createSellerPaymentAction,
+  deleteSellerPaymentAction,
+  updateSellerAction,
+  updateSellerPaymentAction,
+} from "@/lib/admin/seller-actions";
 import { requireUser } from "@/lib/auth/session";
 import {
   uploadAdminDocumentAction,
@@ -52,6 +58,14 @@ function getErrorMessage(error: string | undefined) {
   return null;
 }
 
+function toDateInputValue(date: Date | null) {
+  if (!date) {
+    return "";
+  }
+
+  return date.toISOString().slice(0, 10);
+}
+
 export default async function AdminSellerPage({
   params,
   searchParams,
@@ -61,6 +75,9 @@ export default async function AdminSellerPage({
   const search = (await searchParams) ?? {};
   const created = search.created === "1";
   const saved = search.saved === "1";
+  const paymentSaved = search.paymentSaved === "1";
+  const paymentDeleted = search.paymentDeleted === "1";
+  const paymentError = search.paymentError === "1";
   const documentUploaded = search.documentUploaded === "1";
   const documentUpdated = search.documentUpdated === "1";
   const documentError =
@@ -84,6 +101,7 @@ export default async function AdminSellerPage({
     orderSummary,
     recentProducts,
     recentOrders,
+    sellerPayments,
     sellerDocuments,
   ] =
     await Promise.all([
@@ -135,6 +153,22 @@ export default async function AdminSellerPage({
         .limit(8),
       db
         .select({
+          id: paymentsToSeller.id,
+          periodFrom: paymentsToSeller.periodFrom,
+          periodTo: paymentsToSeller.periodTo,
+          salesAmount: paymentsToSeller.salesAmount,
+          commissionAmount: paymentsToSeller.commissionAmount,
+          payoutAmount: paymentsToSeller.payoutAmount,
+          paidAt: paymentsToSeller.paidAt,
+          comment: paymentsToSeller.comment,
+          createdAt: paymentsToSeller.createdAt,
+        })
+        .from(paymentsToSeller)
+        .where(eq(paymentsToSeller.sellerId, seller.id))
+        .orderBy(desc(paymentsToSeller.createdAt))
+        .limit(20),
+      db
+        .select({
           id: documents.id,
           type: documents.type,
           title: documents.title,
@@ -166,6 +200,16 @@ export default async function AdminSellerPage({
         .orderBy(desc(documents.createdAt))
         .limit(10),
     ]);
+  const paidPaymentsAmount = sellerPayments.reduce(
+    (sum, payment) => sum + Number(payment.payoutAmount),
+    0,
+  );
+  const defaultSalesAmount = Number(orderSummary?.sellerAmount ?? 0);
+  const defaultCommissionAmount = Number(orderSummary?.commissionAmount ?? 0);
+  const defaultPayoutAmount = Math.max(
+    defaultSalesAmount - defaultCommissionAmount,
+    0,
+  );
 
   return (
     <main className="min-h-screen bg-slate-100 px-6 py-8 text-slate-900">
@@ -222,6 +266,18 @@ export default async function AdminSellerPage({
           </div>
         ) : null}
 
+        {paymentSaved || paymentDeleted ? (
+          <div className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
+            {paymentDeleted ? "Выплата удалена." : "Выплата сохранена."}
+          </div>
+        ) : null}
+
+        {paymentError ? (
+          <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+            Проверьте период и суммы выплаты.
+          </div>
+        ) : null}
+
         <div className="mt-5 grid items-start gap-5 xl:grid-cols-[1fr_360px]">
           <section className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
             <SellerForm
@@ -264,6 +320,12 @@ export default async function AdminSellerPage({
                   </span>
                 </div>
                 <div className="flex justify-between gap-3">
+                  <span className="text-slate-500">Выплачено</span>
+                  <span className="font-black">
+                    {formatCurrency(paidPaymentsAmount)}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-3">
                   <span className="text-slate-500">Документы</span>
                   <span className="font-black">{sellerDocuments.length}</span>
                 </div>
@@ -300,6 +362,237 @@ export default async function AdminSellerPage({
             </section>
           </aside>
         </div>
+
+        <section
+          className="mt-5 rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200"
+          id="payments"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h2 className="flex items-center gap-2 text-xl font-black text-slate-950">
+                <CreditCard size={20} />
+                Финансы и выплаты
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                Выплаты фиксируются вручную. Продавец видит сумму, период, дату
+                оплаты и комментарий без комиссии.
+              </p>
+            </div>
+          </div>
+
+          <form
+            action={createSellerPaymentAction}
+            className="mt-5 grid gap-4 rounded-xl bg-slate-50 p-4"
+          >
+            <input name="sellerId" type="hidden" value={seller.id} />
+            <div className="grid gap-4 lg:grid-cols-4">
+              <label className="grid gap-2 text-sm font-bold text-slate-700">
+                Период с
+                <input
+                  className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-semibold"
+                  name="periodFrom"
+                  type="date"
+                  required
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-bold text-slate-700">
+                Период по
+                <input
+                  className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-semibold"
+                  name="periodTo"
+                  type="date"
+                  required
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-bold text-slate-700">
+                Продажи
+                <input
+                  className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-semibold"
+                  name="salesAmount"
+                  step="0.01"
+                  type="number"
+                  defaultValue={defaultSalesAmount.toFixed(2)}
+                  required
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-bold text-slate-700">
+                Комиссия
+                <input
+                  className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-semibold"
+                  name="commissionAmount"
+                  step="0.01"
+                  type="number"
+                  defaultValue={defaultCommissionAmount.toFixed(2)}
+                  required
+                />
+              </label>
+            </div>
+            <div className="grid gap-4 lg:grid-cols-[180px_180px_minmax(0,1fr)_auto]">
+              <label className="grid gap-2 text-sm font-bold text-slate-700">
+                К выплате
+                <input
+                  className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-semibold"
+                  name="payoutAmount"
+                  step="0.01"
+                  type="number"
+                  defaultValue={defaultPayoutAmount.toFixed(2)}
+                  required
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-bold text-slate-700">
+                Дата оплаты
+                <input
+                  className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-semibold"
+                  name="paidAt"
+                  type="date"
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-bold text-slate-700">
+                Комментарий
+                <input
+                  className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-semibold"
+                  name="comment"
+                  placeholder="Необязательно"
+                />
+              </label>
+              <div className="flex items-end">
+                <SubmitButton
+                  className="h-11 rounded-lg bg-[#1157ff] px-5 text-sm font-bold text-white transition hover:bg-[#0b49e0]"
+                  pendingText="Сохраняем"
+                >
+                  Сохранить выплату
+                </SubmitButton>
+              </div>
+            </div>
+          </form>
+
+          <div className="mt-5 grid gap-3">
+            {sellerPayments.length === 0 ? (
+              <div className="flex min-h-24 items-center justify-center rounded-xl border border-dashed border-slate-200 text-center text-sm font-bold text-slate-500">
+                Выплаты продавцу пока не зафиксированы.
+              </div>
+            ) : (
+              sellerPayments.map((payment) => (
+                <article
+                  className="rounded-xl border border-slate-200 p-4"
+                  id={`payments-${payment.id}`}
+                  key={payment.id}
+                >
+                  <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="font-black text-slate-950">
+                        {formatCurrency(payment.payoutAmount)}
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-slate-500">
+                        {formatDateTime(payment.periodFrom)} -{" "}
+                        {formatDateTime(payment.periodTo)} ·{" "}
+                        {payment.paidAt
+                          ? `оплачено ${formatDateTime(payment.paidAt)}`
+                          : "ожидает оплаты"}
+                      </p>
+                    </div>
+                    <form action={deleteSellerPaymentAction}>
+                      <input name="sellerId" type="hidden" value={seller.id} />
+                      <input name="paymentId" type="hidden" value={payment.id} />
+                      <SubmitButton
+                        className="h-10 rounded-lg bg-red-50 px-3 text-sm font-bold text-red-700 transition hover:bg-red-100"
+                        pendingText="..."
+                      >
+                        <Trash2 size={15} />
+                        Удалить
+                      </SubmitButton>
+                    </form>
+                  </div>
+                  <form
+                    action={updateSellerPaymentAction}
+                    className="grid gap-3 rounded-lg bg-slate-50 p-3 lg:grid-cols-4"
+                  >
+                    <input name="sellerId" type="hidden" value={seller.id} />
+                    <input name="paymentId" type="hidden" value={payment.id} />
+                    <label className="grid gap-2 text-sm font-bold text-slate-700">
+                      Период с
+                      <input
+                        className="h-10 rounded-lg border border-slate-200 bg-white px-3 font-semibold"
+                        name="periodFrom"
+                        type="date"
+                        defaultValue={toDateInputValue(payment.periodFrom)}
+                        required
+                      />
+                    </label>
+                    <label className="grid gap-2 text-sm font-bold text-slate-700">
+                      Период по
+                      <input
+                        className="h-10 rounded-lg border border-slate-200 bg-white px-3 font-semibold"
+                        name="periodTo"
+                        type="date"
+                        defaultValue={toDateInputValue(payment.periodTo)}
+                        required
+                      />
+                    </label>
+                    <label className="grid gap-2 text-sm font-bold text-slate-700">
+                      Продажи
+                      <input
+                        className="h-10 rounded-lg border border-slate-200 bg-white px-3 font-semibold"
+                        name="salesAmount"
+                        step="0.01"
+                        type="number"
+                        defaultValue={payment.salesAmount}
+                        required
+                      />
+                    </label>
+                    <label className="grid gap-2 text-sm font-bold text-slate-700">
+                      Комиссия
+                      <input
+                        className="h-10 rounded-lg border border-slate-200 bg-white px-3 font-semibold"
+                        name="commissionAmount"
+                        step="0.01"
+                        type="number"
+                        defaultValue={payment.commissionAmount}
+                        required
+                      />
+                    </label>
+                    <label className="grid gap-2 text-sm font-bold text-slate-700">
+                      К выплате
+                      <input
+                        className="h-10 rounded-lg border border-slate-200 bg-white px-3 font-semibold"
+                        name="payoutAmount"
+                        step="0.01"
+                        type="number"
+                        defaultValue={payment.payoutAmount}
+                        required
+                      />
+                    </label>
+                    <label className="grid gap-2 text-sm font-bold text-slate-700">
+                      Дата оплаты
+                      <input
+                        className="h-10 rounded-lg border border-slate-200 bg-white px-3 font-semibold"
+                        name="paidAt"
+                        type="date"
+                        defaultValue={toDateInputValue(payment.paidAt)}
+                      />
+                    </label>
+                    <label className="grid gap-2 text-sm font-bold text-slate-700 lg:col-span-2">
+                      Комментарий
+                      <input
+                        className="h-10 rounded-lg border border-slate-200 bg-white px-3 font-semibold"
+                        name="comment"
+                        defaultValue={payment.comment ?? ""}
+                      />
+                    </label>
+                    <div className="flex items-end lg:col-span-4">
+                      <SubmitButton
+                        className="h-10 rounded-lg bg-slate-900 px-4 text-sm font-bold text-white transition hover:bg-slate-800"
+                        pendingText="Сохраняем"
+                      >
+                        Сохранить изменения
+                      </SubmitButton>
+                    </div>
+                  </form>
+                </article>
+              ))
+            )}
+          </div>
+        </section>
 
         <section className="mt-5 rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
           <div className="flex flex-wrap items-start justify-between gap-4">
