@@ -22,7 +22,7 @@
 
 ### Прогресс
 - Уже сделано (фундамент): 6
-- P0: 5 / 5 · P1: 8 / 8 · P2: 6 / 10 · P3: 0 / 7
+- P0: 5 / 5 · P1: 8 / 8 · P2: 6 / 10 · P3: 1 / 7
 - Verified человеком: 0
 
 ---
@@ -199,8 +199,10 @@
 ## P3 — Чат, Telegram, авторизация, контент, инструкция, приёмка
 
 ### P3-1. Чат покупателя в ЛК
-- Статус: ⬜ TODO · ТЗ: §17.9, §20, §28.9 · Где: `/account/chat`, chat actions.
+- Статус: ✅ DONE (code) · ТЗ: §17.9, §20, §28.9 · Где: `/account/chat`, chat actions.
 - Сделать: отправка сообщения + вложение ≤50 МБ, сохранение в БД, отображение последних сообщений (без полного архива).
+- Изменения: добавлены `/account/chat`, `sendBuyerChatMessageAction`, `getCurrentBuyerChatMessages` и защищённый `/account/chat/files/[fileId]`; сообщение/вложение сохраняются в `messages/files`, вложения private ≤50 МБ, админ получает in-app notification.
+- Проверено человеком: нет
 
 ### P3-2. Telegram-бот оператора
 - Статус: ⛔ BLOCKED (C-07) · ТЗ: §20 · Где: telegram-модуль (grammY), webhook route, system events.

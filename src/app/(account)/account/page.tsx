@@ -21,7 +21,7 @@ const accountSections: AccountSection[] = [
   ["Компания", "Реквизиты, ИНН, юридический адрес", "/account/company", FileText],
   ["Документы", "Документы компании и загруженные файлы", "/account/documents", FileText],
   ["Заказы", "История, счета, документы, повтор заказа", "/account/orders", Repeat2],
-  ["Чат", "Переписка с оператором", "/account", MessageSquare],
+  ["Чат", "Переписка с оператором", "/account/chat", MessageSquare],
   [
     "Уведомления",
     "Статусы заказов и новые документы",
