@@ -10,6 +10,7 @@ import {
   isNull,
   lte,
   or,
+  sql,
 } from "drizzle-orm";
 import { Download, ExternalLink, FileText, Search, X } from "lucide-react";
 import Link from "next/link";
@@ -20,7 +21,9 @@ import {
   buyerCompanies,
   documents,
   invoices,
+  orderItems,
   orders,
+  sellers,
   users,
 } from "@/db/schema";
 import { requireUser } from "@/lib/auth/session";
@@ -96,6 +99,7 @@ export default async function AdminOrdersPage({
   const search = (await searchParams) ?? {};
   const query = getParam(search, "q");
   const status = getParam(search, "status");
+  const sellerId = getParam(search, "sellerId");
   const company = getParam(search, "company");
   const inn = getParam(search, "inn");
   const documentsFilter = getParam(search, "documents");
@@ -114,6 +118,19 @@ export default async function AdminOrdersPage({
     .where(eq(documents.isActive, true))
     .groupBy(documents.orderId)
     .as("document_counts");
+  const [sellersList, sellerOrderRows] = await Promise.all([
+    db
+      .select({ id: sellers.id, name: sellers.name })
+      .from(sellers)
+      .orderBy(sellers.name),
+    sellerId
+      ? db
+          .select({ orderId: orderItems.orderId })
+          .from(orderItems)
+          .where(eq(orderItems.sellerId, sellerId))
+          .groupBy(orderItems.orderId)
+      : Promise.resolve([]),
+  ]);
 
   const whereConditions = [];
 
@@ -139,6 +156,15 @@ export default async function AdminOrdersPage({
 
   if (inn) {
     whereConditions.push(ilike(buyerCompanies.inn, `%${inn}%`));
+  }
+
+  if (sellerId) {
+    const sellerOrderIds = sellerOrderRows.map((row) => row.orderId);
+    whereConditions.push(
+      sellerOrderIds.length > 0
+        ? inArray(orders.id, sellerOrderIds)
+        : sql`false`,
+    );
   }
 
   const parsedDateFrom = parseDateInput(dateFrom);
@@ -222,6 +248,25 @@ export default async function AdminOrdersPage({
             ),
           )
       : [];
+  const sellerStats =
+    rows.length > 0
+      ? await db
+          .select({
+            orderId: orderItems.orderId,
+            sellerCount: sql<number>`count(distinct ${orderItems.sellerId})`,
+          })
+          .from(orderItems)
+          .where(
+            inArray(
+              orderItems.orderId,
+              rows.map((order) => order.id),
+            ),
+          )
+          .groupBy(orderItems.orderId)
+      : [];
+  const sellerCountByOrder = new Map(
+    sellerStats.map((row) => [row.orderId, row.sellerCount]),
+  );
 
   const documentFlagsByOrder = new Map<
     string,
@@ -306,6 +351,7 @@ export default async function AdminOrdersPage({
     hasSpecification:
       documentFlagsByOrder.get(order.id)?.hasSpecification ?? false,
     hasAct: documentFlagsByOrder.get(order.id)?.hasAct ?? false,
+    sellerCount: sellerCountByOrder.get(order.id) ?? 0,
   }));
 
   return (
@@ -352,7 +398,7 @@ export default async function AdminOrdersPage({
           className="mt-6 rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200"
           method="get"
         >
-          <div className="grid gap-3 xl:grid-cols-[1.25fr_180px_180px_160px]">
+          <div className="grid gap-3 xl:grid-cols-[1.25fr_180px_220px_180px_160px]">
             <label className="grid gap-2 text-sm font-bold text-slate-700">
               Поиск
               <div className="relative">
@@ -379,6 +425,21 @@ export default async function AdminOrdersPage({
                 {statusOptions.map((option) => (
                   <option key={option} value={option}>
                     {getOrderStatusLabel(option)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-2 text-sm font-bold text-slate-700">
+              Продавец
+              <select
+                className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-semibold outline-none transition focus:border-[#1157ff]"
+                defaultValue={sellerId}
+                name="sellerId"
+              >
+                <option value="">Все продавцы</option>
+                {sellersList.map((seller) => (
+                  <option key={seller.id} value={seller.id}>
+                    {seller.name}
                   </option>
                 ))}
               </select>
@@ -480,6 +541,7 @@ export default async function AdminOrdersPage({
                 <th className="px-5 py-4">Создан</th>
                 <th className="px-5 py-4">Компания</th>
                 <th className="px-5 py-4">Статус</th>
+                <th className="px-5 py-4">Продавцы</th>
                 <th className="px-5 py-4">Счет</th>
                 <th className="px-5 py-4">Документы</th>
                 <th className="px-5 py-4">Комментарий</th>
@@ -491,7 +553,7 @@ export default async function AdminOrdersPage({
             <tbody className="divide-y divide-slate-100 text-sm">
               {rows.length === 0 ? (
                 <tr>
-                  <td className="px-5 py-8 text-center text-slate-500" colSpan={10}>
+                  <td className="px-5 py-8 text-center text-slate-500" colSpan={11}>
                     Заказы не найдены.
                   </td>
                 </tr>
@@ -546,6 +608,14 @@ export default async function AdminOrdersPage({
                       <span className="inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-800">
                         {getOrderStatusLabel(order.status)}
                       </span>
+                    </Link>
+                  </td>
+                  <td className="p-0">
+                    <Link
+                      className="block px-5 py-4 font-black text-slate-950"
+                      href={`/admin/orders/${order.id}`}
+                    >
+                      {order.sellerCount}
                     </Link>
                   </td>
                   <td className="p-0">

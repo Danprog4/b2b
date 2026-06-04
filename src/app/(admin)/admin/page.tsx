@@ -1,4 +1,4 @@
-import { and, count, desc, eq, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, sql } from "drizzle-orm";
 import Link from "next/link";
 
 import { LogoutButton } from "@/components/logout-button";
@@ -6,12 +6,15 @@ import { db } from "@/db";
 import {
   buyerCompanies,
   chats,
+  contracts,
   documents,
   emailOutbox,
   invoices,
   messages,
   notifications,
+  orderItems,
   orders,
+  sellerProductChangeRequests,
   sellers,
   systemEvents,
 } from "@/db/schema";
@@ -143,6 +146,10 @@ export default async function AdminPage() {
     emailErrorCounter,
     telegramErrorCounter,
     systemErrorCounter,
+    moderationCounter,
+    contractErrorCounter,
+    newDocumentsCounter,
+    financeSummary,
   ] = await Promise.all([
     db
       .select({ count: count() })
@@ -240,6 +247,35 @@ export default async function AdminPage() {
       .from(systemEvents)
       .where(eq(systemEvents.severity, "error"))
       .then(([row]) => row),
+    db
+      .select({ count: count() })
+      .from(sellerProductChangeRequests)
+      .where(eq(sellerProductChangeRequests.status, "on_moderation"))
+      .then(([row]) => row),
+    db
+      .select({ count: count() })
+      .from(contracts)
+      .where(eq(contracts.status, "failed"))
+      .then(([row]) => row),
+    db
+      .select({ count: count() })
+      .from(documents)
+      .where(
+        and(
+          eq(documents.isActive, true),
+          inArray(documents.target, ["buyer_company", "seller"]),
+        ),
+      )
+      .then(([row]) => row),
+    db
+      .select({
+        salesAmount: sql<string>`coalesce(sum(${orderItems.lineTotal}), 0)`,
+        commissionAmount: sql<string>`coalesce(sum(${orderItems.lineTotal} * 0.05), 0)`,
+      })
+      .from(orderItems)
+      .innerJoin(orders, eq(orders.id, orderItems.orderId))
+      .where(inArray(orders.status, ["paid", "issued"]))
+      .then(([row]) => row),
   ]);
   const unreadNotifications = notificationCounter?.count ?? 0;
   const companyDocumentReadiness = await Promise.all(
@@ -280,6 +316,29 @@ export default async function AdminPage() {
       "/admin/system-events?severity=error",
     ],
   ] as const;
+  const operationalCounters = [
+    [
+      "Товары на модерации",
+      moderationCounter?.count ?? 0,
+      "/admin/products/moderation",
+    ],
+    [
+      "Ошибки договора",
+      contractErrorCounter?.count ?? 0,
+      "/admin/companies",
+    ],
+    ["Новые документы", newDocumentsCounter?.count ?? 0, "/admin/documents"],
+    [
+      "Сумма продаж",
+      formatCurrency(financeSummary?.salesAmount ?? "0"),
+      "/admin/commissions",
+    ],
+    [
+      "Комиссия 5%",
+      formatCurrency(financeSummary?.commissionAmount ?? "0"),
+      "/admin/commissions",
+    ],
+  ] as const;
 
   return (
     <main className="min-h-screen bg-slate-100 px-6 py-8">
@@ -306,6 +365,19 @@ export default async function AdminPage() {
             >
               <p className="text-sm font-bold text-slate-500">{label}</p>
               <p className="mt-3 text-4xl font-black text-slate-950">{value}</p>
+            </Link>
+          ))}
+        </section>
+
+        <section className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          {operationalCounters.map(([label, value, href]) => (
+            <Link
+              key={label}
+              className="rounded-lg bg-white p-5 shadow-sm ring-1 ring-slate-200 transition hover:text-[#1157ff]"
+              href={href}
+            >
+              <p className="text-sm font-bold text-slate-500">{label}</p>
+              <p className="mt-3 text-2xl font-black text-slate-950">{value}</p>
             </Link>
           ))}
         </section>
