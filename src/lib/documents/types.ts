@@ -2,7 +2,9 @@ const documentTypeLabelsSource = [
   ["payment_invoice", "Счет на оплату"],
   ["company_card", "Карточка компании"],
   ["charter", "Уставные документы"],
+  ["inn_ogrn", "ИНН / ОГРН"],
   ["bank_details", "Банковские реквизиты"],
+  ["seller_company_card", "Карточка компании продавца"],
   ["upd", "УПД"],
   ["invoice_factura", "Счет-фактура"],
   ["contract", "Договор"],
@@ -24,6 +26,8 @@ export const documentTypes = [
   ["act", "Акт"],
   ["company_card", "Карточка компании"],
   ["charter", "Уставные документы"],
+  ["inn_ogrn", "ИНН / ОГРН"],
+  ["seller_company_card", "Карточка компании продавца"],
   ["other", "Прочий документ"],
 ] as const;
 
@@ -39,10 +43,11 @@ export const orderDocumentTypes = [
 export const buyerCompanyDocumentTypes = [
   ["company_card", "Карточка компании"],
   ["charter", "Уставные документы"],
+  ["inn_ogrn", "ИНН / ОГРН"],
 ] as const;
 
 export const sellerDocumentTypes = [
-  ["upd", "УПД"],
+  ["seller_company_card", "Карточка компании продавца"],
 ] as const;
 
 const documentTypeLabels = new Map<string, string>(documentTypeLabelsSource);

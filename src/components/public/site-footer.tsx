@@ -4,17 +4,10 @@ import { APP_NAME } from "@/lib/constants";
 
 const footerGroups = [
   {
-    title: "Покупателям",
+    title: "Информация",
     links: [
-      { label: "Частые вопросы", href: "/info/faq" },
       { label: "Юридическая информация", href: "/info/legal" },
-    ],
-  },
-  {
-    title: "Продавцам",
-    links: [
       { label: "Как стать партнером", href: "/info/partners" },
-      { label: "Условия", href: "/info/seller-terms" },
     ],
   },
   {
@@ -22,7 +15,6 @@ const footerGroups = [
     links: [
       { label: "О нас", href: "/info/about" },
       { label: "Контакты", href: "/info/contacts" },
-      { label: "Вакансии", href: "/info/vacancies" },
     ],
   },
 ];
@@ -30,7 +22,7 @@ const footerGroups = [
 export function SiteFooter() {
   return (
     <footer className="border-t border-slate-200 bg-white px-5 py-8 text-slate-700">
-      <div className="mx-auto grid max-w-[1480px] gap-8 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
+      <div className="mx-auto grid max-w-[1480px] gap-8 md:grid-cols-[1.4fr_1fr_1fr]">
         <div>
           <Link className="text-2xl font-black text-[#1157ff]" href="/">
             {APP_NAME}

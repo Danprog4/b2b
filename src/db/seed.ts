@@ -65,13 +65,10 @@ const sellerSeed = [
 ] as const;
 
 const pageSeed = [
-  ["Частые вопросы", "faq"],
   ["Юридическая информация", "legal"],
   ["Как стать партнером", "partners"],
-  ["Условия для продавцов", "seller-terms"],
   ["О нас", "about"],
   ["Контакты", "contacts"],
-  ["Вакансии", "vacancies"],
 ] as const;
 
 async function main() {
@@ -289,6 +286,19 @@ async function main() {
           updatedAt: new Date(),
         },
       });
+
+    const [offer] = await db
+      .select({ id: sellerOffers.id })
+      .from(sellerOffers)
+      .where(eq(sellerOffers.productId, storedProduct.id))
+      .limit(1);
+
+    if (offer) {
+      await db
+        .update(products)
+        .set({ priorityOfferId: offer.id, updatedAt: new Date() })
+        .where(eq(products.id, storedProduct.id));
+    }
   }
 
   for (const [title, slug] of pageSeed) {

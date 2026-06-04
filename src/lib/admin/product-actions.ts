@@ -6,7 +6,13 @@ import { redirect } from "next/navigation";
 import { randomUUID } from "node:crypto";
 
 import { db } from "@/db";
-import { auditEvents, files, productImages, products } from "@/db/schema";
+import {
+  auditEvents,
+  files,
+  productImages,
+  products,
+  sellerOffers,
+} from "@/db/schema";
 import { requireUser } from "@/lib/auth/session";
 import { writeStorageFile } from "@/lib/files/storage";
 import { getNextProductSku } from "@/lib/numbering/sequences";
@@ -272,7 +278,7 @@ function getProductValues(formData: FormData) {
   const description = getString(formData, "description");
   const isActive = formData.get("isActive") === "on";
 
-  if (!name || !categoryId || !unit || Number(priceWithVat) <= 0) {
+  if (!name || !categoryId || !sellerId || !unit || Number(priceWithVat) <= 0) {
     redirect("/admin/products/new?error=required");
   }
 
@@ -280,7 +286,7 @@ function getProductValues(formData: FormData) {
     name,
     categoryId,
     subcategoryId: subcategoryId || null,
-    sellerId: sellerId || null,
+    sellerId,
     priceWithVat,
     vatRate,
     unit,
@@ -297,30 +303,71 @@ export async function createProductAction(formData: FormData) {
   const sku = await getNextProductSku();
   const slug = await getUniqueSlug(values.name);
 
-  const [product] = await db
-    .insert(products)
-    .values({
-      sku,
-      slug,
-      ...values,
-    })
-    .returning({ id: products.id });
+  const [product] = await db.transaction(async (tx) => {
+    const [createdProduct] = await tx
+      .insert(products)
+      .values({
+        sku,
+        slug,
+        ...values,
+      })
+      .returning({ id: products.id });
+
+    const [offer] = await tx
+      .insert(sellerOffers)
+      .values({
+        productId: createdProduct.id,
+        sellerId: values.sellerId,
+        priceWithVat: values.priceWithVat,
+        vatRate: values.vatRate,
+        status: "published",
+        isPriority: true,
+        submittedAt: new Date(),
+        moderatedAt: new Date(),
+        moderatedById: admin.id,
+      })
+      .onConflictDoUpdate({
+        target: [sellerOffers.productId, sellerOffers.sellerId],
+        set: {
+          priceWithVat: values.priceWithVat,
+          vatRate: values.vatRate,
+          status: "published",
+          isPriority: true,
+          moderatedAt: new Date(),
+          moderatedById: admin.id,
+          updatedAt: new Date(),
+        },
+      })
+      .returning({ id: sellerOffers.id });
+
+    await tx
+      .update(products)
+      .set({
+        priorityOfferId: offer.id,
+        updatedAt: new Date(),
+      })
+      .where(eq(products.id, createdProduct.id));
+
+    await tx.insert(auditEvents).values({
+      actorId: admin.id,
+      action: "product.create",
+      entityType: "product",
+      entityId: createdProduct.id,
+      metadata: {
+        sku,
+        name: values.name,
+        sellerId: values.sellerId,
+        offerId: offer.id,
+      },
+    });
+
+    return [createdProduct];
+  });
 
   await applyProductImageUploads({
     formData,
     productId: product.id,
     uploadedById: admin.id,
-  });
-
-  await db.insert(auditEvents).values({
-    actorId: admin.id,
-    action: "product.create",
-    entityType: "product",
-    entityId: product.id,
-    metadata: {
-      sku,
-      name: values.name,
-    },
   });
 
   revalidatePath("/");
@@ -353,6 +400,49 @@ export async function updateProductAction(formData: FormData) {
       })
       .where(eq(products.id, productId));
 
+    const [offer] = await tx
+      .insert(sellerOffers)
+      .values({
+        productId,
+        sellerId: values.sellerId,
+        priceWithVat: values.priceWithVat,
+        vatRate: values.vatRate,
+        status: "published",
+        isPriority: true,
+        submittedAt: new Date(),
+        moderatedAt: new Date(),
+        moderatedById: admin.id,
+      })
+      .onConflictDoUpdate({
+        target: [sellerOffers.productId, sellerOffers.sellerId],
+        set: {
+          priceWithVat: values.priceWithVat,
+          vatRate: values.vatRate,
+          status: "published",
+          isPriority: true,
+          moderatedAt: new Date(),
+          moderatedById: admin.id,
+          updatedAt: new Date(),
+        },
+      })
+      .returning({ id: sellerOffers.id });
+
+    await tx
+      .update(sellerOffers)
+      .set({
+        isPriority: false,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(sellerOffers.productId, productId), ne(sellerOffers.id, offer.id)));
+
+    await tx
+      .update(products)
+      .set({
+        priorityOfferId: offer.id,
+        updatedAt: new Date(),
+      })
+      .where(eq(products.id, productId));
+
     await tx.insert(auditEvents).values({
       actorId: admin.id,
       action: "product.update",
@@ -361,6 +451,8 @@ export async function updateProductAction(formData: FormData) {
       metadata: {
         name: values.name,
         active: values.isActive,
+        sellerId: values.sellerId,
+        offerId: offer.id,
       },
     });
   });

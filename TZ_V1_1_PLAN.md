@@ -22,7 +22,7 @@
 
 ### Прогресс
 - Уже сделано (фундамент): 6
-- P0: 0 / 5 · P1: 0 / 8 · P2: 0 / 10 · P3: 0 / 7
+- P0: 5 / 5 · P1: 0 / 8 · P2: 0 / 10 · P3: 0 / 7
 - Verified человеком: 0
 
 ---
@@ -43,40 +43,45 @@
 ## P0 — Корректность и чистка конфликтов (без заказчика)
 
 ### P0-1. Админ-создание/редактирование товара должно создавать/обновлять `seller_offer`
-- Статус: ⬜ TODO · ТЗ: §2.3, §8.4, §19.5 · STATUS: ⚠️-баг №1
+- Статус: ✅ DONE (code) · ТЗ: §2.3, §8.4, §19.5 · STATUS: ⚠️-баг №1
 - Где: `src/lib/admin/product-actions.ts`, `src/app/(admin)/admin/products/product-form.tsx`, `/admin/products/[id]`, `new`.
 - Проблема: сейчас форма пишет легаси `products.priceWithVat/vatRate/sellerId`, но не создаёт `seller_offers` → товар не виден в offer-based каталоге.
 - Сделать: при создании/редактировании товара админом создавать/обновлять `seller_offer` (продавец+цена+НДС, статус `published`); решить судьбу легаси-полей `products.priceWithVat/vatRate/sellerId` (убрать как источник истины). Привязать priority offer.
 - Проверить: созданный в админке товар появляется в каталоге; у товара виден offer.
-- Изменения: —
+- Изменения: `src/lib/admin/product-actions.ts` создаёт/обновляет `seller_offers` со статусом `published` и назначает priority; `product-form.tsx` требует продавца; `/admin/products/[id]` подставляет цену/НДС/продавца из priority offer; `seed.ts` проставляет priority offer для seed-товаров.
+- Проверено человеком: нет
 
 ### P0-2. Вычистить старые статусы заказа
-- Статус: ⬜ TODO · ТЗ: §11.5, §12, §36 · STATUS: §12 🟡
+- Статус: ✅ DONE (code) · ТЗ: §11.5, §12, §36 · STATUS: §12 🟡
 - Где: `src/db/schema.ts` (enum + default), `src/lib/orders/status.ts`, `src/lib/constants.ts` (уже 4), admin/buyer order UI, миграция.
 - Сделать: оставить 4 (`accepted/paid/issued/cancelled`); default БД → `accepted`; убрать labels `new/awaiting_payment/closed`; guard переходов (`accepted→paid/cancelled`, `paid→issued/cancelled`); миграция исторических (`new/awaiting_payment→accepted`, `closed→issued`).
 - Проверить: в UI/фильтрах нет «Ожидание оплаты»/«Закрыт»; новый заказ = «Принят»; старые открываются.
-- Изменения: —
+- Изменения: `src/db/schema.ts` оставляет enum `accepted/paid/issued/cancelled` и default `accepted`; `drizzle/0008_needy_warpath.sql` маппит legacy-статусы и пересоздаёт enum; `orders/status.ts`, `order-actions.ts`, admin order UI и history queries убирают legacy-labels и добавляют guard переходов.
+- Проверено человеком: нет
 
 ### P0-3. Документы v1.1: типы и скрытие версий
-- Статус: ⬜ TODO · ТЗ: §15, §17.5, §18.5 · STATUS: §15 🟡/⚠️
+- Статус: ✅ DONE (code) · ТЗ: §15, §17.5, §18.5 · STATUS: §15 🟡/⚠️
 - Где: `src/lib/documents/types.ts`, `documents/actions.ts`, `documents/queries.ts`, account/seller/admin documents UI.
 - Сделать: добавить тип `inn_ogrn` (покупатель); для продавца заменить `upd` на `seller_company_card`; УПД/спец/акт оставить только админу по заказу; в UI показывать только актуальный документ (убрать «версия N»/список версий); удаление — soft-delete + audit.
 - Проверить: покупатель грузит карточку/устав/ИНН-ОГРН; продавец — карточку компании (не УПД); версии не видны.
-- Изменения: —
+- Изменения: `documents/types.ts` добавляет `inn_ogrn` и `seller_company_card`; `documents/actions.ts` валидирует типы по target/роли; account/seller/admin UI скрывают номера/списки версий и показывают только актуальный файл; seller/admin seller UI заменяют УПД продавца на карточку компании.
+- Проверено человеком: нет
 
 ### P0-4. Footer/инфостраницы → 4 страницы v1.1
-- Статус: ⬜ TODO · ТЗ: §7.6, §26 · STATUS: §26 ⚠️
+- Статус: ✅ DONE (code) · ТЗ: §7.6, §26 · STATUS: §26 ⚠️
 - Где: `site-footer`, content pages seed/admin, `/info/[slug]`.
 - Сделать: оставить «Юридическая информация», «Как стать партнёром», «О нас», «Контакты»; убрать FAQ/вакансии/условия продавцов как обязательные.
 - Проверить: footer = 4 страницы.
-- Изменения: —
+- Изменения: `site-footer.tsx` оставляет 4 ссылки v1.1; `seed.ts` сидит только 4 обязательные страницы; `drizzle/0008_needy_warpath.sql` публикует обязательные страницы и снимает публикацию с `faq/seller-terms/vacancies`.
+- Проверено человеком: нет
 
 ### P0-5. Фундамент lifecycle счёта (новый номер + актуальность)
-- Статус: ⬜ TODO · ТЗ: §11.8, §13.2 · STATUS: §13 ❌
+- Статус: ✅ DONE (code) · ТЗ: §11.8, §13.2 · STATUS: §13 ❌
 - Где: `src/lib/invoices/generation.ts`, `invoices` (`is_current/replaced_by_id` уже в схеме).
 - Сделать: функцию пересоздания счёта: пометить старый `is_current=false` (+`replaced_by_id`), создать новый с новым `СТ-`, скрыть старый из ЛК, поставить email/уведомление, записать audit. (Само редактирование заказа — P2-1.)
 - Проверить: повторная генерация даёт новый номер; покупатель видит только актуальный.
-- Изменения: —
+- Изменения: `src/lib/invoices/generation.ts` для admin-regenerate создаёт новый `СТ-*`, помечает старый invoice `is_current=false`, ставит `replaced_by_id`, обновляет актуальный документ счёта, создаёт notification/email outbox и audit.
+- Проверено человеком: нет
 
 ---
 

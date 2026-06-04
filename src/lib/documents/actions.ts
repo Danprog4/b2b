@@ -21,6 +21,12 @@ import {
 import { requireUser } from "@/lib/auth/session";
 import { writeStorageFile } from "@/lib/files/storage";
 import { insertBuyerCompanyNotifications } from "@/lib/notifications/helpers";
+import {
+  buyerCompanyDocumentTypes,
+  documentTypes,
+  orderDocumentTypes,
+  sellerDocumentTypes,
+} from "@/lib/documents/types";
 
 const allowedExtensions = new Set([
   "pdf",
@@ -42,6 +48,12 @@ const allowedMimeTypes = new Set([
   "image/png",
 ]);
 const maxDocumentSizeBytes = 50 * 1024 * 1024;
+const buyerCompanyDocumentTypeValues = new Set(
+  buyerCompanyDocumentTypes.map(([value]) => value),
+);
+const sellerDocumentTypeValues = new Set(sellerDocumentTypes.map(([value]) => value));
+const orderDocumentTypeValues = new Set(orderDocumentTypes.map(([value]) => value));
+const adminDocumentTypeValues = new Set(documentTypes.map(([value]) => value));
 
 function getString(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -102,6 +114,16 @@ function validateDocumentFile(returnPath: string, value: FormDataEntryValue | nu
   }
 
   return value;
+}
+
+function assertDocumentType(
+  returnPath: string,
+  type: string,
+  allowedTypes: Set<string>,
+) {
+  if (!allowedTypes.has(type)) {
+    redirectWithDocumentError(returnPath, "Тип документа не поддерживается.");
+  }
 }
 
 async function persistDocumentFile(file: File, uploadedById: string, storagePrefix: string) {
@@ -195,6 +217,8 @@ export async function uploadOrderDocumentAction(formData: FormData) {
   if (!title) {
     redirectWithDocumentError(returnPath, "Укажите название документа.");
   }
+
+  assertDocumentType(returnPath, type, orderDocumentTypeValues);
 
   const file = validateDocumentFile(returnPath, formData.get("file"));
   const [order] = await db
@@ -370,6 +394,8 @@ export async function uploadBuyerCompanyDocumentAction(formData: FormData) {
     redirectWithDocumentError(returnPath, "Укажите название документа.");
   }
 
+  assertDocumentType(returnPath, type, buyerCompanyDocumentTypeValues);
+
   const file = validateDocumentFile(returnPath, formData.get("file"));
   const storedFile = await persistDocumentFile(
     file,
@@ -531,6 +557,8 @@ export async function uploadSellerDocumentAction(formData: FormData) {
     redirectWithDocumentError(returnPath, "Укажите название документа.");
   }
 
+  assertDocumentType(returnPath, type, sellerDocumentTypeValues);
+
   const file = validateDocumentFile(returnPath, formData.get("file"));
   const storedFile = await persistDocumentFile(
     file,
@@ -690,6 +718,8 @@ export async function uploadAdminDocumentAction(formData: FormData) {
     redirectWithDocumentError(returnPath, "Укажите название, привязку и объект.");
   }
 
+  assertDocumentType(returnPath, type, adminDocumentTypeValues);
+
   const file = validateDocumentFile(returnPath, formData.get("file"));
   let buyerCompanyId: string | null = null;
   let orderId: string | null = null;
@@ -697,6 +727,8 @@ export async function uploadAdminDocumentAction(formData: FormData) {
   let storagePrefix = "documents/admin";
 
   if (target === "order") {
+    assertDocumentType(returnPath, type, orderDocumentTypeValues);
+
     const [order] = await db
       .select({
         id: orders.id,
@@ -714,6 +746,8 @@ export async function uploadAdminDocumentAction(formData: FormData) {
     buyerCompanyId = order.buyerCompanyId;
     storagePrefix = `documents/orders/${order.id}`;
   } else if (target === "buyer_company") {
+    assertDocumentType(returnPath, type, buyerCompanyDocumentTypeValues);
+
     const [company] = await db
       .select({ id: buyerCompanies.id })
       .from(buyerCompanies)
@@ -727,6 +761,8 @@ export async function uploadAdminDocumentAction(formData: FormData) {
     buyerCompanyId = company.id;
     storagePrefix = `documents/buyer-companies/${company.id}`;
   } else if (target === "seller") {
+    assertDocumentType(returnPath, type, sellerDocumentTypeValues);
+
     const [seller] = await db
       .select({ id: sellers.id })
       .from(sellers)

@@ -178,7 +178,9 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
   ]);
 
   const salesAmount = Number(financeSummary?.salesAmount ?? 0);
-  const sellerUpdDocument = documents.find((document) => document.type === "upd");
+  const sellerCompanyCardDocument = documents.find(
+    (document) => document.type === "seller_company_card",
+  );
   const unreadSellerNotifications = notificationRows.filter(
     (notification) => !notification.isRead,
   ).length;
@@ -186,7 +188,11 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
     ["Товары", productCounter?.count ?? 0, Boxes],
     ["Заказы к выплате", financeSummary?.orderCount ?? 0, ReceiptText],
     ["Продажи", formatCurrency(salesAmount), Landmark],
-    ["УПД", sellerUpdDocument ? "Загружен" : "Не загружен", Paperclip],
+    [
+      "Карточка компании",
+      sellerCompanyCardDocument ? "Загружена" : "Не загружена",
+      Paperclip,
+    ],
   ] as const;
 
   return (
@@ -533,7 +539,7 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                   <input
                     className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-semibold"
                     name="title"
-                    placeholder="Например, УПД продавца"
+                    placeholder="Например, карточка компании"
                     required
                   />
                 </label>
@@ -542,7 +548,7 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                   <select
                     className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-semibold"
                     name="type"
-                    defaultValue="upd"
+                    defaultValue="seller_company_card"
                   >
                     {sellerDocumentTypes.map(([value, label]) => (
                       <option key={value} value={value}>
@@ -559,7 +565,7 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                 <input
                   className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold"
                   name="comment"
-                  placeholder="Комментарий к версии"
+                  placeholder="Комментарий к файлу"
                 />
                 <SubmitButton
                   className="h-11 rounded-lg bg-[#1157ff] text-sm font-bold text-white transition hover:bg-[#0b49e0]"
@@ -589,8 +595,7 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                             </h3>
                           </div>
                           <p className="mt-1 text-sm font-semibold text-slate-500">
-                            {getDocumentTypeLabel(document.type)} · версия{" "}
-                            {document.currentVersion} ·{" "}
+                            {getDocumentTypeLabel(document.type)} ·{" "}
                             {formatFileSize(document.sizeBytes)}
                           </p>
                         </div>
@@ -613,20 +618,20 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                         />
                         <FileUploadField
                           accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xls,.xlsx"
-                          buttonText="Загрузить новую версию"
+                          buttonText="Заменить файл"
                           name="file"
                           required
                         />
                         <input
                           className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold"
                           name="comment"
-                          placeholder="Комментарий"
+                          placeholder="Комментарий к файлу"
                         />
                         <SubmitButton
                           className="h-10 rounded-lg bg-slate-900 text-sm font-bold text-white transition hover:bg-slate-800"
                           pendingText="Сохраняем"
                         >
-                          Сохранить версию
+                          Сохранить файл
                         </SubmitButton>
                       </form>
                     </article>

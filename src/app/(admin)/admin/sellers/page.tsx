@@ -14,7 +14,7 @@ function getSellerStatusLabel(status: string) {
 export default async function AdminSellersPage() {
   await requireUser(["admin"]);
 
-  const [sellerRows, productStats, orderStats, updStats] = await Promise.all([
+  const [sellerRows, productStats, orderStats, companyCardStats] = await Promise.all([
     db
       .select()
       .from(sellers)
@@ -47,7 +47,7 @@ export default async function AdminSellersPage() {
         and(
           isNotNull(documents.sellerId),
           eq(documents.target, "seller"),
-          eq(documents.type, "upd"),
+          eq(documents.type, "seller_company_card"),
           eq(documents.isActive, true),
         ),
       )
@@ -58,7 +58,9 @@ export default async function AdminSellersPage() {
     productStats.map((row) => [row.sellerId, row.productCount]),
   );
   const ordersBySeller = new Map(orderStats.map((row) => [row.sellerId, row]));
-  const hasUpdBySeller = new Set(updStats.map((row) => row.sellerId));
+  const hasCompanyCardBySeller = new Set(
+    companyCardStats.map((row) => row.sellerId),
+  );
 
   return (
     <main className="min-h-screen bg-slate-100 px-6 py-8 text-slate-900">
@@ -107,7 +109,7 @@ export default async function AdminSellersPage() {
                 <th className="px-5 py-4">Товары</th>
                 <th className="px-5 py-4">Заказы</th>
                 <th className="px-5 py-4">Сумма продаж</th>
-                <th className="px-5 py-4">УПД</th>
+                <th className="px-5 py-4">Карточка компании</th>
                 <th className="px-5 py-4">Статус</th>
                 <th className="px-5 py-4">Обновлен</th>
               </tr>
@@ -209,12 +211,12 @@ export default async function AdminSellersPage() {
                       >
                         <span
                           className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${
-                            hasUpdBySeller.has(seller.id)
+                            hasCompanyCardBySeller.has(seller.id)
                               ? "bg-emerald-50 text-emerald-700"
                               : "bg-amber-50 text-amber-700"
                           }`}
                         >
-                          {hasUpdBySeller.has(seller.id) ? "Есть" : "Нет"}
+                          {hasCompanyCardBySeller.has(seller.id) ? "Есть" : "Нет"}
                         </span>
                       </Link>
                     </td>

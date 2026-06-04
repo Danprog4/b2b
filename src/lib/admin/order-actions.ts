@@ -9,14 +9,11 @@ import { auditEvents, orders } from "@/db/schema";
 import { requireUser } from "@/lib/auth/session";
 import { generateOrderInvoice } from "@/lib/invoices/generation";
 import { insertBuyerCompanyNotifications } from "@/lib/notifications/helpers";
-import { getOrderStatusLabel } from "@/lib/orders/status";
-
-const allowedStatuses = new Set([
-  "accepted",
-  "paid",
-  "issued",
-  "cancelled",
-]);
+import {
+  canTransitionOrderStatus,
+  getOrderStatusLabel,
+  isOrderStatus,
+} from "@/lib/orders/status";
 
 function getString(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -29,7 +26,7 @@ export async function updateOrderStatusAction(formData: FormData) {
   const orderId = getString(formData, "orderId");
   const status = getString(formData, "status");
 
-  if (!orderId || !allowedStatuses.has(status)) {
+  if (!orderId || !isOrderStatus(status)) {
     redirect("/admin/orders");
   }
 
@@ -49,11 +46,15 @@ export async function updateOrderStatusAction(formData: FormData) {
     redirect("/admin/orders");
   }
 
+  if (!canTransitionOrderStatus(order.status, status)) {
+    redirect(`/admin/orders/${order.id}?statusError=1`);
+  }
+
   await db.transaction(async (tx) => {
     await tx
       .update(orders)
       .set({
-        status: status as typeof order.status,
+        status,
         updatedAt: new Date(),
       })
       .where(eq(orders.id, order.id));

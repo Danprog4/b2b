@@ -110,10 +110,11 @@ export function ProductForm({
         Продавец
         <select
           name="sellerId"
+          required
           className="h-12 rounded-lg border border-slate-200 px-4 font-normal text-slate-950"
           defaultValue={product?.sellerId ?? ""}
         >
-          <option value="">Не привязан</option>
+          <option value="">Выберите продавца</option>
           {sellers.map((seller) => (
             <option key={seller.id} value={seller.id}>
               {seller.name}

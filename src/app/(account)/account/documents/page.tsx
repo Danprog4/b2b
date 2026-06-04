@@ -109,7 +109,7 @@ export default async function AccountDocumentsPage({
               <input
                 className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold"
                 name="comment"
-                placeholder="Комментарий к версии"
+                placeholder="Комментарий к файлу"
               />
               <SubmitButton
                 className="h-11 rounded-lg bg-[#1157ff] px-5 text-sm font-bold text-white transition hover:bg-[#0b49e0]"
@@ -144,8 +144,7 @@ export default async function AccountDocumentsPage({
                       </h3>
                       <p className="mt-1 text-sm font-semibold text-slate-500">
                         {getDocumentTargetLabel(document.target)} ·{" "}
-                        {getDocumentTypeLabel(document.type)} · версия{" "}
-                        {document.currentVersion} ·{" "}
+                        {getDocumentTypeLabel(document.type)} ·{" "}
                         {formatFileSize(document.sizeBytes)} ·{" "}
                         {formatDateTime(document.uploadedAt)}
                       </p>
@@ -172,7 +171,7 @@ export default async function AccountDocumentsPage({
                     <input
                       className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold"
                       name="comment"
-                      placeholder="Комментарий к новой версии"
+                      placeholder="Комментарий к файлу"
                     />
                     <SubmitButton
                       className="h-11 rounded-lg bg-slate-900 px-4 text-sm font-bold text-white transition hover:bg-slate-800"

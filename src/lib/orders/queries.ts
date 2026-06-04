@@ -258,6 +258,18 @@ function getAuditActorLabel(event: OrderHistoryAuditRow, fallback: string) {
   return event.actorName ?? event.actorEmail ?? fallback;
 }
 
+function normalizeOrderStatusForV11(status: string) {
+  if (status === "new" || status === "awaiting_payment") {
+    return "accepted";
+  }
+
+  if (status === "closed") {
+    return "issued";
+  }
+
+  return status;
+}
+
 function getInitialStatus(order: OrderHistoryOrder, events: OrderHistoryAuditRow[]) {
   const firstStatusEvent = events.find(
     (event) =>
@@ -266,14 +278,18 @@ function getInitialStatus(order: OrderHistoryOrder, events: OrderHistoryAuditRow
   );
 
   if (firstStatusEvent?.action === "order.status_update") {
-    return getMetadataString(firstStatusEvent.metadata, "from") ?? order.status;
+    return normalizeOrderStatusForV11(
+      getMetadataString(firstStatusEvent.metadata, "from") ?? order.status,
+    );
   }
 
   if (firstStatusEvent?.action === "order.cancel_for_reorder") {
-    return getMetadataString(firstStatusEvent.metadata, "previousStatus") ?? order.status;
+    return normalizeOrderStatusForV11(
+      getMetadataString(firstStatusEvent.metadata, "previousStatus") ?? order.status,
+    );
   }
 
-  return order.status;
+  return normalizeOrderStatusForV11(order.status);
 }
 
 function buildOrderStatusHistory(
@@ -283,7 +299,10 @@ function buildOrderStatusHistory(
   const entries: OrderStatusHistoryEntry[] = [];
   const creationEvent = events.find((event) => event.action === "order.create");
   const initialStatus = creationEvent
-    ? getMetadataString(creationEvent.metadata, "status") ?? getInitialStatus(order, events)
+    ? normalizeOrderStatusForV11(
+        getMetadataString(creationEvent.metadata, "status") ??
+          getInitialStatus(order, events),
+      )
     : getInitialStatus(order, events);
 
   entries.push({
@@ -303,12 +322,15 @@ function buildOrderStatusHistory(
 
     if (event.action === "order.status_update") {
       const from = getMetadataString(event.metadata, "from");
-      const to = getMetadataString(event.metadata, "to") ?? order.status;
+      const normalizedFrom = from ? normalizeOrderStatusForV11(from) : null;
+      const to = normalizeOrderStatusForV11(
+        getMetadataString(event.metadata, "to") ?? order.status,
+      );
 
       entries.push({
         id: event.id,
-        title: from
-          ? `Статус изменен: ${getOrderStatusLabel(from)} -> ${getOrderStatusLabel(to)}`
+        title: normalizedFrom
+          ? `Статус изменен: ${getOrderStatusLabel(normalizedFrom)} -> ${getOrderStatusLabel(to)}`
           : "Статус заказа изменен",
         statusLabel: getOrderStatusLabel(to),
         createdAt: event.createdAt,

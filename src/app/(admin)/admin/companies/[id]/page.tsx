@@ -567,8 +567,7 @@ export default async function AdminCompanyPage({
                   <div className="py-3 text-sm" key={document.id}>
                     <p className="font-black text-slate-950">{document.title}</p>
                     <p className="mt-1 text-slate-500">
-                      {getDocumentTypeLabel(document.type)} · версия{" "}
-                      {document.currentVersion} ·{" "}
+                      {getDocumentTypeLabel(document.type)} ·{" "}
                       {document.isVisibleToBuyer
                         ? "виден покупателю"
                         : "только админ"}

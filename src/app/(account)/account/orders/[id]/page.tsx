@@ -246,8 +246,7 @@ export default async function AccountOrderPage({
                   <div>
                     <h3 className="font-black text-slate-950">{document.title}</h3>
                     <p className="mt-1 text-sm font-semibold text-slate-500">
-                      {getDocumentTypeLabel(document.type)} · версия{" "}
-                      {document.currentVersion} ·{" "}
+                      {getDocumentTypeLabel(document.type)} ·{" "}
                       {formatFileSize(document.sizeBytes)} ·{" "}
                       {formatDateTime(document.uploadedAt)}
                     </p>
@@ -281,8 +280,7 @@ export default async function AccountOrderPage({
                     {companyContract.title}
                   </h3>
                   <p className="mt-1 text-sm font-semibold text-slate-500">
-                    {getDocumentTypeLabel(companyContract.type)} · версия{" "}
-                    {companyContract.currentVersion} ·{" "}
+                    {getDocumentTypeLabel(companyContract.type)} ·{" "}
                     {formatFileSize(companyContract.sizeBytes)} ·{" "}
                     {formatDateTime(companyContract.uploadedAt)}
                   </p>

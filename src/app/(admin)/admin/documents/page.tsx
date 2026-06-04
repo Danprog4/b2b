@@ -160,7 +160,7 @@ export default async function AdminDocumentsPage({
               <input
                 className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold"
                 name="comment"
-                placeholder="Комментарий к версии"
+                placeholder="Комментарий к файлу"
               />
               <label className="flex h-11 items-center gap-2 text-sm font-bold text-slate-700">
                 <input className="size-4" name="isVisibleToBuyer" type="checkbox" />
@@ -209,8 +209,7 @@ export default async function AdminDocumentsPage({
                       </h3>
                       <p className="mt-1 text-sm font-semibold text-slate-500">
                         {getDocumentTargetLabel(document.target)} ·{" "}
-                        {getDocumentTypeLabel(document.type)} · версия{" "}
-                        {document.currentVersion} ·{" "}
+                        {getDocumentTypeLabel(document.type)} ·{" "}
                         {formatFileSize(document.sizeBytes)} ·{" "}
                         {formatDateTime(document.uploadedAt)}
                       </p>
@@ -247,13 +246,13 @@ export default async function AdminDocumentsPage({
                       <input
                         className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold"
                         name="comment"
-                        placeholder="Комментарий к новой версии"
+                        placeholder="Комментарий к файлу"
                       />
                       <SubmitButton
                         className="h-11 rounded-lg bg-[#1157ff] px-4 text-sm font-bold text-white transition hover:bg-[#0b49e0]"
                         pendingText="Сохраняем"
                       >
-                        Загрузить версию
+                        Заменить файл
                       </SubmitButton>
                     </form>
 
@@ -296,32 +295,6 @@ export default async function AdminDocumentsPage({
                         Скрыть
                       </SubmitButton>
                     </form>
-                  </div>
-
-                  <div className="mt-4 divide-y divide-slate-100 text-sm">
-                    {document.versions.map((version) => (
-                      <div
-                        key={version.versionId}
-                        className="flex flex-wrap items-center justify-between gap-3 py-3"
-                      >
-                        <div>
-                          <p className="font-bold text-slate-800">
-                            Версия {version.version}: {version.fileName}
-                          </p>
-                          <p className="mt-1 text-slate-500">
-                            {formatFileSize(version.sizeBytes)} ·{" "}
-                            {formatDateTime(version.uploadedAt)}
-                            {version.comment ? ` · ${version.comment}` : ""}
-                          </p>
-                        </div>
-                        <Link
-                          className="font-bold text-[#1157ff]"
-                          href={`/documents/${version.versionId}/download`}
-                        >
-                          Скачать
-                        </Link>
-                      </div>
-                    ))}
                   </div>
                 </article>
               ))

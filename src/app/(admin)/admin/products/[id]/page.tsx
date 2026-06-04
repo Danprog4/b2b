@@ -8,6 +8,7 @@ import {
   files,
   productImages,
   products,
+  sellerOffers,
   sellers,
   subcategories,
 } from "@/db/schema";
@@ -40,6 +41,19 @@ export default async function AdminProductEditPage({
   if (!product) {
     notFound();
   }
+
+  const [priorityOffer] = product.priorityOfferId
+    ? await db
+        .select({
+          id: sellerOffers.id,
+          sellerId: sellerOffers.sellerId,
+          priceWithVat: sellerOffers.priceWithVat,
+          vatRate: sellerOffers.vatRate,
+        })
+        .from(sellerOffers)
+        .where(eq(sellerOffers.id, product.priorityOfferId))
+        .limit(1)
+    : [];
 
   const [mainImage] = product.mainImageFileId
     ? await db
@@ -86,6 +100,9 @@ export default async function AdminProductEditPage({
 
   const productWithImages = {
     ...product,
+    sellerId: priorityOffer?.sellerId ?? product.sellerId,
+    priceWithVat: priorityOffer?.priceWithVat ?? product.priceWithVat,
+    vatRate: priorityOffer?.vatRate ?? product.vatRate,
     mainImageUrl: mainImage ? getPublicFileUrl(mainImage) : null,
     galleryImages: galleryImages.map((image) => ({
       id: image.id,

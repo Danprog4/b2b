@@ -33,11 +33,13 @@ import {
 } from "@/lib/documents/actions";
 import { getAdminOrderDocuments } from "@/lib/documents/queries";
 import {
-  formatFileSize,
   getDocumentTypeLabel,
   orderDocumentTypes,
 } from "@/lib/documents/types";
-import { getOrderStatusLabel } from "@/lib/orders/status";
+import {
+  canTransitionOrderStatus,
+  getOrderStatusLabel,
+} from "@/lib/orders/status";
 import { getAdminOrderStatusHistory } from "@/lib/orders/queries";
 import { markAdminOrderViewed } from "@/lib/orders/view-actions";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
@@ -64,6 +66,7 @@ export default async function AdminOrderPage({
   const documentUploaded = search.documentUploaded === "1";
   const invoiceRegenerated = search.invoiceRegenerated === "1";
   const invoiceError = search.invoiceError === "1";
+  const statusError = search.statusError === "1";
   const documentError =
     typeof search.documentError === "string" ? search.documentError : null;
 
@@ -106,6 +109,9 @@ export default async function AdminOrderPage({
   if (!order) {
     notFound();
   }
+  const availableStatusOptions = statusOptions.filter((status) =>
+    canTransitionOrderStatus(order.status, status),
+  );
 
   await markAdminOrderViewed(order.id);
 
@@ -208,6 +214,12 @@ export default async function AdminOrderPage({
           <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-800">
             Не удалось сформировать счет. Детали ошибки показаны в технических
             состояниях.
+          </div>
+        ) : null}
+
+        {statusError ? (
+          <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-800">
+            Этот переход статуса недоступен для текущего заказа.
           </div>
         ) : null}
 
@@ -337,7 +349,7 @@ export default async function AdminOrderPage({
 
                 <div className="grid gap-3 md:grid-cols-[1fr_auto]">
                   <label className="grid gap-2 text-sm font-bold text-slate-700">
-                    Комментарий к версии
+                    Комментарий к файлу
                     <input
                       className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-semibold"
                       name="comment"
@@ -386,8 +398,7 @@ export default async function AdminOrderPage({
                             </h3>
                           </div>
                           <p className="mt-2 text-sm font-semibold text-slate-500">
-                            {getDocumentTypeLabel(document.type)} · версия{" "}
-                            {document.currentVersion} ·{" "}
+                            {getDocumentTypeLabel(document.type)} ·{" "}
                             {document.isVisibleToBuyer
                               ? "видно покупателю"
                               : "скрыто от покупателя"}
@@ -398,7 +409,7 @@ export default async function AdminOrderPage({
                           href={`/documents/${document.versionId}/download`}
                         >
                           <Download size={16} />
-                          Скачать текущую
+                          Скачать
                         </Link>
                       </div>
 
@@ -421,7 +432,7 @@ export default async function AdminOrderPage({
                           <input
                             className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold"
                             name="comment"
-                            placeholder="Комментарий к новой версии"
+                            placeholder="Комментарий к файлу"
                           />
                           <SubmitButton
                             className="h-11 rounded-lg bg-slate-900 px-4 text-sm font-bold text-white transition hover:bg-slate-800"
@@ -432,31 +443,6 @@ export default async function AdminOrderPage({
                         </div>
                       </form>
 
-                      <div className="mt-4 divide-y divide-slate-100 text-sm">
-                        {document.versions.map((version) => (
-                          <div
-                            key={version.versionId}
-                            className="flex flex-wrap items-center justify-between gap-3 py-3"
-                          >
-                            <div>
-                              <p className="font-bold text-slate-800">
-                                Версия {version.version}: {version.fileName}
-                              </p>
-                              <p className="mt-1 text-slate-500">
-                                {formatFileSize(version.sizeBytes)} ·{" "}
-                                {formatDateTime(version.uploadedAt)}
-                                {version.comment ? ` · ${version.comment}` : ""}
-                              </p>
-                            </div>
-                            <Link
-                              className="font-bold text-[#1157ff]"
-                              href={`/documents/${version.versionId}/download`}
-                            >
-                              Скачать
-                            </Link>
-                          </div>
-                        ))}
-                      </div>
                     </article>
                   ))
                 )}
@@ -616,7 +602,7 @@ export default async function AdminOrderPage({
                   name="status"
                   defaultValue={order.status}
                 >
-                  {statusOptions.map((status) => (
+                  {availableStatusOptions.map((status) => (
                     <option key={status} value={status}>
                       {getOrderStatusLabel(status)}
                     </option>

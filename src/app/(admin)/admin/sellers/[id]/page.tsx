@@ -344,7 +344,7 @@ export default async function AdminSellerPage({
                 <input
                   className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-semibold"
                   name="title"
-                  placeholder="Например, УПД продавца"
+                  placeholder="Например, карточка компании продавца"
                   required
                 />
               </label>
@@ -352,7 +352,7 @@ export default async function AdminSellerPage({
                 Тип
                 <select
                   className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-semibold"
-                  defaultValue="upd"
+                  defaultValue="seller_company_card"
                   name="type"
                 >
                   {sellerDocumentTypes.map(([value, label]) => (
@@ -374,7 +374,7 @@ export default async function AdminSellerPage({
               <input
                 className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold"
                 name="comment"
-                placeholder="Комментарий к версии"
+                placeholder="Комментарий к файлу"
               />
               <label className="flex h-11 items-center gap-2 text-sm font-bold text-slate-700">
                 <input
@@ -409,8 +409,7 @@ export default async function AdminSellerPage({
                     <div>
                       <p className="font-black text-slate-950">{document.title}</p>
                       <p className="mt-1 text-sm font-semibold text-slate-500">
-                        {getDocumentTypeLabel(document.type)} · версия{" "}
-                        {document.currentVersion} ·{" "}
+                        {getDocumentTypeLabel(document.type)} ·{" "}
                         {formatFileSize(document.sizeBytes)} ·{" "}
                         {document.isVisibleToSeller
                           ? "виден продавцу"

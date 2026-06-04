@@ -27,7 +27,7 @@ function toErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Неизвестная ошибка";
 }
 
-async function ensureInvoice(orderId: string) {
+async function ensureInvoice(orderId: string, replaceCurrent: boolean) {
   const [existingInvoice] = await db
     .select({
       id: invoices.id,
@@ -39,25 +39,40 @@ async function ensureInvoice(orderId: string) {
     .where(and(eq(invoices.orderId, orderId), eq(invoices.isCurrent, true)))
     .limit(1);
 
-  if (existingInvoice) {
+  if (existingInvoice && !replaceCurrent) {
     return existingInvoice;
   }
 
   const number = await getNextInvoiceNumber();
-  const [invoice] = await db
-    .insert(invoices)
-    .values({
-      number,
-      orderId,
-      status: "pending",
-      isCurrent: true,
-    })
-    .returning({
-      id: invoices.id,
-      number: invoices.number,
-      status: invoices.status,
-      fileId: invoices.fileId,
-    });
+  const [invoice] = await db.transaction(async (tx) => {
+    const [createdInvoice] = await tx
+      .insert(invoices)
+      .values({
+        number,
+        orderId,
+        status: "pending",
+        isCurrent: true,
+      })
+      .returning({
+        id: invoices.id,
+        number: invoices.number,
+        status: invoices.status,
+        fileId: invoices.fileId,
+      });
+
+    if (existingInvoice) {
+      await tx
+        .update(invoices)
+        .set({
+          isCurrent: false,
+          replacedById: createdInvoice.id,
+          updatedAt: new Date(),
+        })
+        .where(eq(invoices.id, existingInvoice.id));
+    }
+
+    return [createdInvoice];
+  });
 
   return invoice;
 }
@@ -67,7 +82,8 @@ export async function generateOrderInvoice(
   actorId: string | null,
   options: GenerateOrderInvoiceOptions,
 ) {
-  const invoice = await ensureInvoice(orderId);
+  const isReplacement = options.source === "admin";
+  const invoice = await ensureInvoice(orderId, isReplacement);
   const now = new Date();
 
   const [order] = await db
@@ -248,7 +264,7 @@ export async function generateOrderInvoice(
       await tx.insert(auditEvents).values({
         actorId,
         action:
-          options.source === "admin"
+          isReplacement
             ? "invoice.regenerate"
             : "invoice.generate",
         entityType: "invoice",
@@ -257,20 +273,29 @@ export async function generateOrderInvoice(
           orderId: order.id,
           invoiceNumber: invoice.number,
           source: options.source,
+          isReplacement,
         },
       });
 
       await insertBuyerCompanyNotifications(tx, {
         buyerCompanyId: order.buyerCompanyId,
         type: "invoice_generated",
-        title: `Счет ${invoice.number} сформирован`,
-        body: `Счет по заказу ${order.number} доступен в личном кабинете.`,
+        title: isReplacement
+          ? `Новый счет ${invoice.number} сформирован`
+          : `Счет ${invoice.number} сформирован`,
+        body: isReplacement
+          ? `По заказу ${order.number} сформирован новый актуальный счет.`
+          : `Счет по заказу ${order.number} доступен в личном кабинете.`,
       });
 
       await tx.insert(emailOutbox).values({
         toEmail: order.buyerEmail,
-        subject: `Счет на оплату ${invoice.number} по заказу ${order.number}`,
-        body: `Здравствуйте. Счет ${invoice.number} по заказу ${order.number} сформирован и доступен в личном кабинете Сити Маркет.`,
+        subject: isReplacement
+          ? `Новый счет на оплату ${invoice.number} по заказу ${order.number}`
+          : `Счет на оплату ${invoice.number} по заказу ${order.number}`,
+        body: isReplacement
+          ? `Здравствуйте. По заказу ${order.number} сформирован новый счет ${invoice.number}. Он доступен в личном кабинете Сити Маркет.`
+          : `Здравствуйте. Счет ${invoice.number} по заказу ${order.number} сформирован и доступен в личном кабинете Сити Маркет.`,
         status: "queued",
         orderId: order.id,
         invoiceId: invoice.id,

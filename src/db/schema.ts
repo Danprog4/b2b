@@ -26,11 +26,8 @@ export const sellerStatusEnum = pgEnum("seller_status", [
 ]);
 export const orderStatusEnum = pgEnum("order_status", [
   "accepted",
-  "new",
-  "awaiting_payment",
   "paid",
   "issued",
-  "closed",
   "cancelled",
 ]);
 export const sellerOfferStatusEnum = pgEnum("seller_offer_status", [
@@ -358,7 +355,7 @@ export const orders = pgTable(
     buyerCompanyId: uuid("buyer_company_id")
       .references(() => buyerCompanies.id)
       .notNull(),
-    status: orderStatusEnum("status").default("new").notNull(),
+    status: orderStatusEnum("status").default("accepted").notNull(),
     totalAmount: numeric("total_amount", { precision: 12, scale: 2 }).notNull(),
     vatAmount: numeric("vat_amount", { precision: 12, scale: 2 }).notNull(),
     comment: text("comment"),
