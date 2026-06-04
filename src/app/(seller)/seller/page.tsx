@@ -6,6 +6,8 @@ import {
   FileText,
   Landmark,
   Package,
+  Pencil,
+  Plus,
   Paperclip,
   ReceiptText,
 } from "lucide-react";
@@ -21,7 +23,10 @@ import {
   notifications,
   orderItems,
   orders,
+  paymentsToSeller,
   products,
+  sellerOffers,
+  sellerProductChangeRequests,
   sellers,
   subcategories,
 } from "@/db/schema";
@@ -48,10 +53,47 @@ function getSellerStatusLabel(status: string) {
   return status === "active" ? "Активен" : "Неактивен";
 }
 
+function getOfferStatusLabel(status: string, hasPendingRequest: boolean) {
+  if (hasPendingRequest || status === "on_moderation") {
+    return "На модерации";
+  }
+
+  if (status === "published") {
+    return "Опубликован";
+  }
+
+  if (status === "rejected") {
+    return "Отклонен";
+  }
+
+  if (status === "hidden") {
+    return "Скрыт";
+  }
+
+  return "Черновик";
+}
+
+function getOfferStatusClassName(status: string, hasPendingRequest: boolean) {
+  if (hasPendingRequest || status === "on_moderation") {
+    return "bg-amber-50 text-amber-700";
+  }
+
+  if (status === "published") {
+    return "bg-emerald-50 text-emerald-700";
+  }
+
+  if (status === "rejected") {
+    return "bg-red-50 text-red-700";
+  }
+
+  return "bg-slate-100 text-slate-500";
+}
+
 export default async function SellerPage({ searchParams }: SellerPageProps) {
   const user = await requireUser(["seller"]);
   const search = (await searchParams) ?? {};
   const documentUploaded = search.documentUploaded === "1";
+  const productSubmitted = search.productSubmitted === "1";
   const documentError =
     typeof search.documentError === "string" ? search.documentError : null;
 
@@ -97,7 +139,7 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
     productRows,
     orderRows,
     financeSummary,
-    productCounter,
+    latestPayments,
     notificationRows,
   ] = await Promise.all([
     getCurrentSellerDocuments(),
@@ -106,10 +148,12 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
         id: products.id,
         sku: products.sku,
         name: products.name,
-        priceWithVat: products.priceWithVat,
-        vatRate: products.vatRate,
+        priceWithVat: sellerOffers.priceWithVat,
+        vatRate: sellerOffers.vatRate,
         unit: products.unit,
         isActive: products.isActive,
+        offerStatus: sellerOffers.status,
+        pendingRequestId: sellerProductChangeRequests.id,
         categoryName: categories.name,
         subcategoryName: subcategories.name,
         imageFileId: files.id,
@@ -117,6 +161,21 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
         imageIsActive: files.isActive,
       })
       .from(products)
+      .innerJoin(
+        sellerOffers,
+        and(
+          eq(sellerOffers.productId, products.id),
+          eq(sellerOffers.sellerId, seller.id),
+        ),
+      )
+      .leftJoin(
+        sellerProductChangeRequests,
+        and(
+          eq(sellerProductChangeRequests.productId, products.id),
+          eq(sellerProductChangeRequests.sellerId, seller.id),
+          eq(sellerProductChangeRequests.status, "on_moderation"),
+        ),
+      )
       .innerJoin(categories, eq(categories.id, products.categoryId))
       .leftJoin(subcategories, eq(subcategories.id, products.subcategoryId))
       .leftJoin(files, eq(files.id, products.mainImageFileId))
@@ -153,10 +212,18 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
       )
       .then(([row]) => row),
     db
-      .select({ count: count(products.id) })
-      .from(products)
-      .where(eq(products.sellerId, seller.id))
-      .then(([row]) => row),
+      .select({
+        id: paymentsToSeller.id,
+        periodFrom: paymentsToSeller.periodFrom,
+        periodTo: paymentsToSeller.periodTo,
+        payoutAmount: paymentsToSeller.payoutAmount,
+        paidAt: paymentsToSeller.paidAt,
+        comment: paymentsToSeller.comment,
+      })
+      .from(paymentsToSeller)
+      .where(eq(paymentsToSeller.sellerId, seller.id))
+      .orderBy(desc(paymentsToSeller.createdAt))
+      .limit(5),
     db
       .select({
         id: notifications.id,
@@ -181,11 +248,25 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
   const sellerCompanyCardDocument = documents.find(
     (document) => document.type === "seller_company_card",
   );
+  const publishedProductsCount = productRows.filter(
+    (product) => product.offerStatus === "published",
+  ).length;
+  const moderationProductsCount = productRows.filter(
+    (product) =>
+      product.offerStatus === "on_moderation" || Boolean(product.pendingRequestId),
+  ).length;
+  const rejectedProductsCount = productRows.filter(
+    (product) => product.offerStatus === "rejected",
+  ).length;
   const unreadSellerNotifications = notificationRows.filter(
     (notification) => !notification.isRead,
   ).length;
   const summaryCards = [
-    ["Товары", productCounter?.count ?? 0, Boxes],
+    [
+      "Товары",
+      `${publishedProductsCount}/${moderationProductsCount}/${rejectedProductsCount}`,
+      Boxes,
+    ],
     ["Заказы к выплате", financeSummary?.orderCount ?? 0, ReceiptText],
     ["Продажи", formatCurrency(salesAmount), Landmark],
     [
@@ -222,6 +303,12 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
             </article>
           ))}
         </section>
+
+        {productSubmitted ? (
+          <div className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
+            Товар отправлен на модерацию.
+          </div>
+        ) : null}
 
         <section className="mt-5 grid gap-5 xl:grid-cols-[1fr_380px]">
           <div className="grid gap-5">
@@ -277,12 +364,21 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
             </section>
 
             <section className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
-              <div className="flex items-center gap-2">
-                <Package className="text-[#1157ff]" size={22} />
-                <h2 className="text-2xl font-black text-slate-950">Товары</h2>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Package className="text-[#1157ff]" size={22} />
+                  <h2 className="text-2xl font-black text-slate-950">Товары</h2>
+                </div>
+                <Link
+                  className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#1157ff] px-4 text-sm font-bold text-white transition hover:bg-[#0b49e0]"
+                  href="/seller/products/new"
+                >
+                  <Plus size={17} />
+                  Добавить
+                </Link>
               </div>
               <div className="mt-5 overflow-hidden rounded-xl border border-slate-200">
-                <table className="w-full min-w-[860px] border-collapse text-left text-sm">
+                <table className="w-full min-w-[980px] border-collapse text-left text-sm">
                   <thead className="bg-slate-50 text-xs uppercase text-slate-500">
                     <tr>
                       <th className="px-4 py-3">Товар</th>
@@ -290,12 +386,13 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                       <th className="px-4 py-3">Цена</th>
                       <th className="px-4 py-3">НДС</th>
                       <th className="px-4 py-3">Статус</th>
+                      <th className="px-4 py-3"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {productRows.length === 0 ? (
                       <tr>
-                        <td className="px-4 py-8 text-center text-slate-500" colSpan={5}>
+                        <td className="px-4 py-8 text-center text-slate-500" colSpan={6}>
                           Товаров пока нет.
                         </td>
                       </tr>
@@ -349,14 +446,25 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                           </td>
                           <td className="px-4 py-3">
                             <span
-                              className={`rounded-full px-3 py-1 text-xs font-bold ${
-                                product.isActive
-                                  ? "bg-emerald-50 text-emerald-700"
-                                  : "bg-slate-100 text-slate-500"
-                              }`}
+                              className={`rounded-full px-3 py-1 text-xs font-bold ${getOfferStatusClassName(
+                                product.offerStatus,
+                                Boolean(product.pendingRequestId),
+                              )}`}
                             >
-                              {product.isActive ? "Активен" : "Неактивен"}
+                              {getOfferStatusLabel(
+                                product.offerStatus,
+                                Boolean(product.pendingRequestId),
+                              )}
                             </span>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <Link
+                              className="inline-flex h-9 items-center gap-2 rounded-lg bg-slate-100 px-3 text-sm font-bold text-slate-700 transition hover:bg-slate-200"
+                              href={`/seller/products/${product.id}/edit`}
+                            >
+                              <Pencil size={15} />
+                              Изменить
+                            </Link>
                           </td>
                         </tr>
                       );
@@ -502,6 +610,41 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                     Ручной расчет
                   </span>
                 </div>
+              </div>
+              <div className="mt-4 grid gap-2">
+                <h3 className="text-sm font-black text-slate-950">
+                  Последние выплаты
+                </h3>
+                {latestPayments.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-slate-200 px-3 py-3 text-sm text-slate-500">
+                    Выплат пока нет.
+                  </div>
+                ) : (
+                  latestPayments.map((payment) => (
+                    <article
+                      className="rounded-lg bg-slate-50 px-3 py-3 text-sm leading-6 text-slate-600"
+                      key={payment.id}
+                    >
+                      <div className="flex justify-between gap-3">
+                        <span>
+                          {formatDateTime(payment.periodFrom)} -{" "}
+                          {formatDateTime(payment.periodTo)}
+                        </span>
+                        <span className="font-black text-slate-950">
+                          {formatCurrency(Number(payment.payoutAmount))}
+                        </span>
+                      </div>
+                      <p>
+                        {payment.paidAt
+                          ? `Оплачено ${formatDateTime(payment.paidAt)}`
+                          : "Ожидает оплаты"}
+                      </p>
+                      {payment.comment ? (
+                        <p className="text-xs text-slate-500">{payment.comment}</p>
+                      ) : null}
+                    </article>
+                  ))
+                )}
               </div>
               <Link
                 className="mt-4 flex h-11 items-center justify-center gap-2 rounded-lg bg-slate-900 text-sm font-bold text-white transition hover:bg-slate-800"

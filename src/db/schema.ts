@@ -303,6 +303,34 @@ export const sellerOffers = pgTable(
   ],
 );
 
+export const sellerProductChangeRequests = pgTable(
+  "seller_product_change_requests",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    productId: uuid("product_id").references(() => products.id),
+    sellerOfferId: uuid("seller_offer_id").references(() => sellerOffers.id),
+    sellerId: uuid("seller_id")
+      .references(() => sellers.id)
+      .notNull(),
+    type: varchar("type", { length: 32 }).notNull(),
+    status: sellerOfferStatusEnum("status").default("on_moderation").notNull(),
+    payload: jsonb("payload").$type<Record<string, unknown>>().default({}).notNull(),
+    moderationComment: text("moderation_comment"),
+    submittedAt: timestamp("submitted_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    moderatedAt: timestamp("moderated_at", { withTimezone: true }),
+    moderatedById: uuid("moderated_by_id").references(() => users.id),
+    ...timestamps,
+  },
+  (table) => [
+    index("seller_product_change_requests_product_idx").on(table.productId),
+    index("seller_product_change_requests_offer_idx").on(table.sellerOfferId),
+    index("seller_product_change_requests_seller_idx").on(table.sellerId),
+    index("seller_product_change_requests_status_idx").on(table.status),
+  ],
+);
+
 export const productImages = pgTable(
   "product_images",
   {

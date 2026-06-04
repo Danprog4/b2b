@@ -25,6 +25,7 @@ import {
   getNextInvoiceNumber,
   getNextOrderNumber,
 } from "@/lib/numbering/sequences";
+import { insertSellerNotifications } from "@/lib/notifications/helpers";
 
 function getString(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -194,6 +195,23 @@ export async function createOrderAction(formData: FormData) {
         ...item,
       })),
     );
+
+    const sellerIds = Array.from(
+      new Set(
+        calculatedItems
+          .map((item) => item.sellerId)
+          .filter((sellerId): sellerId is string => Boolean(sellerId)),
+      ),
+    );
+
+    for (const sellerId of sellerIds) {
+      await insertSellerNotifications(tx, {
+        sellerId,
+        type: "new_order",
+        title: `Новый заказ ${orderNumber}`,
+        body: "В заказе есть товары вашей компании.",
+      });
+    }
 
     await tx.insert(auditEvents).values({
       actorId: user.id,

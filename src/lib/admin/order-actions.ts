@@ -5,10 +5,13 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { db } from "@/db";
-import { auditEvents, orders } from "@/db/schema";
+import { auditEvents, orderItems, orders } from "@/db/schema";
 import { requireUser } from "@/lib/auth/session";
 import { generateOrderInvoice } from "@/lib/invoices/generation";
-import { insertBuyerCompanyNotifications } from "@/lib/notifications/helpers";
+import {
+  insertBuyerCompanyNotifications,
+  insertSellerNotifications,
+} from "@/lib/notifications/helpers";
 import {
   canTransitionOrderStatus,
   getOrderStatusLabel,
@@ -60,12 +63,33 @@ export async function updateOrderStatusAction(formData: FormData) {
       .where(eq(orders.id, order.id));
 
     if (order.status !== status) {
+      const sellerRows = await tx
+        .select({ sellerId: orderItems.sellerId })
+        .from(orderItems)
+        .where(eq(orderItems.orderId, order.id));
+      const sellerIds = Array.from(
+        new Set(
+          sellerRows
+            .map((row) => row.sellerId)
+            .filter((sellerId): sellerId is string => Boolean(sellerId)),
+        ),
+      );
+
       await insertBuyerCompanyNotifications(tx, {
         buyerCompanyId: order.buyerCompanyId,
         type: "order_status_changed",
         title: `Статус заказа ${order.number} изменен`,
         body: `Новый статус: ${getOrderStatusLabel(status)}.`,
       });
+
+      for (const sellerId of sellerIds) {
+        await insertSellerNotifications(tx, {
+          sellerId,
+          type: "order_status_changed",
+          title: `Статус заказа ${order.number} изменен`,
+          body: `Новый статус: ${getOrderStatusLabel(status)}.`,
+        });
+      }
 
       await tx.insert(auditEvents).values({
         actorId: admin.id,

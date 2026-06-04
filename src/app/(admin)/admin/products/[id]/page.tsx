@@ -12,7 +12,11 @@ import {
   sellers,
   subcategories,
 } from "@/db/schema";
-import { updateProductAction } from "@/lib/admin/product-actions";
+import {
+  setPriorityProductOfferAction,
+  updateProductAction,
+  upsertProductOfferAction,
+} from "@/lib/admin/product-actions";
 import { requireUser } from "@/lib/auth/session";
 import { getPublicFileUrl } from "@/lib/files/urls";
 import { ProductForm } from "../product-form";
@@ -31,6 +35,7 @@ export default async function AdminProductEditPage({
   const search = (await searchParams) ?? {};
   const saved = search.saved === "1";
   const created = search.created === "1";
+  const offerSaved = search.offerSaved === "1";
 
   const [product] = await db
     .select()
@@ -97,6 +102,20 @@ export default async function AdminProductEditPage({
       .where(and(eq(productImages.productId, product.id), eq(files.isActive, true)))
       .orderBy(asc(productImages.sortOrder), asc(productImages.createdAt)),
   ]);
+  const offerRows = await db
+    .select({
+      id: sellerOffers.id,
+      sellerId: sellerOffers.sellerId,
+      sellerName: sellers.name,
+      priceWithVat: sellerOffers.priceWithVat,
+      vatRate: sellerOffers.vatRate,
+      status: sellerOffers.status,
+      isPriority: sellerOffers.isPriority,
+    })
+    .from(sellerOffers)
+    .innerJoin(sellers, eq(sellers.id, sellerOffers.sellerId))
+    .where(eq(sellerOffers.productId, product.id))
+    .orderBy(asc(sellers.name));
 
   const productWithImages = {
     ...product,
@@ -157,6 +176,12 @@ export default async function AdminProductEditPage({
           </div>
         ) : null}
 
+        {offerSaved ? (
+          <div className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
+            Предложение сохранено.
+          </div>
+        ) : null}
+
         <section className="mt-5 rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
           <ProductForm
             action={updateProductAction}
@@ -166,6 +191,133 @@ export default async function AdminProductEditPage({
             sellers={sellerOptions}
             submitText="Сохранить товар"
           />
+        </section>
+
+        <section className="mt-5 rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-2xl font-black text-slate-950">
+              Предложения продавцов
+            </h2>
+            <span className="rounded-lg bg-slate-100 px-3 py-2 text-sm font-bold text-slate-600">
+              {offerRows.length}
+            </span>
+          </div>
+
+          <div className="mt-5 overflow-hidden rounded-xl border border-slate-200">
+            <table className="w-full min-w-[900px] border-collapse text-left text-sm">
+              <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                <tr>
+                  <th className="px-4 py-3">Продавец</th>
+                  <th className="px-4 py-3">Цена</th>
+                  <th className="px-4 py-3">НДС</th>
+                  <th className="px-4 py-3">Статус</th>
+                  <th className="px-4 py-3">Priority</th>
+                  <th className="px-4 py-3"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {offerRows.length === 0 ? (
+                  <tr>
+                    <td className="px-4 py-8 text-center text-slate-500" colSpan={6}>
+                      Предложений пока нет.
+                    </td>
+                  </tr>
+                ) : null}
+                {offerRows.map((offer) => (
+                  <tr key={offer.id}>
+                    <td className="px-4 py-3 font-bold text-slate-950">
+                      {offer.sellerName}
+                    </td>
+                    <td className="px-4 py-3 font-black">
+                      {Number(offer.priceWithVat).toLocaleString("ru-RU")} ₽
+                    </td>
+                    <td className="px-4 py-3 font-bold text-slate-700">
+                      {Number(offer.vatRate).toFixed(0)}%
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
+                        {offer.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {offer.id === product.priorityOfferId || offer.isPriority
+                        ? "Да"
+                        : "Нет"}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <form action={setPriorityProductOfferAction}>
+                        <input name="productId" type="hidden" value={product.id} />
+                        <input name="offerId" type="hidden" value={offer.id} />
+                        <button
+                          className="h-9 rounded-lg bg-slate-100 px-3 text-sm font-bold text-slate-700 transition hover:bg-slate-200"
+                          type="submit"
+                        >
+                          Priority
+                        </button>
+                      </form>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <form
+            action={upsertProductOfferAction}
+            className="mt-5 grid gap-3 rounded-xl bg-slate-50 p-4 lg:grid-cols-[1fr_160px_130px_160px_auto_auto]"
+          >
+            <input name="productId" type="hidden" value={product.id} />
+            <select
+              className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold"
+              name="sellerId"
+              required
+            >
+              <option value="">Продавец</option>
+              {sellerOptions.map((seller) => (
+                <option key={seller.id} value={seller.id}>
+                  {seller.name}
+                </option>
+              ))}
+            </select>
+            <input
+              className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold"
+              min="0"
+              name="priceWithVat"
+              placeholder="Цена"
+              required
+              step="0.01"
+              type="number"
+            />
+            <input
+              className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold"
+              defaultValue="22.00"
+              min="0"
+              name="vatRate"
+              step="0.01"
+              type="number"
+            />
+            <select
+              className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold"
+              defaultValue="published"
+              name="status"
+            >
+              <option value="draft">draft</option>
+              <option value="on_moderation">on_moderation</option>
+              <option value="published">published</option>
+              <option value="rejected">rejected</option>
+              <option value="hidden">hidden</option>
+            </select>
+            <label className="flex h-11 items-center gap-2 text-sm font-bold text-slate-700">
+              <input name="isPriority" type="checkbox" />
+              Priority
+            </label>
+            <button
+              className="h-11 rounded-lg bg-[#1157ff] px-4 text-sm font-bold text-white transition hover:bg-[#0b49e0]"
+              type="submit"
+            >
+              Сохранить
+            </button>
+          </form>
         </section>
       </div>
     </main>

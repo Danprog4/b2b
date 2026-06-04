@@ -1,9 +1,16 @@
 import { asc, desc, eq } from "drizzle-orm";
-import { FileSpreadsheet, Package, Plus } from "lucide-react";
+import { Clock3, FileSpreadsheet, Package, Plus } from "lucide-react";
 import Link from "next/link";
 
 import { db } from "@/db";
-import { categories, files, products, sellers, subcategories } from "@/db/schema";
+import {
+  categories,
+  files,
+  products,
+  sellerOffers,
+  sellers,
+  subcategories,
+} from "@/db/schema";
 import { requireUser } from "@/lib/auth/session";
 import { getPublicFileUrl } from "@/lib/files/urls";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
@@ -17,13 +24,16 @@ export default async function AdminProductsPage() {
       sku: products.sku,
       name: products.name,
       slug: products.slug,
-      priceWithVat: products.priceWithVat,
       unit: products.unit,
       isActive: products.isActive,
+      priorityOfferId: products.priorityOfferId,
       updatedAt: products.updatedAt,
       categoryName: categories.name,
       subcategoryName: subcategories.name,
-      sellerName: sellers.name,
+      offerId: sellerOffers.id,
+      offerPriceWithVat: sellerOffers.priceWithVat,
+      offerStatus: sellerOffers.status,
+      offerSellerName: sellers.name,
       mainImageFileId: files.id,
       mainImageStorageKey: files.storageKey,
       mainImageIsActive: files.isActive,
@@ -31,9 +41,41 @@ export default async function AdminProductsPage() {
     .from(products)
     .innerJoin(categories, eq(products.categoryId, categories.id))
     .leftJoin(subcategories, eq(products.subcategoryId, subcategories.id))
-    .leftJoin(sellers, eq(products.sellerId, sellers.id))
+    .leftJoin(sellerOffers, eq(sellerOffers.productId, products.id))
+    .leftJoin(sellers, eq(sellerOffers.sellerId, sellers.id))
     .leftJoin(files, eq(files.id, products.mainImageFileId))
     .orderBy(desc(products.updatedAt), asc(products.name));
+  const rowsByProduct = new Map<string, typeof rows>();
+
+  for (const row of rows) {
+    rowsByProduct.set(row.id, [...(rowsByProduct.get(row.id) ?? []), row]);
+  }
+
+  const productRows = Array.from(rowsByProduct.values()).map((productOffers) => {
+    const first = productOffers[0];
+    const offers = productOffers.filter((offer) => offer.offerId);
+    const publishedOffers = offers.filter((offer) => offer.offerStatus === "published");
+    const priorityOffer = publishedOffers.find(
+      (offer) => offer.offerId === first.priorityOfferId,
+    );
+    const selectedOffer =
+      priorityOffer ??
+      publishedOffers.reduce<(typeof publishedOffers)[number] | null>(
+        (best, offer) =>
+          !best ||
+          Number(offer.offerPriceWithVat ?? Infinity) <
+            Number(best.offerPriceWithVat ?? Infinity)
+            ? offer
+            : best,
+        null,
+      );
+
+    return {
+      ...first,
+      offerCount: offers.length,
+      selectedOffer,
+    };
+  });
 
   return (
     <main className="min-h-screen bg-slate-100 px-6 py-8 text-slate-900">
@@ -64,6 +106,13 @@ export default async function AdminProductsPage() {
           <div className="flex flex-wrap gap-3">
             <Link
               className="inline-flex h-11 items-center gap-2 rounded-lg bg-white px-4 text-sm font-bold text-[#1157ff] shadow-sm ring-1 ring-slate-200 transition hover:bg-slate-50"
+              href="/admin/products/moderation"
+            >
+              <Clock3 size={18} />
+              Модерация
+            </Link>
+            <Link
+              className="inline-flex h-11 items-center gap-2 rounded-lg bg-white px-4 text-sm font-bold text-[#1157ff] shadow-sm ring-1 ring-slate-200 transition hover:bg-slate-50"
               href="/admin/products/import"
             >
               <FileSpreadsheet size={18} />
@@ -92,14 +141,14 @@ export default async function AdminProductsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm">
-              {rows.length === 0 ? (
+              {productRows.length === 0 ? (
                 <tr>
                   <td className="px-5 py-8 text-center text-slate-500" colSpan={6}>
                     Товаров пока нет.
                   </td>
                 </tr>
               ) : null}
-              {rows.map((product) => {
+              {productRows.map((product) => {
                 const imageUrl = product.mainImageIsActive
                   ? getPublicFileUrl({
                       id: product.mainImageFileId,
@@ -153,7 +202,7 @@ export default async function AdminProductsPage() {
                       className="block px-5 py-4 text-slate-600"
                       href={`/admin/products/${product.id}`}
                     >
-                      {product.sellerName ?? "Не привязан"}
+                      {product.selectedOffer?.offerSellerName ?? "Нет published offer"}
                     </Link>
                   </td>
                   <td className="p-0">
@@ -161,7 +210,9 @@ export default async function AdminProductsPage() {
                       className="block px-5 py-4 font-black"
                       href={`/admin/products/${product.id}`}
                     >
-                      {formatCurrency(product.priceWithVat)}
+                      {product.selectedOffer?.offerPriceWithVat
+                        ? formatCurrency(product.selectedOffer.offerPriceWithVat)
+                        : "Нет цены"}
                     </Link>
                   </td>
                   <td className="p-0">
@@ -176,7 +227,8 @@ export default async function AdminProductsPage() {
                             : "bg-slate-100 text-slate-500"
                         }`}
                       >
-                        {product.isActive ? "Активен" : "Неактивен"}
+                        {product.offerCount} предл. ·{" "}
+                        {product.isActive ? "активен" : "неактивен"}
                       </span>
                     </Link>
                   </td>

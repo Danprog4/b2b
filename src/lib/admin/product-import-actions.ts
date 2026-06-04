@@ -14,6 +14,7 @@ import {
   importJobRows,
   importJobs,
   products,
+  sellerOffers,
   sellers,
   subcategories,
   systemEvents,
@@ -48,13 +49,11 @@ type ImportPayload = {
   subcategory: string;
   seller: string;
   sellerInn: string;
-  imageUrl: string;
   priceWithVat: string;
   vatRate: string;
   size: string;
   unit: string;
   description: string;
-  isActive: boolean;
 };
 
 type ResolvedImportRow = {
@@ -65,6 +64,7 @@ type ResolvedImportRow = {
   subcategoryId?: string | null;
   sellerId?: string | null;
   existingProductId?: string;
+  existingOfferId?: string;
 };
 
 const translit: Record<string, string> = {
@@ -148,27 +148,6 @@ function getOptionalNumberString(value: string, fallback: string) {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed.toFixed(2) : "";
 }
 
-function normalizeBoolean(value: string, fallback: boolean) {
-  if (!value) {
-    return fallback;
-  }
-
-  const normalized = value.toLowerCase();
-  if (["1", "true", "yes", "да", "активен", "active", "on"].includes(normalized)) {
-    return true;
-  }
-
-  if (
-    ["0", "false", "no", "нет", "неактивен", "inactive", "off"].includes(
-      normalized,
-    )
-  ) {
-    return false;
-  }
-
-  return fallback;
-}
-
 function normalizeHeader(value: string) {
   return value
     .trim()
@@ -214,8 +193,6 @@ function getMissingRequiredColumns(rows: Record<string, unknown>[]) {
 }
 
 function getPayload(row: Record<string, unknown>): ImportPayload {
-  const isActiveRaw = readField(row, ["isActive", "active", "активен", "статус"]);
-
   return {
     sku: readField(row, ["sku", "артикул"]),
     name: readField(row, ["name", "название", "товар", "название товара"]),
@@ -231,13 +208,6 @@ function getPayload(row: Record<string, unknown>): ImportPayload {
       "инн продавца",
       "инн поставщика",
     ]),
-    imageUrl: readField(row, [
-      "imageUrl",
-      "image",
-      "photo",
-      "фото",
-      "ссылка на фото",
-    ]),
     priceWithVat: readField(row, [
       "priceWithVat",
       "price",
@@ -248,7 +218,6 @@ function getPayload(row: Record<string, unknown>): ImportPayload {
     size: readField(row, ["size", "размер"]),
     unit: readField(row, ["unit", "единица", "единица измерения", "ед"]),
     description: readField(row, ["description", "описание"]),
-    isActive: normalizeBoolean(isActiveRaw, true),
   };
 }
 
@@ -366,18 +335,6 @@ async function resolveRow(
     errors.push("НДС должен быть числом 0 или больше.");
   }
 
-  if (normalizedSku) {
-    const previousRowNumber = seenSkus.get(normalizedSku);
-
-    if (previousRowNumber) {
-      errors.push(
-        `Артикул "${payload.sku}" уже указан в строке ${previousRowNumber}.`,
-      );
-    } else {
-      seenSkus.set(normalizedSku, rowNumber);
-    }
-  }
-
   const [category] = payload.category
     ? await db
         .select({ id: categories.id })
@@ -436,6 +393,19 @@ async function resolveRow(
     errors.push("Продавец не найден по названию или ИНН.");
   }
 
+  if (normalizedSku && seller) {
+    const duplicateKey = `${normalizedSku}:${seller.id}`;
+    const previousRowNumber = seenSkus.get(duplicateKey);
+
+    if (previousRowNumber) {
+      errors.push(
+        `Артикул "${payload.sku}" для этого продавца уже указан в строке ${previousRowNumber}.`,
+      );
+    } else {
+      seenSkus.set(duplicateKey, rowNumber);
+    }
+  }
+
   const [existingProduct] = normalizedSku
     ? await db
         .select({ id: products.id })
@@ -443,6 +413,20 @@ async function resolveRow(
         .where(eq(products.sku, normalizedSku))
         .limit(1)
     : [];
+
+  const [existingOffer] =
+    existingProduct && seller
+      ? await db
+          .select({ id: sellerOffers.id })
+          .from(sellerOffers)
+          .where(
+            and(
+              eq(sellerOffers.productId, existingProduct.id),
+              eq(sellerOffers.sellerId, seller.id),
+            ),
+          )
+          .limit(1)
+      : [];
 
   return {
     rowNumber,
@@ -457,6 +441,7 @@ async function resolveRow(
     subcategoryId: subcategory?.id ?? null,
     sellerId: seller?.id ?? null,
     existingProductId: existingProduct?.id,
+    existingOfferId: existingOffer?.id,
   };
 }
 
@@ -473,38 +458,106 @@ async function applyResolvedRow(row: ResolvedImportRow, adminId: string) {
     vatRate: row.payload.vatRate,
     size: row.payload.size || null,
     unit: row.payload.unit,
-    isActive: row.payload.isActive,
+    isActive: true,
     updatedAt: new Date(),
   };
 
   if (row.existingProductId) {
-    await db
-      .update(products)
-      .set(values)
-      .where(eq(products.id, row.existingProductId));
+    const [offer] = await db
+      .insert(sellerOffers)
+      .values({
+        productId: row.existingProductId,
+        sellerId: row.sellerId ?? "",
+        priceWithVat: row.payload.priceWithVat,
+        vatRate: row.payload.vatRate,
+        status: "published",
+        submittedAt: new Date(),
+        moderatedAt: new Date(),
+        moderatedById: adminId,
+      })
+      .onConflictDoUpdate({
+        target: [sellerOffers.productId, sellerOffers.sellerId],
+        set: {
+          priceWithVat: row.payload.priceWithVat,
+          vatRate: row.payload.vatRate,
+          status: "published",
+          moderatedAt: new Date(),
+          moderatedById: adminId,
+          updatedAt: new Date(),
+        },
+      })
+      .returning({ id: sellerOffers.id });
+
+    const [product] = await db
+      .select({ priorityOfferId: products.priorityOfferId })
+      .from(products)
+      .where(eq(products.id, row.existingProductId))
+      .limit(1);
+
+    if (!product?.priorityOfferId) {
+      await db
+        .update(products)
+        .set({
+          priorityOfferId: offer.id,
+          updatedAt: new Date(),
+        })
+        .where(eq(products.id, row.existingProductId));
+    }
 
     await db.insert(auditEvents).values({
       actorId: adminId,
-      action: "product.import_update",
-      entityType: "product",
-      entityId: row.existingProductId,
+      action: row.existingOfferId ? "offer.import_update" : "offer.import_create",
+      entityType: "seller_offer",
+      entityId: offer.id,
       metadata: {
         sku: row.payload.sku,
         rowNumber: row.rowNumber,
+        productId: row.existingProductId,
+        sellerId: row.sellerId,
       },
     });
 
-    return { status: "updated", productId: row.existingProductId };
+    return {
+      status: row.existingOfferId ? "updated" : "created",
+      productId: row.existingProductId,
+    };
   }
 
   const sku = row.payload.sku || (await getNextProductSku());
-  const [product] = await db
-    .insert(products)
-    .values({
-      ...values,
-      sku,
-    })
-    .returning({ id: products.id });
+  const [product] = await db.transaction(async (tx) => {
+    const [createdProduct] = await tx
+      .insert(products)
+      .values({
+        ...values,
+        sku,
+      })
+      .returning({ id: products.id });
+
+    const [offer] = await tx
+      .insert(sellerOffers)
+      .values({
+        productId: createdProduct.id,
+        sellerId: row.sellerId ?? "",
+        priceWithVat: row.payload.priceWithVat,
+        vatRate: row.payload.vatRate,
+        status: "published",
+        isPriority: true,
+        submittedAt: new Date(),
+        moderatedAt: new Date(),
+        moderatedById: adminId,
+      })
+      .returning({ id: sellerOffers.id });
+
+    await tx
+      .update(products)
+      .set({
+        priorityOfferId: offer.id,
+        updatedAt: new Date(),
+      })
+      .where(eq(products.id, createdProduct.id));
+
+    return [createdProduct];
+  });
 
   await db.insert(auditEvents).values({
     actorId: adminId,
@@ -585,7 +638,7 @@ export async function importProductsAction(formData: FormData) {
       continue;
     }
 
-    const previewStatus = resolvedRow.existingProductId
+    const previewStatus = resolvedRow.existingOfferId
       ? "ready_update"
       : "ready_create";
     if (previewStatus === "ready_create") {
@@ -604,6 +657,7 @@ export async function importProductsAction(formData: FormData) {
         subcategoryId: resolvedRow.subcategoryId,
         sellerId: resolvedRow.sellerId,
         existingProductId: resolvedRow.existingProductId,
+        existingOfferId: resolvedRow.existingOfferId,
       },
       errors: [],
     });
@@ -658,11 +712,6 @@ function getPayloadString(payload: Record<string, unknown>, key: string) {
   return typeof value === "string" ? value : "";
 }
 
-function getPayloadBoolean(payload: Record<string, unknown>, key: string) {
-  const value = payload[key];
-  return typeof value === "boolean" ? value : false;
-}
-
 function getResolvedRowFromPreview(row: {
   rowNumber: number;
   payload: Record<string, unknown>;
@@ -677,19 +726,18 @@ function getResolvedRowFromPreview(row: {
       subcategory: getPayloadString(row.payload, "subcategory"),
       seller: getPayloadString(row.payload, "seller"),
       sellerInn: getPayloadString(row.payload, "sellerInn"),
-      imageUrl: getPayloadString(row.payload, "imageUrl"),
       priceWithVat: getPayloadString(row.payload, "priceWithVat"),
       vatRate: getPayloadString(row.payload, "vatRate"),
       size: getPayloadString(row.payload, "size"),
       unit: getPayloadString(row.payload, "unit"),
       description: getPayloadString(row.payload, "description"),
-      isActive: getPayloadBoolean(row.payload, "isActive"),
     },
     errors: row.errors ?? [],
     categoryId: getPayloadString(row.payload, "categoryId"),
     subcategoryId: getPayloadString(row.payload, "subcategoryId") || null,
     sellerId: getPayloadString(row.payload, "sellerId"),
     existingProductId: getPayloadString(row.payload, "existingProductId") || undefined,
+    existingOfferId: getPayloadString(row.payload, "existingOfferId") || undefined,
   };
 }
 

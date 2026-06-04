@@ -25,13 +25,11 @@ const exampleColumns = [
   "subcategory",
   "seller",
   "sellerInn",
-  "imageUrl",
   "priceWithVat",
   "vatRate",
   "size",
   "unit",
   "description",
-  "isActive",
 ];
 
 const errorMessages: Record<string, string> = {
@@ -243,7 +241,8 @@ export default async function AdminProductImportPage({
             </div>
             <p className="mt-3 text-sm leading-6 text-slate-600">
               `sku` можно оставить пустым: система назначит артикул автоматически.
-              Если `sku` уже существует, строка обновит найденный товар.
+              Если `sku` уже существует, строка обновит offer найденного
+              продавца или добавит новый offer к товару.
               Изменения применяются только после подтверждения проверенного файла.
             </p>
 
@@ -300,6 +299,10 @@ export default async function AdminProductImportPage({
               <p>
                 Продавец ищется по `sellerInn` или `seller`. Без продавца строка
                 не пройдет проверку.
+              </p>
+              <p>
+                Совпадение `sku` + продавец обновляет offer; тот же `sku` с другим
+                продавцом добавляет offer к существующему товару.
               </p>
               <p>
                 Сначала система показывает предпросмотр и ошибки. Каталог

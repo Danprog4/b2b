@@ -570,3 +570,146 @@ export async function removeProductGalleryImageAction(formData: FormData) {
   revalidatePath(`/admin/products/${productId}`);
   redirect(`/admin/products/${productId}?saved=1`);
 }
+
+export async function upsertProductOfferAction(formData: FormData) {
+  const admin = await requireUser(["admin"]);
+  const productId = getString(formData, "productId");
+  const sellerId = getString(formData, "sellerId");
+  const priceWithVat = normalizeMoney(getString(formData, "priceWithVat"));
+  const vatRate = normalizeMoney(getString(formData, "vatRate") || "22.00", "22.00");
+  const status = getString(formData, "status") || "published";
+  const isPriority = formData.get("isPriority") === "on";
+
+  if (
+    !productId ||
+    !sellerId ||
+    Number(priceWithVat) <= 0 ||
+    !["draft", "on_moderation", "published", "rejected", "hidden"].includes(status)
+  ) {
+    redirect("/admin/products");
+  }
+
+  const [product] = await db
+    .select({ id: products.id, slug: products.slug })
+    .from(products)
+    .where(eq(products.id, productId))
+    .limit(1);
+
+  if (!product) {
+    redirect("/admin/products");
+  }
+
+  await db.transaction(async (tx) => {
+    const [offer] = await tx
+      .insert(sellerOffers)
+      .values({
+        productId,
+        sellerId,
+        priceWithVat,
+        vatRate,
+        status: status as "draft" | "on_moderation" | "published" | "rejected" | "hidden",
+        isPriority,
+        submittedAt: new Date(),
+        moderatedAt: status === "published" || status === "rejected" ? new Date() : null,
+        moderatedById: status === "published" || status === "rejected" ? admin.id : null,
+      })
+      .onConflictDoUpdate({
+        target: [sellerOffers.productId, sellerOffers.sellerId],
+        set: {
+          priceWithVat,
+          vatRate,
+          status: status as "draft" | "on_moderation" | "published" | "rejected" | "hidden",
+          isPriority,
+          moderatedAt: status === "published" || status === "rejected" ? new Date() : null,
+          moderatedById: status === "published" || status === "rejected" ? admin.id : null,
+          updatedAt: new Date(),
+        },
+      })
+      .returning({ id: sellerOffers.id });
+
+    if (isPriority) {
+      await tx
+        .update(sellerOffers)
+        .set({ isPriority: false, updatedAt: new Date() })
+        .where(and(eq(sellerOffers.productId, productId), ne(sellerOffers.id, offer.id)));
+
+      await tx
+        .update(products)
+        .set({ priorityOfferId: offer.id, updatedAt: new Date() })
+        .where(eq(products.id, productId));
+    }
+
+    await tx.insert(auditEvents).values({
+      actorId: admin.id,
+      action: "product_offer.upsert",
+      entityType: "seller_offer",
+      entityId: offer.id,
+      metadata: {
+        productId,
+        sellerId,
+        status,
+        isPriority,
+      },
+    });
+  });
+
+  revalidatePath("/");
+  revalidatePath("/catalog");
+  revalidatePath(`/product/${product.slug}`);
+  revalidatePath(`/admin/products/${productId}`);
+  revalidatePath("/admin/products");
+
+  redirect(`/admin/products/${productId}?offerSaved=1`);
+}
+
+export async function setPriorityProductOfferAction(formData: FormData) {
+  const admin = await requireUser(["admin"]);
+  const productId = getString(formData, "productId");
+  const offerId = getString(formData, "offerId");
+
+  if (!productId || !offerId) {
+    redirect("/admin/products");
+  }
+
+  const [product] = await db
+    .select({ id: products.id, slug: products.slug })
+    .from(products)
+    .where(eq(products.id, productId))
+    .limit(1);
+
+  if (!product) {
+    redirect("/admin/products");
+  }
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(sellerOffers)
+      .set({ isPriority: false, updatedAt: new Date() })
+      .where(eq(sellerOffers.productId, productId));
+
+    await tx
+      .update(sellerOffers)
+      .set({ isPriority: true, updatedAt: new Date() })
+      .where(eq(sellerOffers.id, offerId));
+
+    await tx
+      .update(products)
+      .set({ priorityOfferId: offerId, updatedAt: new Date() })
+      .where(eq(products.id, productId));
+
+    await tx.insert(auditEvents).values({
+      actorId: admin.id,
+      action: "product_offer.priority_set",
+      entityType: "seller_offer",
+      entityId: offerId,
+      metadata: { productId },
+    });
+  });
+
+  revalidatePath("/");
+  revalidatePath("/catalog");
+  revalidatePath(`/product/${product.slug}`);
+  revalidatePath(`/admin/products/${productId}`);
+
+  redirect(`/admin/products/${productId}?offerSaved=1`);
+}
