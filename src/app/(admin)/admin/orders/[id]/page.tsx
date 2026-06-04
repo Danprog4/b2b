@@ -5,7 +5,9 @@ import {
   Download,
   FileText,
   Paperclip,
+  Plus,
   ShoppingCart,
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -19,11 +21,16 @@ import {
   invoices,
   orderItems,
   orders,
+  products,
+  sellerOffers,
   sellers,
   users,
 } from "@/db/schema";
 import {
+  addOrderItemAction,
   regenerateInvoiceAction,
+  removeOrderItemAction,
+  updateOrderItemQuantityAction,
   updateOrderStatusAction,
 } from "@/lib/admin/order-actions";
 import { requireUser } from "@/lib/auth/session";
@@ -66,7 +73,10 @@ export default async function AdminOrderPage({
   const documentUploaded = search.documentUploaded === "1";
   const invoiceRegenerated = search.invoiceRegenerated === "1";
   const invoiceError = search.invoiceError === "1";
+  const orderEdited = search.orderEdited === "1";
   const statusError = search.statusError === "1";
+  const orderEditError =
+    typeof search.orderEditError === "string" ? search.orderEditError : null;
   const documentError =
     typeof search.documentError === "string" ? search.documentError : null;
 
@@ -115,10 +125,11 @@ export default async function AdminOrderPage({
 
   await markAdminOrderViewed(order.id);
 
-  const [items, orderDocuments, statusHistory] = await Promise.all([
+  const [items, orderDocuments, statusHistory, offerOptions] = await Promise.all([
     db
       .select({
         id: orderItems.id,
+        sellerOfferId: orderItems.sellerOfferId,
         productName: orderItems.productNameSnapshot,
         sku: orderItems.skuSnapshot,
         unit: orderItems.unitSnapshot,
@@ -136,6 +147,28 @@ export default async function AdminOrderPage({
       .where(eq(orderItems.orderId, order.id)),
     getAdminOrderDocuments(order.id),
     getAdminOrderStatusHistory(order.id),
+    order.status === "accepted"
+      ? db
+          .select({
+            id: sellerOffers.id,
+            productName: products.name,
+            sku: products.sku,
+            priceWithVat: sellerOffers.priceWithVat,
+            vatRate: sellerOffers.vatRate,
+            sellerName: sellers.name,
+          })
+          .from(sellerOffers)
+          .innerJoin(products, eq(products.id, sellerOffers.productId))
+          .innerJoin(sellers, eq(sellers.id, sellerOffers.sellerId))
+          .where(
+            and(
+              eq(sellerOffers.status, "published"),
+              eq(products.isActive, true),
+            ),
+          )
+          .orderBy(products.name, sellers.name)
+          .limit(200)
+      : Promise.resolve([]),
   ]);
   const commissionBySeller = Array.from(
     items
@@ -217,9 +250,21 @@ export default async function AdminOrderPage({
           </div>
         ) : null}
 
+        {orderEdited ? (
+          <div className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
+            Состав заказа обновлен. Актуальный счет сформирован заново.
+          </div>
+        ) : null}
+
         {statusError ? (
           <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-800">
             Этот переход статуса недоступен для текущего заказа.
+          </div>
+        ) : null}
+
+        {orderEditError ? (
+          <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-800">
+            {getOrderEditErrorLabel(orderEditError)}
           </div>
         ) : null}
 
@@ -292,10 +337,110 @@ export default async function AdminOrderPage({
                         {Number(item.quantity)} ×{" "}
                         {formatCurrency(item.priceWithVat)}
                       </div>
+                      {order.status === "accepted" ? (
+                        <div className="mt-4 grid gap-2">
+                          <form
+                            action={updateOrderItemQuantityAction}
+                            className="flex justify-end gap-2"
+                          >
+                            <input name="orderId" type="hidden" value={order.id} />
+                            <input name="itemId" type="hidden" value={item.id} />
+                            <input
+                              className="h-10 w-24 rounded-lg border border-slate-200 px-3 text-right text-sm font-bold"
+                              min="0.001"
+                              name="quantity"
+                              step="0.001"
+                              type="number"
+                              defaultValue={Number(item.quantity)}
+                            />
+                            <SubmitButton
+                              className="h-10 rounded-lg bg-slate-900 px-3 text-sm font-bold text-white transition hover:bg-slate-800"
+                              pendingText="..."
+                            >
+                              OK
+                            </SubmitButton>
+                          </form>
+                          <form action={removeOrderItemAction}>
+                            <input name="orderId" type="hidden" value={order.id} />
+                            <input name="itemId" type="hidden" value={item.id} />
+                            <SubmitButton
+                              className="ml-auto h-10 rounded-lg bg-red-50 px-3 text-sm font-bold text-red-700 transition hover:bg-red-100"
+                              pendingText="..."
+                            >
+                              <Trash2 size={15} />
+                              Удалить
+                            </SubmitButton>
+                          </form>
+                        </div>
+                      ) : null}
                     </div>
                   </article>
                 ))}
               </div>
+            </section>
+
+            <section className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-black text-slate-950">
+                    Редактирование состава
+                  </h2>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">
+                    Доступно только для заказа в статусе «Принят». После изменения
+                    автоматически формируется новый актуальный счет.
+                  </p>
+                </div>
+              </div>
+              {order.status === "accepted" ? (
+                <form
+                  action={addOrderItemAction}
+                  className="mt-4 grid gap-3 rounded-xl bg-slate-50 p-4 md:grid-cols-[minmax(0,1fr)_140px_auto]"
+                >
+                  <input name="orderId" type="hidden" value={order.id} />
+                  <label className="grid gap-2 text-sm font-bold text-slate-700">
+                    Опубликованное предложение
+                    <select
+                      className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-semibold"
+                      name="sellerOfferId"
+                      required
+                    >
+                      <option value="">Выберите позицию</option>
+                      {offerOptions.map((offer) => (
+                        <option key={offer.id} value={offer.id}>
+                          {offer.sku} · {offer.productName} · {offer.sellerName} ·{" "}
+                          {formatCurrency(offer.priceWithVat)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="grid gap-2 text-sm font-bold text-slate-700">
+                    Количество
+                    <input
+                      className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-semibold"
+                      min="0.001"
+                      name="quantity"
+                      step="0.001"
+                      type="number"
+                      defaultValue="1"
+                      required
+                    />
+                  </label>
+                  <div className="flex items-end">
+                    <SubmitButton
+                      className="h-11 rounded-lg bg-[#1157ff] px-5 text-sm font-bold text-white transition hover:bg-[#0b49e0]"
+                      pendingText="Добавляем"
+                    >
+                      <Plus size={17} />
+                      Добавить
+                    </SubmitButton>
+                  </div>
+                </form>
+              ) : (
+                <div className="mt-4 rounded-lg bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600">
+                  Состав можно менять только пока заказ находится в статусе
+                  «Принят».
+                </div>
+              )}
             </section>
 
             <section className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
@@ -720,6 +865,26 @@ function getInvoiceStatusLabel(status: string | null) {
   }
 
   return "Нет счета";
+}
+
+function getOrderEditErrorLabel(error: string) {
+  if (error === "status") {
+    return "Состав можно менять только у заказа в статусе «Принят».";
+  }
+
+  if (error === "item") {
+    return "Позиция заказа не найдена.";
+  }
+
+  if (error === "offer") {
+    return "Выбранное предложение недоступно для добавления.";
+  }
+
+  if (error === "empty") {
+    return "В заказе должна остаться хотя бы одна позиция.";
+  }
+
+  return "Не удалось изменить состав заказа.";
 }
 
 function getTechnicalStateEntries(
