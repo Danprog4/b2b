@@ -145,7 +145,7 @@ export default async function AccountCompanyPage({
           {!documentReadiness.isReady ? (
             <div className="mt-5 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
               <p className="font-black">
-                Для оформления заказа загрузите обязательные документы:
+                Документы компании помогут быстрее обработать заказ:
               </p>
               <ul className="mt-3 grid gap-1 pl-5 sm:grid-cols-2">
                 {documentReadiness.missingTypes.map((document) => (
@@ -158,7 +158,7 @@ export default async function AccountCompanyPage({
                 className="mt-4 inline-flex rounded-lg bg-[#1157ff] px-4 py-3 font-bold text-white"
                 href="/account/documents"
               >
-                Загрузить документы
+                Перейти к документам
               </Link>
             </div>
           ) : null}

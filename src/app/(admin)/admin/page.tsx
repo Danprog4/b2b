@@ -513,7 +513,7 @@ export default async function AdminPage() {
           <div className="rounded-lg bg-white p-5 shadow-sm ring-1 ring-slate-200">
             <div className="flex items-center justify-between gap-4">
               <h2 className="text-xl font-black text-slate-950">
-                Компании без обязательных документов
+                Компании без рекомендуемых документов
               </h2>
               <Link
                 className="text-sm font-bold text-[#1157ff]"
@@ -525,7 +525,7 @@ export default async function AdminPage() {
             <div className="mt-4 divide-y divide-slate-100">
               {companiesMissingRequiredDocuments.length === 0 ? (
                 <div className="flex min-h-20 items-center justify-center text-sm font-bold text-emerald-700">
-                  У всех компаний есть обязательные документы.
+                  У всех компаний есть рекомендуемые документы.
                 </div>
               ) : (
                 companiesMissingRequiredDocuments.map((company) => (

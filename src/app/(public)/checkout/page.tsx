@@ -20,7 +20,7 @@ type CheckoutPageProps = {
 export const metadata: Metadata = {
   title: "Оформление заказа — Сити Маркет",
   description:
-    "Оформление B2B-заказа в Сити Маркет с проверкой реквизитов компании и обязательных документов.",
+    "Оформление B2B-заказа в Сити Маркет с проверкой реквизитов компании и рекомендацией загрузить документы.",
 };
 
 const errorMessages: Record<string, string> = {
