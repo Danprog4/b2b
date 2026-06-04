@@ -209,7 +209,10 @@
 - Сделать: один оператор; новое сообщение → Telegram (ИНН, № заказа, текст, файлы); ответ из Telegram → ЛК; ошибка не теряет сообщение. (Маршрутизация — forum topics, приём — webhook; локально туннель/polling.)
 
 ### P3-3. Восстановление пароля
-- Статус: ⬜ TODO (письмо зависит от P2-8) · ТЗ: §16.7 · Где: `/forgot-password`, `/reset-password/[token]`, токены.
+- Статус: 🟡 PARTIAL (C-06) · ТЗ: §16.7 · Где: `/forgot-password`, `/reset-password/[token]`, токены.
+- Сделать: запрос восстановления без раскрытия существования email; одноразовый токен; смена пароля; письмо через `email_outbox`. Реальная доставка письма ждёт C-06.
+- Изменения: добавлена таблица `password_reset_tokens` (`drizzle/0010_cloudy_nomad.sql`), actions `requestPasswordResetAction`/`resetPasswordAction`, страницы `/forgot-password` и `/reset-password/[token]`, ссылка и success-состояние на `/login`; email со ссылкой ставится в очередь `email_outbox`, токен хранится только SHA-256.
+- Проверено человеком: нет
 
 ### P3-4. Подгрузка по ИНН
 - Статус: ⛔ BLOCKED (C-08) · ТЗ: §16.3-16.4 · Где: ИНН-адаптер, register/company формы.

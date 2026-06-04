@@ -71,6 +71,13 @@
       "when": 1780581343733,
       "tag": "0009_past_silhouette",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1780584554223,
+      "tag": "0010_cloudy_nomad",
+      "breakpoints": true
     }
   ]
 }

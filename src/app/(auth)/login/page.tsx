@@ -16,6 +16,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = (await searchParams) ?? {};
   const error = typeof params.error === "string" ? params.error : undefined;
   const pending = typeof params.pending === "string" ? params.pending : undefined;
+  const reset = params.reset === "1";
   const next = typeof params.next === "string" ? params.next : "";
 
   return (
@@ -39,6 +40,12 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           <div className="mt-5 rounded-lg bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
             Заявка на присоединение к компании создана. Доступ появится после
             подтверждения администратором.
+          </div>
+        ) : null}
+
+        {reset ? (
+          <div className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+            Пароль изменен. Теперь можно войти с новым паролем.
           </div>
         ) : null}
 
@@ -71,6 +78,12 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             Войти
           </SubmitButton>
         </form>
+
+        <p className="mt-4 text-sm text-slate-600">
+          <Link className="font-bold text-[#1157ff]" href="/forgot-password">
+            Забыли пароль?
+          </Link>
+        </p>
 
         <div className="mt-6 rounded-lg bg-slate-50 p-4 text-sm leading-6 text-slate-600">
           <p className="font-bold text-slate-800">Демо-доступы</p>
