@@ -74,6 +74,8 @@ export async function createOrderAction(formData: FormData) {
 
   const comment = getString(formData, "comment");
   let createdOrderId = "";
+  const orderNumber = await getNextOrderNumber();
+  const invoiceNumber = await getNextInvoiceNumber();
 
   await db.transaction(async (tx) => {
     const [company] = await tx
@@ -166,8 +168,6 @@ export async function createOrderAction(formData: FormData) {
       calculatedItems.reduce((sum, item) => sum + Number(item.vatAmount), 0),
     );
 
-    const orderNumber = await getNextOrderNumber();
-    const invoiceNumber = await getNextInvoiceNumber();
     const [order] = await tx
       .insert(orders)
       .values({
