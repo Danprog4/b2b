@@ -20,6 +20,7 @@ import {
 } from "@/db/schema";
 import { getCompanyDocumentReadiness } from "@/lib/account/company-documents";
 import { requireUser } from "@/lib/auth/session";
+import { getAdminPendingChatCount } from "@/lib/chat/queries";
 import { getDocumentTypeLabel } from "@/lib/documents/types";
 import { getOrderStatusLabel } from "@/lib/orders/status";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
@@ -87,8 +88,8 @@ const adminModules = [
   },
   {
     title: "Чаты",
-    href: null,
-    description: "Раздел чатов будет подключен в одной из следующих фаз.",
+    href: "/admin/chats",
+    description: "Сообщения покупателей и временные ответы до Telegram-бота.",
   },
   {
     title: "Импорт товаров",
@@ -154,6 +155,7 @@ export default async function AdminPage() {
     moderationCounter,
     contractErrorCounter,
     newDocumentsCounter,
+    pendingChatCount,
     financeSummary,
   ] = await Promise.all([
     db
@@ -191,6 +193,7 @@ export default async function AdminPage() {
     db
       .select({
         id: messages.id,
+        chatId: chats.id,
         text: messages.text,
         senderType: messages.senderType,
         deliveryStatus: messages.deliveryStatus,
@@ -272,6 +275,7 @@ export default async function AdminPage() {
         ),
       )
       .then(([row]) => row),
+    getAdminPendingChatCount(),
     db
       .select({
         salesAmount: sql<string>`coalesce(sum(${orderItems.lineTotal}), 0)`,
@@ -510,7 +514,11 @@ export default async function AdminPage() {
               </div>
             ) : (
               latestMessages.map((message) => (
-                <div key={message.id} className="py-3 text-sm">
+                <Link
+                  key={message.id}
+                  className="block py-3 text-sm transition hover:text-[#1157ff]"
+                  href={`/admin/chats/${message.chatId}`}
+                >
                   <p className="font-black text-slate-950">
                     {message.companyName}
                   </p>
@@ -521,7 +529,7 @@ export default async function AdminPage() {
                     {message.senderType} · {message.deliveryStatus} ·{" "}
                     {formatDateTime(message.createdAt)}
                   </p>
-                </div>
+                </Link>
               ))
             )}
           </div>
@@ -618,6 +626,8 @@ export default async function AdminPage() {
                   : module.title === "Товары" ||
                       module.title === "Модерация товаров"
                     ? moderationCounter?.count ?? 0
+                    : module.title === "Чаты"
+                      ? pendingChatCount
                     : 0;
 
             return (

@@ -49,7 +49,7 @@ export default async function NewSellerProductPage({
         </div>
 
         <Link
-          className="mb-5 inline-flex h-10 items-center rounded-lg bg-white px-4 text-sm font-bold text-[#1157ff] shadow-sm ring-1 ring-slate-100 transition hover:bg-blue-50"
+          className="mb-5 inline-flex text-sm font-bold text-[#1157ff] transition hover:text-[#0b49e0]"
           href="/seller#products"
         >
           ← К списку товаров

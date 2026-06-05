@@ -106,7 +106,7 @@ export default async function SellerOrderPage({ params }: SellerOrderPageProps) 
         </div>
 
         <Link
-          className="inline-flex h-10 items-center rounded-lg bg-white px-4 text-sm font-bold text-[#1157ff] shadow-sm ring-1 ring-slate-100 transition hover:bg-blue-50"
+          className="inline-flex text-sm font-bold text-[#1157ff] transition hover:text-[#0b49e0]"
           href="/seller/orders"
         >
           ← К списку заказов

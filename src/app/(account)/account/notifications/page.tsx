@@ -30,7 +30,15 @@ export default async function AccountNotificationsPage() {
         .from(orders)
         .where(eq(orders.buyerCompanyId, user.buyerCompanyId))
     : [];
-  const getNotificationHref = (item: { title: string; body: string | null }) => {
+  const getNotificationHref = (item: {
+    title: string;
+    body: string | null;
+    type: string;
+  }) => {
+    if (item.type.includes("chat")) {
+      return "/account/chat";
+    }
+
     const text = `${item.title} ${item.body ?? ""}`;
     const orderNumber = text.match(/ORD-\d+/)?.[0];
     const order = orderNumber

@@ -13,6 +13,7 @@ import { LogoutButton } from "@/components/logout-button";
 import { db } from "@/db";
 import { notifications } from "@/db/schema";
 import { requireUser } from "@/lib/auth/session";
+import { getBuyerPendingChatCount } from "@/lib/chat/queries";
 
 type AccountSection = [string, string, string, LucideIcon];
 
@@ -32,10 +33,14 @@ const accountSections: AccountSection[] = [
 
 export default async function AccountPage() {
   const user = await requireUser(["buyer"]);
-  const [notificationCounter] = await db
-    .select({ count: count() })
-    .from(notifications)
-    .where(and(eq(notifications.userId, user.id), eq(notifications.isRead, false)));
+  const [notificationCounter, pendingChatCount] = await Promise.all([
+    db
+      .select({ count: count() })
+      .from(notifications)
+      .where(and(eq(notifications.userId, user.id), eq(notifications.isRead, false)))
+      .then(([row]) => row),
+    getBuyerPendingChatCount(),
+  ]);
   const unreadNotifications = notificationCounter?.count ?? 0;
 
   return (
@@ -75,6 +80,11 @@ export default async function AccountPage() {
               {title === "Уведомления" && unreadNotifications > 0 ? (
                 <span className="absolute right-4 top-4 min-w-5 rounded-full bg-[#1157ff] px-1.5 text-center text-[11px] font-black leading-5 text-white">
                   {unreadNotifications > 99 ? "99+" : unreadNotifications}
+                </span>
+              ) : null}
+              {title === "Чат" && pendingChatCount > 0 ? (
+                <span className="absolute right-4 top-4 min-w-5 rounded-full bg-[#1157ff] px-1.5 text-center text-[11px] font-black leading-5 text-white">
+                  +{pendingChatCount > 99 ? "99" : pendingChatCount}
                 </span>
               ) : null}
               <Icon className="mb-4 text-[#1157ff]" size={28} />

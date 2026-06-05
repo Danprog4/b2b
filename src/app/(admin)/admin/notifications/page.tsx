@@ -3,7 +3,7 @@ import { Bell } from "lucide-react";
 import Link from "next/link";
 
 import { db } from "@/db";
-import { notifications, orders } from "@/db/schema";
+import { chats, notifications, orders } from "@/db/schema";
 import { requireUser } from "@/lib/auth/session";
 import { formatDateTime } from "@/lib/utils";
 
@@ -15,6 +15,7 @@ export default async function AdminNotificationsPage() {
       title: notifications.title,
       body: notifications.body,
       type: notifications.type,
+      buyerCompanyId: notifications.buyerCompanyId,
       isRead: notifications.isRead,
       createdAt: notifications.createdAt,
     })
@@ -27,10 +28,17 @@ export default async function AdminNotificationsPage() {
       number: orders.number,
     })
     .from(orders);
+  const chatRows = await db
+    .select({
+      id: chats.id,
+      buyerCompanyId: chats.buyerCompanyId,
+    })
+    .from(chats);
   const getNotificationHref = (item: {
     title: string;
     body: string | null;
     type: string;
+    buyerCompanyId: string | null;
   }) => {
     const text = `${item.title} ${item.body ?? ""}`;
     const orderNumber = text.match(/ORD-\d+/)?.[0];
@@ -40,6 +48,14 @@ export default async function AdminNotificationsPage() {
 
     if (order) {
       return `/admin/orders/${order.id}`;
+    }
+
+    if (item.type.includes("chat")) {
+      const chat = item.buyerCompanyId
+        ? chatRows.find((row) => row.buyerCompanyId === item.buyerCompanyId)
+        : null;
+
+      return chat ? `/admin/chats/${chat.id}` : "/admin/chats";
     }
 
     if (item.type.includes("product")) {

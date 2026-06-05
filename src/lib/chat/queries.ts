@@ -1,7 +1,14 @@
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, count, desc, eq, isNull } from "drizzle-orm";
 
 import { db } from "@/db";
-import { chats, files, messages, users } from "@/db/schema";
+import {
+  buyerCompanies,
+  chats,
+  files,
+  messages,
+  notifications,
+  users,
+} from "@/db/schema";
 import { requireUser } from "@/lib/auth/session";
 
 export async function getCurrentBuyerChatMessages() {
@@ -49,6 +56,228 @@ export async function getCurrentBuyerChatMessages() {
 
   return {
     chatId: chat.id,
+    messages: rows,
+  };
+}
+
+export async function getBuyerPendingChatCount() {
+  const user = await requireUser(["buyer"]);
+  const [row] = await db
+    .select({ count: count() })
+    .from(notifications)
+    .where(
+      and(
+        eq(notifications.userId, user.id),
+        eq(notifications.isRead, false),
+        eq(notifications.type, "chat_message_answered"),
+      ),
+    );
+
+  return row?.count ?? 0;
+}
+
+export async function markCurrentBuyerChatNotificationsRead() {
+  const user = await requireUser(["buyer"]);
+
+  await db
+    .update(notifications)
+    .set({ isRead: true })
+    .where(
+      and(
+        eq(notifications.userId, user.id),
+        eq(notifications.isRead, false),
+        eq(notifications.type, "chat_message_answered"),
+      ),
+    );
+}
+
+export async function getAdminChatList() {
+  await requireUser(["admin"]);
+
+  const rows = await db
+    .select({
+      chatId: chats.id,
+      chatStatus: chats.status,
+      chatCreatedAt: chats.createdAt,
+      companyId: buyerCompanies.id,
+      companyName: buyerCompanies.name,
+      companyInn: buyerCompanies.inn,
+      userName: users.name,
+      userEmail: users.email,
+      userPhone: users.phone,
+      messageId: messages.id,
+      senderType: messages.senderType,
+      text: messages.text,
+      deliveryStatus: messages.deliveryStatus,
+      messageCreatedAt: messages.createdAt,
+      attachmentFileId: messages.attachmentFileId,
+      attachmentName: files.originalName,
+    })
+    .from(chats)
+    .innerJoin(buyerCompanies, eq(buyerCompanies.id, chats.buyerCompanyId))
+    .innerJoin(users, eq(users.id, chats.userId))
+    .leftJoin(messages, eq(messages.chatId, chats.id))
+    .leftJoin(files, eq(files.id, messages.attachmentFileId))
+    .orderBy(desc(messages.createdAt), desc(chats.createdAt))
+    .limit(500);
+
+  const grouped = new Map<
+    string,
+    {
+      id: string;
+      status: string;
+      createdAt: Date;
+      companyId: string;
+      companyName: string;
+      companyInn: string;
+      userName: string | null;
+      userEmail: string;
+      userPhone: string | null;
+      incomingCount: number;
+      latestOperatorMessageAt: Date | null;
+      buyerMessageDates: Date[];
+      lastMessage: {
+        id: string;
+        senderType: string;
+        text: string | null;
+        deliveryStatus: string;
+        createdAt: Date;
+        attachmentFileId: string | null;
+        attachmentName: string | null;
+      } | null;
+    }
+  >();
+
+  for (const row of rows) {
+    const existing = grouped.get(row.chatId);
+    const chat =
+      existing ??
+      {
+        id: row.chatId,
+        status: row.chatStatus,
+        createdAt: row.chatCreatedAt,
+        companyId: row.companyId,
+        companyName: row.companyName,
+        companyInn: row.companyInn,
+        userName: row.userName,
+        userEmail: row.userEmail,
+        userPhone: row.userPhone,
+        incomingCount: 0,
+        latestOperatorMessageAt: null,
+        buyerMessageDates: [],
+        lastMessage: null,
+      };
+
+    if (row.messageId && row.messageCreatedAt) {
+      if (row.senderType === "buyer") {
+        chat.buyerMessageDates.push(row.messageCreatedAt);
+      }
+
+      if (
+        row.senderType === "admin" ||
+        row.senderType === "operator"
+      ) {
+        const currentLatest = chat.latestOperatorMessageAt?.getTime() ?? 0;
+
+        if (row.messageCreatedAt.getTime() > currentLatest) {
+          chat.latestOperatorMessageAt = row.messageCreatedAt;
+        }
+      }
+    }
+
+    if (row.messageId && !chat.lastMessage) {
+      chat.lastMessage = {
+        id: row.messageId,
+        senderType: row.senderType ?? "buyer",
+        text: row.text,
+        deliveryStatus: row.deliveryStatus ?? "pending",
+        createdAt: row.messageCreatedAt ?? row.chatCreatedAt,
+        attachmentFileId: row.attachmentFileId,
+        attachmentName: row.attachmentName,
+      };
+    }
+
+    grouped.set(row.chatId, chat);
+  }
+
+  return Array.from(grouped.values()).map((chat) => {
+    const latestOperatorTime = chat.latestOperatorMessageAt?.getTime() ?? 0;
+
+    return {
+      id: chat.id,
+      status: chat.status,
+      createdAt: chat.createdAt,
+      companyId: chat.companyId,
+      companyName: chat.companyName,
+      companyInn: chat.companyInn,
+      userName: chat.userName,
+      userEmail: chat.userEmail,
+      userPhone: chat.userPhone,
+      lastMessage: chat.lastMessage,
+      incomingCount: chat.buyerMessageDates.filter(
+        (createdAt) => createdAt.getTime() > latestOperatorTime,
+      ).length,
+    };
+  }).sort((a, b) => {
+    const aDate = a.lastMessage?.createdAt ?? a.createdAt;
+    const bDate = b.lastMessage?.createdAt ?? b.createdAt;
+    return bDate.getTime() - aDate.getTime();
+  });
+}
+
+export async function getAdminPendingChatCount() {
+  const chats = await getAdminChatList();
+
+  return chats.filter((chat) => chat.incomingCount > 0).length;
+}
+
+export async function getAdminChat(chatId: string) {
+  await requireUser(["admin"]);
+
+  const [chat] = await db
+    .select({
+      id: chats.id,
+      status: chats.status,
+      createdAt: chats.createdAt,
+      companyId: buyerCompanies.id,
+      companyName: buyerCompanies.name,
+      companyInn: buyerCompanies.inn,
+      userName: users.name,
+      userEmail: users.email,
+      userPhone: users.phone,
+    })
+    .from(chats)
+    .innerJoin(buyerCompanies, eq(buyerCompanies.id, chats.buyerCompanyId))
+    .innerJoin(users, eq(users.id, chats.userId))
+    .where(eq(chats.id, chatId))
+    .limit(1);
+
+  if (!chat) {
+    return null;
+  }
+
+  const rows = await db
+    .select({
+      id: messages.id,
+      senderType: messages.senderType,
+      text: messages.text,
+      deliveryStatus: messages.deliveryStatus,
+      createdAt: messages.createdAt,
+      attachmentFileId: messages.attachmentFileId,
+      attachmentName: files.originalName,
+      attachmentSize: files.sizeBytes,
+      senderName: users.name,
+      senderEmail: users.email,
+    })
+    .from(messages)
+    .leftJoin(files, eq(files.id, messages.attachmentFileId))
+    .leftJoin(users, eq(users.id, messages.senderId))
+    .where(eq(messages.chatId, chat.id))
+    .orderBy(asc(messages.createdAt))
+    .limit(160);
+
+  return {
+    ...chat,
     messages: rows,
   };
 }

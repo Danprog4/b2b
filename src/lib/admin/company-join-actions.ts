@@ -71,6 +71,17 @@ export async function rejectCompanyJoinRequest(formData: FormData) {
   const admin = await requireUser(["admin"]);
   const requestId = getRequestId(formData);
 
+  const [request] = await db
+    .select()
+    .from(companyJoinRequests)
+    .where(eq(companyJoinRequests.id, requestId))
+    .limit(1);
+
+  if (!request || request.status !== "pending") {
+    revalidatePath("/admin/company-join-requests");
+    return;
+  }
+
   await db.transaction(async (tx) => {
     await tx
       .update(companyJoinRequests)
@@ -87,6 +98,10 @@ export async function rejectCompanyJoinRequest(formData: FormData) {
       action: "company_join.reject",
       entityType: "company_join_request",
       entityId: requestId,
+      metadata: {
+        userId: request.userId,
+        buyerCompanyId: request.buyerCompanyId,
+      },
     });
   });
 

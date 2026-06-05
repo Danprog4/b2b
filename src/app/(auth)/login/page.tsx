@@ -16,6 +16,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = (await searchParams) ?? {};
   const error = typeof params.error === "string" ? params.error : undefined;
   const pending = typeof params.pending === "string" ? params.pending : undefined;
+  const resubmitted = params.resubmitted === "1";
   const reset = params.reset === "1";
   const next = typeof params.next === "string" ? params.next : "";
 
@@ -38,8 +39,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
         {pending === "company" ? (
           <div className="mt-5 rounded-lg bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
-            Заявка на присоединение к компании создана. Доступ появится после
-            подтверждения администратором.
+            {resubmitted
+              ? "Повторная заявка на присоединение к компании создана. Доступ появится после подтверждения администратором."
+              : "Заявка на присоединение к компании создана. Доступ появится после подтверждения администратором."}
           </div>
         ) : null}
 

@@ -1,6 +1,6 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 
 import { db } from "@/db";
@@ -30,6 +30,35 @@ function getSafeNextPath(value: string) {
   return value;
 }
 
+async function getPendingCompanyJoinRequest(userId: string) {
+  const [request] = await db
+    .select({ id: companyJoinRequests.id })
+    .from(companyJoinRequests)
+    .where(
+      and(
+        eq(companyJoinRequests.userId, userId),
+        eq(companyJoinRequests.status, "pending"),
+      ),
+    )
+    .limit(1);
+
+  return request;
+}
+
+async function getLatestCompanyJoinRequest(userId: string) {
+  const [request] = await db
+    .select({
+      id: companyJoinRequests.id,
+      status: companyJoinRequests.status,
+    })
+    .from(companyJoinRequests)
+    .where(eq(companyJoinRequests.userId, userId))
+    .orderBy(desc(companyJoinRequests.createdAt))
+    .limit(1);
+
+  return request;
+}
+
 export async function loginAction(formData: FormData) {
   const email = getString(formData, "email").toLowerCase();
   const password = getString(formData, "password");
@@ -42,6 +71,20 @@ export async function loginAction(formData: FormData) {
   }
 
   if (user.status !== "active") {
+    if (user.role === "buyer" && user.status === "pending_join") {
+      const pendingRequest = await getPendingCompanyJoinRequest(user.id);
+
+      if (pendingRequest) {
+        redirect("/login?pending=company");
+      }
+
+      const latestRequest = await getLatestCompanyJoinRequest(user.id);
+
+      if (latestRequest?.status === "rejected") {
+        redirect("/register?retry=company");
+      }
+    }
+
     redirect("/login?error=inactive");
   }
 
@@ -90,13 +133,35 @@ export async function registerBuyerAction(formData: FormData) {
   }
 
   const [existingUser] = await db
-    .select({ id: users.id })
+    .select({
+      id: users.id,
+      role: users.role,
+      status: users.status,
+    })
     .from(users)
     .where(eq(users.email, email))
     .limit(1);
 
+  let canReusePendingUser = false;
+
   if (existingUser) {
-    redirect("/register?error=email");
+    if (existingUser.role !== "buyer" || existingUser.status !== "pending_join") {
+      redirect("/register?error=email");
+    }
+
+    const pendingRequest = await getPendingCompanyJoinRequest(existingUser.id);
+
+    if (pendingRequest) {
+      redirect("/login?pending=company");
+    }
+
+    const latestRequest = await getLatestCompanyJoinRequest(existingUser.id);
+
+    if (latestRequest?.status !== "rejected") {
+      redirect("/register?error=email");
+    }
+
+    canReusePendingUser = true;
   }
 
   const [existingCompany] = await db
@@ -106,6 +171,29 @@ export async function registerBuyerAction(formData: FormData) {
     .limit(1);
 
   if (existingCompany) {
+    if (existingUser && canReusePendingUser) {
+      await db.transaction(async (tx) => {
+        await tx
+          .update(users)
+          .set({
+            name,
+            phone,
+            passwordHash: hashPassword(password),
+            status: "pending_join",
+            buyerCompanyId: null,
+            updatedAt: new Date(),
+          })
+          .where(eq(users.id, existingUser.id));
+
+        await tx.insert(companyJoinRequests).values({
+          userId: existingUser.id,
+          buyerCompanyId: existingCompany.id,
+        });
+      });
+
+      redirect("/login?pending=company&resubmitted=1");
+    }
+
     const [pendingUser] = await db
       .insert(users)
       .values({
@@ -124,6 +212,42 @@ export async function registerBuyerAction(formData: FormData) {
     });
 
     redirect("/login?pending=company");
+  }
+
+  if (existingUser && canReusePendingUser) {
+    await db.transaction(async (tx) => {
+      const [company] = await tx
+        .insert(buyerCompanies)
+        .values({
+          type: companyType === "ip" ? "ip" : "ooo",
+          name: companyName,
+          inn,
+          kpp: kpp || null,
+          ogrn: ogrn || null,
+          directorName: directorName || null,
+          legalAddress: legalAddress || null,
+          contactEmail: email,
+          contactPhone: phone,
+        })
+        .returning({ id: buyerCompanies.id });
+
+      await tx
+        .update(users)
+        .set({
+          name,
+          phone,
+          passwordHash: hashPassword(password),
+          role: "buyer",
+          status: "active",
+          buyerCompanyId: company.id,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, existingUser.id));
+    });
+
+    await createSession(existingUser.id);
+    await mergeGuestCartIntoUserCart(existingUser.id);
+    redirect("/account");
   }
 
   const [company] = await db

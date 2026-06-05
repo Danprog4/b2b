@@ -7,10 +7,13 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { db } from "@/db";
-import { auditEvents, chats, files, messages } from "@/db/schema";
+import { auditEvents, chats, files, messages, notifications } from "@/db/schema";
 import { requireUser } from "@/lib/auth/session";
 import { writeStorageFile } from "@/lib/files/storage";
-import { insertAdminNotifications } from "@/lib/notifications/helpers";
+import {
+  insertAdminNotifications,
+  insertBuyerCompanyNotifications,
+} from "@/lib/notifications/helpers";
 
 const maxChatAttachmentSizeBytes = 50 * 1024 * 1024;
 const allowedExtensions = new Set([
@@ -175,7 +178,87 @@ export async function sendBuyerChatMessageAction(formData: FormData) {
   revalidatePath("/account");
   revalidatePath("/account/chat");
   revalidatePath("/admin");
+  revalidatePath("/admin/chats");
   revalidatePath("/admin/notifications");
 
   redirect("/account/chat?sent=1");
+}
+
+export async function sendAdminChatMessageAction(formData: FormData) {
+  const admin = await requireUser(["admin"]);
+  const chatId = getString(formData, "chatId");
+  const text = getString(formData, "text");
+
+  if (!chatId) {
+    redirect("/admin/chats");
+  }
+
+  if (!text) {
+    redirect(`/admin/chats/${chatId}?error=empty`);
+  }
+
+  const [chat] = await db
+    .select({
+      id: chats.id,
+      buyerCompanyId: chats.buyerCompanyId,
+    })
+    .from(chats)
+    .where(eq(chats.id, chatId))
+    .limit(1);
+
+  if (!chat) {
+    redirect("/admin/chats");
+  }
+
+  await db.transaction(async (tx) => {
+    const [message] = await tx
+      .insert(messages)
+      .values({
+        chatId: chat.id,
+        senderId: admin.id,
+        senderType: "admin",
+        text,
+        deliveryStatus: "sent",
+      })
+      .returning({ id: messages.id });
+
+    await insertBuyerCompanyNotifications(tx, {
+      buyerCompanyId: chat.buyerCompanyId,
+      type: "chat_message_answered",
+      title: "Ответ оператора в чате",
+      body: text,
+    });
+
+    await tx
+      .update(notifications)
+      .set({ isRead: true })
+      .where(
+        and(
+          eq(notifications.userId, admin.id),
+          eq(notifications.buyerCompanyId, chat.buyerCompanyId),
+          eq(notifications.type, "chat_message_created"),
+          eq(notifications.isRead, false),
+        ),
+      );
+
+    await tx.insert(auditEvents).values({
+      actorId: admin.id,
+      action: "chat.admin_message_create",
+      entityType: "message",
+      entityId: message.id,
+      metadata: {
+        chatId: chat.id,
+      },
+    });
+  });
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/chats");
+  revalidatePath(`/admin/chats/${chat.id}`);
+  revalidatePath("/admin/notifications");
+  revalidatePath("/account");
+  revalidatePath("/account/chat");
+  revalidatePath("/account/notifications");
+
+  redirect(`/admin/chats/${chat.id}?sent=1`);
 }

@@ -23,6 +23,7 @@ const errorMessages: Record<string, string> = {
 export default async function RegisterPage({ searchParams }: RegisterPageProps) {
   const params = (await searchParams) ?? {};
   const error = typeof params.error === "string" ? params.error : undefined;
+  const retry = params.retry === "company";
 
   return (
     <main className="min-h-screen bg-[#f4f6fb] px-5 py-10">
@@ -41,6 +42,13 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
         {error ? (
           <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
             {errorMessages[error] ?? "Не удалось зарегистрироваться."}
+          </div>
+        ) : null}
+
+        {retry ? (
+          <div className="mt-5 rounded-lg bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+            Заявка на присоединение была отклонена. Проверьте ИНН и данные
+            компании, затем отправьте регистрацию повторно с тем же email.
           </div>
         ) : null}
 
