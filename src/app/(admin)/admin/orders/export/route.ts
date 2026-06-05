@@ -262,7 +262,8 @@ export async function GET(request: Request) {
     headers: {
       "Content-Type":
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "Content-Disposition": `attachment; filename="${filename}"`,
+      "Content-Disposition": `attachment; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
+      "Content-Length": String(buffer.byteLength),
       "Cache-Control": "private, no-store",
     },
   });

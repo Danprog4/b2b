@@ -48,7 +48,7 @@ function calculateVatAmount(amountWithVat: number, vatRate: number) {
 
 function getQuantity(formData: FormData) {
   const parsed = Number(getString(formData, "quantity").replace(",", "."));
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
 async function regenerateInvoiceAfterOrderEdit(orderId: string, adminId: string) {

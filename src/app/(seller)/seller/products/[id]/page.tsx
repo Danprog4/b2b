@@ -165,6 +165,9 @@ export default async function SellerProductPage({ params }: SellerProductPagePro
   const pendingRequest = requests.find(
     (request) => request.status === "on_moderation",
   );
+  const latestRequest = requests[0];
+  const latestRejectedRequest =
+    latestRequest?.status === "rejected" ? latestRequest : null;
 
   return (
     <main className="min-h-screen bg-[#f4f6fb] px-6 py-8 text-slate-900">
@@ -196,6 +199,28 @@ export default async function SellerProductPage({ params }: SellerProductPagePro
           </Link>
         </div>
 
+        {latestRejectedRequest ? (
+          <section className="mt-5 rounded-xl border border-red-100 bg-red-50 p-5 text-red-900">
+            <h2 className="text-lg font-black">
+              {product.offerStatus === "published"
+                ? "Последние правки отклонены"
+                : "Модерация товара не пройдена"}
+            </h2>
+            <p className="mt-2 text-sm font-semibold leading-6">
+              {latestRejectedRequest.moderationComment
+                ? `Комментарий администратора: ${latestRejectedRequest.moderationComment}`
+                : "Проверьте карточку товара и отправьте исправленную версию повторно."}
+            </p>
+            <Link
+              className="mt-4 inline-flex h-10 items-center gap-2 rounded-lg bg-red-700 px-4 text-sm font-bold text-white transition hover:bg-red-800"
+              href={`/seller/products/${product.id}/edit`}
+            >
+              <Pencil size={16} />
+              Исправить карточку
+            </Link>
+          </section>
+        ) : null}
+
         <section className="mt-6 grid gap-5 lg:grid-cols-[320px_1fr]">
           <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-100">
             {imageUrl ? (
@@ -217,14 +242,18 @@ export default async function SellerProductPage({ params }: SellerProductPagePro
                 className={`rounded-full px-3 py-1 text-xs font-bold ${
                   product.offerStatus === "published"
                     ? "bg-emerald-50 text-emerald-700"
-                    : "bg-amber-50 text-amber-700"
+                    : product.offerStatus === "rejected"
+                      ? "bg-red-50 text-red-700"
+                      : "bg-amber-50 text-amber-700"
                 }`}
               >
                 {getOfferStatusLabel(product.offerStatus)}
               </span>
               {pendingRequest ? (
                 <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
-                  Есть изменения на модерации
+                  {product.offerStatus === "published"
+                    ? "Есть изменения на модерации"
+                    : "Товар на модерации"}
                 </span>
               ) : null}
             </div>

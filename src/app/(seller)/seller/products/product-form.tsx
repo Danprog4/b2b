@@ -1,4 +1,7 @@
+"use client";
+
 import { ImageIcon } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { FileUploadField } from "@/components/ui/file-upload-field";
 import { ProductSubmitButton } from "./product-submit-button";
@@ -27,6 +30,8 @@ type ProductFormProps = {
   submitText: string;
 };
 
+const productUnitOptions = ["шт", "кг", "т", "м", "м2", "м3", "л", "упак"] as const;
+
 export function SellerProductForm({
   action,
   product,
@@ -34,6 +39,17 @@ export function SellerProductForm({
   subcategories,
   submitText,
 }: ProductFormProps) {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const imageUrl = previewUrl ?? product?.mainImageUrl ?? null;
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
+
   return (
     <form action={action} className="grid gap-5">
       {product ? <input name="productId" type="hidden" value={product.id} /> : null}
@@ -121,13 +137,19 @@ export function SellerProductForm({
         </label>
         <label className="grid gap-2 text-sm font-bold text-slate-700">
           Единица
-          <input
+          <select
             className="h-12 rounded-lg border border-slate-200 px-4 font-normal text-slate-950"
             defaultValue={product?.unit ?? ""}
             name="unit"
-            placeholder="шт"
             required
-          />
+          >
+            <option value="">Выберите единицу</option>
+            {productUnitOptions.map((unit) => (
+              <option key={unit} value={unit}>
+                {unit}
+              </option>
+            ))}
+          </select>
         </label>
       </div>
 
@@ -144,11 +166,11 @@ export function SellerProductForm({
       <section className="grid gap-4 rounded-xl bg-slate-50 p-4">
         <div className="grid gap-4 md:grid-cols-[180px_1fr]">
           <div className="overflow-hidden rounded-lg bg-white ring-1 ring-slate-200">
-            {product?.mainImageUrl ? (
+            {imageUrl ? (
               <img
-                alt={product.name}
+                alt={product?.name ?? "Фото товара"}
                 className="h-40 w-full object-cover"
-                src={product.mainImageUrl}
+                src={imageUrl}
               />
             ) : (
               <div className="flex h-40 items-center justify-center bg-slate-100 text-slate-300">
@@ -161,6 +183,16 @@ export function SellerProductForm({
               accept="image/jpeg,image/png,image/webp"
               buttonText={product?.mainImageUrl ? "Заменить фото" : "Загрузить фото"}
               name="mainImage"
+              onFilesChange={(files) => {
+                setPreviewUrl((currentUrl) => {
+                  if (currentUrl) {
+                    URL.revokeObjectURL(currentUrl);
+                  }
+
+                  const [file] = files;
+                  return file ? URL.createObjectURL(file) : null;
+                });
+              }}
             />
           </div>
         </div>

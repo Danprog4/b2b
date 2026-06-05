@@ -385,13 +385,13 @@ export default async function AdminOrdersPage({
         </div>
 
         <div className="mt-6 flex flex-wrap justify-end gap-3">
-          <Link
+          <a
             className="inline-flex h-11 items-center gap-2 rounded-lg bg-white px-4 text-sm font-bold text-slate-700 shadow-sm ring-1 ring-slate-200 transition hover:text-[#1157ff]"
             href={exportHref}
           >
             <Download size={18} />
             Выгрузить Excel
-          </Link>
+          </a>
         </div>
 
         <form

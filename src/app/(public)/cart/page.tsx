@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { CartLineControls } from "@/components/cart/cart-line-controls";
+import { OrderLineCard } from "@/components/orders/order-line-card";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getCurrentCart } from "@/lib/cart/queries";
 import { formatCurrency } from "@/lib/utils";
@@ -126,68 +127,42 @@ export default async function CartPage({ searchParams }: CartPageProps) {
             <section className="self-start overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-100">
               <div className="divide-y divide-slate-100">
                 {cart.lines.map((line) => (
-                  <article
+                  <OrderLineCard
                     key={line.id}
-                    className="grid items-start gap-4 p-5 md:grid-cols-[96px_1fr_auto]"
-                  >
-                    <Link
-                      href={`/product/${line.slug}`}
-                      className="flex aspect-square items-center justify-center overflow-hidden rounded-lg bg-slate-100"
-                    >
-                      {line.mainImageUrl ? (
-                        <img
-                          alt={line.name}
-                          className="h-full w-full object-cover"
-                          src={line.mainImageUrl}
-                        />
-                      ) : (
-                        <ShoppingCart className="text-slate-300" size={34} />
-                      )}
-                    </Link>
-
-                    <div>
-                      <Link
-                        href={`/product/${line.slug}`}
-                        className="text-lg font-black text-slate-950 hover:text-[#1157ff]"
-                      >
-                        {line.name}
-                      </Link>
-                      <p className="mt-1 text-sm text-slate-500">
-                        {line.sku} · {line.categoryName} · {line.unit}
-                      </p>
-                      <p className="mt-2 text-sm text-slate-500">
-                        НДС {Number(line.vatRate ?? 22)}%:{" "}
-                        {formatCurrency(line.vatAmount)}
-                      </p>
-                      {!line.isActive ? (
-                        <p className="mt-3 inline-flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800">
-                          <AlertTriangle size={16} />
-                          Товар больше недоступен
-                        </p>
-                      ) : null}
-                      {line.priceChanged ? (
-                        <p className="mt-3 inline-flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-2 text-sm font-bold text-blue-800">
-                          <AlertTriangle size={16} />
-                          Цена изменилась, перед заказом будет использована
-                          актуальная цена
-                        </p>
-                      ) : null}
-                    </div>
-
-                    <div className="grid gap-3 md:min-w-56 md:justify-items-end">
-                      <div className="text-xl font-black">
-                        {formatCurrency(line.lineTotal)}
-                      </div>
-                      <div className="text-sm font-semibold text-slate-500">
-                        {formatCurrency(line.priceWithVat)} за {line.unit}
-                      </div>
-
+                    title={line.name}
+                    sku={line.sku}
+                    unit={`${line.categoryName} · ${line.unit}`}
+                    quantity={Number(line.quantity)}
+                    priceWithVat={line.priceWithVat}
+                    lineTotal={line.lineTotal}
+                    vatRate={line.vatRate}
+                    vatAmount={line.vatAmount}
+                    imageUrl={line.mainImageUrl}
+                    href={`/product/${line.slug}`}
+                    alerts={
+                      <>
+                        {!line.isActive ? (
+                          <p className="inline-flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800">
+                            <AlertTriangle size={16} />
+                            Товар больше недоступен
+                          </p>
+                        ) : null}
+                        {line.priceChanged ? (
+                          <p className="inline-flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-2 text-sm font-bold text-blue-800">
+                            <AlertTriangle size={16} />
+                            Цена изменилась, перед заказом будет использована
+                            актуальная цена
+                          </p>
+                        ) : null}
+                      </>
+                    }
+                    actions={
                       <CartLineControls
                         itemId={line.id}
                         quantity={Number(line.quantity)}
                       />
-                    </div>
-                  </article>
+                    }
+                  />
                 ))}
               </div>
             </section>

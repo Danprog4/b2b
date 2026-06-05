@@ -2,6 +2,7 @@ import { AlertTriangle, ShoppingCart } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { OrderLineCard } from "@/components/orders/order-line-card";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { db } from "@/db";
 import { buyerCompanies } from "@/db/schema";
@@ -115,40 +116,27 @@ export default async function CheckoutPage({ searchParams }: CheckoutPageProps) 
             <section className="self-start overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-100">
               <div className="divide-y divide-slate-100">
                 {cart.lines.map((line) => (
-                  <article
+                  <OrderLineCard
                     key={line.id}
-                    className="grid items-start gap-4 p-5 md:grid-cols-[80px_1fr_auto]"
-                  >
-                    <div className="flex aspect-square items-center justify-center rounded-lg bg-slate-100">
-                      <ShoppingCart className="text-slate-300" size={30} />
-                    </div>
-                    <div>
-                      <h2 className="text-lg font-black text-slate-950">
-                        {line.name}
-                      </h2>
-                      <p className="mt-1 text-sm text-slate-500">
-                        {line.sku} · {line.categoryName} · {line.unit}
-                      </p>
-                      <p className="mt-2 text-sm text-slate-500">
-                        НДС {Number(line.vatRate ?? 22)}%:{" "}
-                        {formatCurrency(line.vatAmount)}
-                      </p>
-                      {!line.isActive ? (
-                        <p className="mt-3 inline-flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800">
+                    title={line.name}
+                    sku={line.sku}
+                    unit={`${line.categoryName} · ${line.unit}`}
+                    quantity={Number(line.quantity)}
+                    priceWithVat={line.priceWithVat}
+                    lineTotal={line.lineTotal}
+                    vatRate={line.vatRate}
+                    vatAmount={line.vatAmount}
+                    imageUrl={line.mainImageUrl}
+                    href={`/product/${line.slug}`}
+                    alerts={
+                      !line.isActive ? (
+                        <p className="inline-flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800">
                           <AlertTriangle size={16} />
                           Товар больше недоступен
                         </p>
-                      ) : null}
-                    </div>
-                    <div className="text-right">
-                      <div className="text-xl font-black">
-                        {formatCurrency(line.lineTotal)}
-                      </div>
-                      <div className="mt-1 text-sm font-semibold text-slate-500">
-                        {Number(line.quantity)} × {formatCurrency(line.priceWithVat)}
-                      </div>
-                    </div>
-                  </article>
+                      ) : null
+                    }
+                  />
                 ))}
               </div>
             </section>

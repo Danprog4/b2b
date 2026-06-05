@@ -178,11 +178,6 @@ export async function createOrderAction(formData: FormData) {
         totalAmount: formatMoney(totalAmount),
         vatAmount: formatMoney(vatAmount),
         comment: comment || null,
-        technicalState: {
-          invoiceGenerated: false,
-          invoiceGenerating: true,
-          emailSent: false,
-        },
       })
       .returning({ id: orders.id });
 

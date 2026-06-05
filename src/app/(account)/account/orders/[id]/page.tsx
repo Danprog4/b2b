@@ -3,7 +3,6 @@ import {
   Download,
   FileText,
   Paperclip,
-  ShoppingCart,
   XCircle,
 } from "lucide-react";
 import Link from "next/link";
@@ -21,6 +20,7 @@ import {
 } from "@/lib/orders/queries";
 import { cancelAcceptedOrderAction, repeatOrderAction } from "@/lib/orders/actions";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { OrderLineCard } from "@/components/orders/order-line-card";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { markCurrentBuyerOrderViewed } from "@/lib/orders/view-actions";
 import { EditOrderButton } from "./edit-order-button";
@@ -132,34 +132,18 @@ export default async function AccountOrderPage({
           <section className="self-start overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-100">
             <div className="divide-y divide-slate-100">
               {order.items.map((item) => (
-                <article
+                <OrderLineCard
                   key={item.id}
-                  className="grid items-start gap-4 p-5 md:grid-cols-[80px_1fr_auto]"
-                >
-                  <div className="flex aspect-square items-center justify-center rounded-lg bg-slate-100">
-                    <ShoppingCart className="text-slate-300" size={30} />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-black text-slate-950">
-                      {item.productName}
-                    </h2>
-                    <p className="mt-1 text-sm text-slate-500">
-                      {item.sku} · {item.unit}
-                    </p>
-                    <p className="mt-2 text-sm text-slate-500">
-                      НДС {Number(item.vatRate)}%:{" "}
-                      {formatCurrency(item.vatAmount)}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-xl font-black">
-                      {formatCurrency(item.lineTotal)}
-                    </div>
-                    <div className="mt-1 text-sm font-semibold text-slate-500">
-                      {Number(item.quantity)} × {formatCurrency(item.priceWithVat)}
-                    </div>
-                  </div>
-                </article>
+                  title={item.productName}
+                  sku={item.sku}
+                  unit={item.unit}
+                  quantity={Number(item.quantity)}
+                  priceWithVat={item.priceWithVat}
+                  lineTotal={item.lineTotal}
+                  vatRate={item.vatRate}
+                  vatAmount={item.vatAmount}
+                  imageUrl={item.mainImageUrl}
+                />
               ))}
             </div>
           </section>

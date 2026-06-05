@@ -162,6 +162,24 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
           order by "submitted_at" desc
           limit 1
         )`,
+        latestRequestStatus: sql<string | null>`(
+          select "status"
+          from "seller_product_change_requests"
+          where
+            "product_id" = ${products.id}
+            and "seller_id" = ${seller.id}
+          order by "submitted_at" desc
+          limit 1
+        )`,
+        latestRequestComment: sql<string | null>`(
+          select "moderation_comment"
+          from "seller_product_change_requests"
+          where
+            "product_id" = ${products.id}
+            and "seller_id" = ${seller.id}
+          order by "submitted_at" desc
+          limit 1
+        )`,
         categoryName: categories.name,
         subcategoryName: subcategories.name,
         imageFileId: files.id,
@@ -256,7 +274,9 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
       product.offerStatus === "on_moderation" || Boolean(product.pendingRequestId),
   ).length;
   const rejectedProductsCount = productRows.filter(
-    (product) => product.offerStatus === "rejected",
+    (product) =>
+      product.offerStatus === "rejected" ||
+      product.latestRequestStatus === "rejected",
   ).length;
   const unreadSellerNotifications = notificationRows.filter(
     (notification) => !notification.isRead,
@@ -287,10 +307,32 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
       Icon: Paperclip,
     },
   ] as const;
+  const getNotificationHref = (notification: {
+    title: string;
+    body: string | null;
+  }) => {
+    const text = `${notification.title} ${notification.body ?? ""}`;
+    const orderNumber = text.match(/ORD-\d+/)?.[0];
+    const order = orderNumber
+      ? orderRows.find((row) => row.number === orderNumber)
+      : null;
+
+    if (order) {
+      return `/seller/orders/${order.id}`;
+    }
+
+    const product = productRows.find((row) => text.includes(row.name));
+
+    if (product) {
+      return `/seller/products/${product.id}`;
+    }
+
+    return null;
+  };
 
   return (
     <main className="min-h-screen bg-[#f4f6fb] px-6 py-8 text-slate-900">
-      <div className="mx-auto max-w-7xl">
+      <div className="mx-auto max-w-[1480px]">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-3xl font-black text-slate-950">
@@ -325,8 +367,8 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
           </div>
         ) : null}
 
-        <section className="mt-5 grid gap-5 xl:grid-cols-[1fr_380px]">
-          <div className="grid gap-5">
+        <section className="mt-5 grid gap-5 2xl:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="grid min-w-0 gap-5">
             <section className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
               <div className="flex items-center gap-2">
                 <Landmark className="text-[#1157ff]" size={22} />
@@ -392,8 +434,8 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                   Добавить
                 </Link>
               </div>
-              <div className="mt-5 overflow-hidden rounded-xl border border-slate-200">
-                <table className="w-full min-w-[980px] border-collapse text-left text-sm">
+              <div className="mt-5 overflow-x-auto rounded-xl border border-slate-200">
+                <table className="w-full min-w-[820px] border-collapse text-left text-sm">
                   <thead className="bg-slate-50 text-xs uppercase text-slate-500">
                     <tr>
                       <th className="px-4 py-3">Товар</th>
@@ -419,6 +461,10 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                             storageKey: product.imageStorageKey,
                           })
                         : null;
+
+                      const hasPendingChanges = Boolean(product.pendingRequestId);
+                      const hasRejectedRequest =
+                        product.latestRequestStatus === "rejected";
 
                       return (
                         <tr key={product.id}>
@@ -471,15 +517,29 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                               >
                                 {getOfferStatusLabel(product.offerStatus)}
                               </span>
-                              {product.pendingRequestId ? (
+                              {hasPendingChanges ? (
                                 <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
-                                  Изменения на модерации
+                                  {product.offerStatus === "published"
+                                    ? "Изменения на модерации"
+                                    : "Товар на модерации"}
+                                </span>
+                              ) : null}
+                              {hasRejectedRequest && product.offerStatus !== "rejected" ? (
+                                <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-red-700">
+                                  Правки отклонены
                                 </span>
                               ) : null}
                             </div>
-                            {product.offerStatus === "published" && product.pendingRequestId ? (
+                            {product.offerStatus === "published" && hasPendingChanges ? (
                               <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
                                 Текущая версия остаётся в каталоге до решения админа.
+                              </p>
+                            ) : null}
+                            {hasRejectedRequest ? (
+                              <p className="mt-2 text-xs font-semibold leading-5 text-red-700">
+                                {product.latestRequestComment
+                                  ? `Комментарий админа: ${product.latestRequestComment}`
+                                  : "Проверьте карточку и отправьте исправления повторно."}
                               </p>
                             ) : null}
                           </td>
@@ -550,7 +610,7 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
             </section>
           </div>
 
-          <aside className="grid gap-5 self-start">
+          <aside className="grid min-w-0 gap-5 self-start">
             <section className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
@@ -572,35 +632,46 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                     Уведомлений пока нет.
                   </div>
                 ) : (
-                  notificationRows.map((notification) => (
-                    <article
-                      className={`rounded-xl border p-4 ${
-                        notification.isRead
-                          ? "border-slate-200"
-                          : "border-blue-100 bg-blue-50/50"
-                      }`}
-                      key={notification.id}
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <h3 className="font-black text-slate-950">
-                            {notification.title}
-                          </h3>
-                          {notification.body ? (
-                            <p className="mt-1 text-sm leading-6 text-slate-600">
-                              {notification.body}
-                            </p>
-                          ) : null}
+                  notificationRows.map((notification) => {
+                    const href = getNotificationHref(notification);
+                    const className = `block rounded-xl border p-4 transition ${
+                      notification.isRead
+                        ? "border-slate-200 hover:border-[#1157ff]"
+                        : "border-blue-100 bg-blue-50/50 hover:border-[#1157ff]"
+                    }`;
+                    const content = (
+                      <>
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <h3 className="font-black text-slate-950">
+                              {notification.title}
+                            </h3>
+                            {notification.body ? (
+                              <p className="mt-1 text-sm leading-6 text-slate-600">
+                                {notification.body}
+                              </p>
+                            ) : null}
+                          </div>
+                          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-500">
+                            {notification.type}
+                          </span>
                         </div>
-                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-500">
-                          {notification.type}
-                        </span>
-                      </div>
-                      <p className="mt-2 text-xs font-semibold text-slate-500">
-                        {formatDateTime(notification.createdAt)}
-                      </p>
-                    </article>
-                  ))
+                        <p className="mt-2 text-xs font-semibold text-slate-500">
+                          {formatDateTime(notification.createdAt)}
+                        </p>
+                      </>
+                    );
+
+                    return href ? (
+                      <Link className={className} href={href} key={notification.id}>
+                        {content}
+                      </Link>
+                    ) : (
+                      <article className={className} key={notification.id}>
+                        {content}
+                      </article>
+                    );
+                  })
                 )}
               </div>
             </section>

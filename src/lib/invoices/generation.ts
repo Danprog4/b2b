@@ -135,19 +135,6 @@ export async function generateOrderInvoice(
         updatedAt: now,
       })
       .where(eq(invoices.id, invoice.id));
-
-    await tx
-      .update(orders)
-      .set({
-        technicalState: {
-          invoiceGenerated: false,
-          invoiceGenerating: true,
-          invoiceError: null,
-          emailSent: false,
-        },
-        updatedAt: now,
-      })
-      .where(eq(orders.id, order.id));
   });
 
   try {
@@ -255,12 +242,6 @@ export async function generateOrderInvoice(
       await tx
         .update(orders)
         .set({
-          technicalState: {
-            invoiceGenerated: true,
-            invoiceGenerating: false,
-            invoiceError: null,
-            emailSent: false,
-          },
           updatedAt: now,
         })
         .where(eq(orders.id, order.id));
@@ -321,19 +302,6 @@ export async function generateOrderInvoice(
           updatedAt: failedAt,
         })
         .where(eq(invoices.id, invoice.id));
-
-      await tx
-        .update(orders)
-        .set({
-          technicalState: {
-            invoiceGenerated: false,
-            invoiceGenerating: false,
-            invoiceError: errorMessage,
-            emailSent: false,
-          },
-          updatedAt: failedAt,
-        })
-        .where(eq(orders.id, order.id));
 
       await tx.insert(auditEvents).values({
         actorId,

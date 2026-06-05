@@ -5,6 +5,7 @@ import {
   auditEvents,
   buyerCompanies,
   documents,
+  files,
   invoices,
   orderItems,
   orders,
@@ -12,6 +13,7 @@ import {
   users,
 } from "@/db/schema";
 import { requireUser } from "@/lib/auth/session";
+import { getPublicFileUrl } from "@/lib/files/urls";
 import { getOrderStatusLabel } from "@/lib/orders/status";
 
 export async function getCurrentBuyerOrders() {
@@ -174,7 +176,6 @@ export async function getCurrentBuyerOrder(orderId: string) {
       totalAmount: orders.totalAmount,
       vatAmount: orders.vatAmount,
       comment: orders.comment,
-      technicalState: orders.technicalState,
       createdAt: orders.createdAt,
       companyName: buyerCompanies.name,
       companyInn: buyerCompanies.inn,
@@ -209,14 +210,26 @@ export async function getCurrentBuyerOrder(orderId: string) {
       vatAmount: orderItems.vatAmount,
       lineTotal: orderItems.lineTotal,
       productIsActive: products.isActive,
+      mainImageFileId: files.id,
+      mainImageStorageKey: files.storageKey,
+      mainImageIsActive: files.isActive,
     })
     .from(orderItems)
     .leftJoin(products, eq(products.id, orderItems.productId))
+    .leftJoin(files, eq(files.id, products.mainImageFileId))
     .where(eq(orderItems.orderId, order.id));
 
   return {
     ...order,
-    items,
+    items: items.map((item) => ({
+      ...item,
+      mainImageUrl: item.mainImageIsActive
+        ? getPublicFileUrl({
+            id: item.mainImageFileId,
+            storageKey: item.mainImageStorageKey,
+          })
+        : null,
+    })),
   };
 }
 

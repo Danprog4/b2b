@@ -6,18 +6,19 @@ import {
   FileText,
   Paperclip,
   Plus,
-  ShoppingCart,
   Trash2,
 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { OrderLineCard } from "@/components/orders/order-line-card";
 import { FileUploadField } from "@/components/ui/file-upload-field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { db } from "@/db";
 import {
   buyerCompanies,
   emailOutbox,
+  files,
   invoices,
   orderItems,
   orders,
@@ -43,6 +44,7 @@ import {
   getDocumentTypeLabel,
   orderDocumentTypes,
 } from "@/lib/documents/types";
+import { getPublicFileUrl } from "@/lib/files/urls";
 import {
   canTransitionOrderStatus,
   getOrderStatusLabel,
@@ -88,7 +90,6 @@ export default async function AdminOrderPage({
       totalAmount: orders.totalAmount,
       vatAmount: orders.vatAmount,
       comment: orders.comment,
-      technicalState: orders.technicalState,
       createdAt: orders.createdAt,
       updatedAt: orders.updatedAt,
       companyName: buyerCompanies.name,
@@ -141,8 +142,13 @@ export default async function AdminOrderPage({
         commissionAmount: orderItems.commissionAmount,
         sellerId: orderItems.sellerId,
         sellerName: sellers.name,
+        mainImageFileId: files.id,
+        mainImageStorageKey: files.storageKey,
+        mainImageIsActive: files.isActive,
       })
       .from(orderItems)
+      .leftJoin(products, eq(products.id, orderItems.productId))
+      .leftJoin(files, eq(files.id, products.mainImageFileId))
       .leftJoin(sellers, eq(sellers.id, orderItems.sellerId))
       .where(eq(orderItems.orderId, order.id)),
     getAdminOrderDocuments(order.id),
@@ -153,6 +159,7 @@ export default async function AdminOrderPage({
             id: sellerOffers.id,
             productName: products.name,
             sku: products.sku,
+            unit: products.unit,
             priceWithVat: sellerOffers.priceWithVat,
             vatRate: sellerOffers.vatRate,
             sellerName: sellers.name,
@@ -167,7 +174,7 @@ export default async function AdminOrderPage({
             ),
           )
           .orderBy(products.name, sellers.name)
-          .limit(200)
+          .limit(1000)
       : Promise.resolve([]),
   ]);
   const commissionBySeller = Array.from(
@@ -296,21 +303,26 @@ export default async function AdminOrderPage({
             <section className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
               <div className="divide-y divide-slate-100">
                 {items.map((item) => (
-                  <article
+                  <OrderLineCard
                     key={item.id}
-                    className="grid items-start gap-4 p-5 md:grid-cols-[80px_1fr_auto]"
-                  >
-                    <div className="flex aspect-square items-center justify-center rounded-lg bg-slate-100">
-                      <ShoppingCart className="text-slate-300" size={30} />
-                    </div>
-                    <div>
-                      <h2 className="text-lg font-black text-slate-950">
-                        {item.productName}
-                      </h2>
-                      <p className="mt-1 text-sm text-slate-500">
-                        {item.sku} · {item.unit}
-                      </p>
-                      <p className="mt-2 text-sm font-semibold text-slate-600">
+                    title={item.productName}
+                    sku={item.sku}
+                    unit={item.unit}
+                    quantity={Number(item.quantity)}
+                    priceWithVat={item.priceWithVat}
+                    lineTotal={item.lineTotal}
+                    vatRate={item.vatRate}
+                    vatAmount={item.vatAmount}
+                    imageUrl={
+                      item.mainImageIsActive
+                        ? getPublicFileUrl({
+                            id: item.mainImageFileId,
+                            storageKey: item.mainImageStorageKey,
+                          })
+                        : null
+                    }
+                    meta={
+                      <>
                         Продавец:{" "}
                         {item.sellerId ? (
                           <Link
@@ -322,22 +334,13 @@ export default async function AdminOrderPage({
                         ) : (
                           "Не указан"
                         )}
-                      </p>
-                      <p className="mt-2 text-sm text-slate-500">
-                        НДС {Number(item.vatRate)}%:{" "}
-                        {formatCurrency(item.vatAmount)} · комиссия{" "}
-                        {formatCurrency(item.commissionAmount)}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-xl font-black">
-                        {formatCurrency(item.lineTotal)}
-                      </div>
-                      <div className="mt-1 text-sm font-semibold text-slate-500">
-                        {Number(item.quantity)} ×{" "}
-                        {formatCurrency(item.priceWithVat)}
-                      </div>
-                      {order.status === "accepted" ? (
+                        <span className="mt-2 block text-slate-500">
+                          Комиссия: {formatCurrency(item.commissionAmount)}
+                        </span>
+                      </>
+                    }
+                    actions={
+                      order.status === "accepted" ? (
                         <div className="mt-4 grid gap-2">
                           <form
                             action={updateOrderItemQuantityAction}
@@ -347,9 +350,9 @@ export default async function AdminOrderPage({
                             <input name="itemId" type="hidden" value={item.id} />
                             <input
                               className="h-10 w-24 rounded-lg border border-slate-200 px-3 text-right text-sm font-bold"
-                              min="0.001"
+                              min="1"
                               name="quantity"
-                              step="0.001"
+                              step="1"
                               type="number"
                               defaultValue={Number(item.quantity)}
                             />
@@ -372,9 +375,9 @@ export default async function AdminOrderPage({
                             </SubmitButton>
                           </form>
                         </div>
-                      ) : null}
-                    </div>
-                  </article>
+                      ) : null
+                    }
+                  />
                 ))}
               </div>
             </section>
@@ -408,7 +411,7 @@ export default async function AdminOrderPage({
                       {offerOptions.map((offer) => (
                         <option key={offer.id} value={offer.id}>
                           {offer.sku} · {offer.productName} · {offer.sellerName} ·{" "}
-                          {formatCurrency(offer.priceWithVat)}
+                          {formatCurrency(offer.priceWithVat)} за {offer.unit}
                         </option>
                       ))}
                     </select>
@@ -417,9 +420,9 @@ export default async function AdminOrderPage({
                     Количество
                     <input
                       className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-semibold"
-                      min="0.001"
+                      min="1"
                       name="quantity"
-                      step="0.001"
+                      step="1"
                       type="number"
                       defaultValue="1"
                       required
@@ -633,13 +636,13 @@ export default async function AdminOrderPage({
                   </SubmitButton>
                 </form>
               ) : null}
-              <Link
+              <a
                 className="mt-3 flex h-11 items-center justify-center gap-2 rounded-lg bg-slate-100 text-sm font-bold text-slate-700 transition hover:bg-slate-200"
                 href={`/admin/orders/export?q=${encodeURIComponent(order.number)}`}
               >
                 <Download size={16} />
                 Экспортировать заказ
-              </Link>
+              </a>
             </section>
 
             <section className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
@@ -689,17 +692,6 @@ export default async function AdminOrderPage({
                   details="Ручные документы по заказу отображаются в основном блоке."
                 />
               </div>
-              {getTechnicalStateEntries(order.technicalState).length > 0 ? (
-                <div className="mt-4 rounded-lg bg-slate-50 px-3 py-2 text-xs font-semibold leading-6 text-slate-600">
-                  {getTechnicalStateEntries(order.technicalState).map(
-                    ([key, value]) => (
-                      <p key={key}>
-                        {key}: {String(value)}
-                      </p>
-                    ),
-                  )}
-                </div>
-              ) : null}
             </section>
 
             <section className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
@@ -885,16 +877,6 @@ function getOrderEditErrorLabel(error: string) {
   }
 
   return "Не удалось изменить состав заказа.";
-}
-
-function getTechnicalStateEntries(
-  technicalState: Record<string, boolean | string | null> | null,
-) {
-  if (!technicalState) {
-    return [];
-  }
-
-  return Object.entries(technicalState).filter(([, value]) => value !== null);
 }
 
 function TechnicalStateRow({

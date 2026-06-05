@@ -36,6 +36,11 @@ const adminModules = [
     description: "Создание, редактирование, цены, НДС, фото и активность товаров.",
   },
   {
+    title: "Модерация товаров",
+    href: "/admin/products/moderation",
+    description: "Новые товары и изменения продавцов, ожидающие решения.",
+  },
+  {
     title: "Категории",
     href: "/admin/categories",
     description: "Структура каталога: категории, подкатегории и изображения.",
@@ -353,7 +358,20 @@ export default async function AdminPage() {
               обработки заказов и управления платформой.
             </p>
           </div>
-          <LogoutButton />
+          <div className="flex items-center gap-3">
+            <Link
+              className="relative inline-flex h-11 items-center justify-center rounded-lg bg-white px-4 text-sm font-bold text-slate-700 shadow-sm ring-1 ring-slate-200 transition hover:text-[#1157ff]"
+              href="/admin/notifications"
+            >
+              Уведомления
+              {unreadNotifications > 0 ? (
+                <span className="absolute -right-2 -top-2 min-w-5 rounded-full bg-[#1157ff] px-1.5 text-center text-[11px] font-black leading-5 text-white">
+                  {unreadNotifications > 99 ? "99+" : unreadNotifications}
+                </span>
+              ) : null}
+            </Link>
+            <LogoutButton />
+          </div>
         </div>
 
         <section className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-6">
@@ -591,14 +609,25 @@ export default async function AdminPage() {
         </section>
 
         <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {adminModules.map((module) => (
+          {adminModules.map((module) => {
+            const badge =
+              module.title === "Уведомления"
+                ? unreadNotifications
+                : module.title === "Заказы"
+                  ? acceptedOrdersCount
+                  : module.title === "Товары" ||
+                      module.title === "Модерация товаров"
+                    ? moderationCounter?.count ?? 0
+                    : 0;
+
+            return (
             <section
               key={module.title}
               className="relative rounded-lg bg-white p-5 shadow-sm"
             >
-              {module.title === "Уведомления" && unreadNotifications > 0 ? (
+              {badge > 0 ? (
                 <span className="absolute right-4 top-4 min-w-5 rounded-full bg-[#1157ff] px-1.5 text-center text-[11px] font-black leading-5 text-white">
-                  {unreadNotifications > 99 ? "99+" : unreadNotifications}
+                  {badge > 99 ? "99+" : badge}
                 </span>
               ) : null}
               <h2 className="text-base font-bold">{module.title}</h2>
@@ -614,7 +643,8 @@ export default async function AdminPage() {
                 </Link>
               ) : null}
             </section>
-          ))}
+            );
+          })}
         </div>
       </div>
     </main>
