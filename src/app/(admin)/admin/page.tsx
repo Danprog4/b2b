@@ -89,7 +89,7 @@ const adminModules = [
   {
     title: "Чаты",
     href: "/admin/chats",
-    description: "Сообщения покупателей и временные ответы до Telegram-бота.",
+    description: "Сообщения покупателей, ответы операторов и Telegram-топики.",
   },
   {
     title: "Импорт товаров",

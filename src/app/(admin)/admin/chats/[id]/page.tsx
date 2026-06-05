@@ -100,9 +100,10 @@ export default async function AdminChatPage({
             </Link>
           </div>
 
-          <p className="mt-4 rounded-lg bg-amber-50 px-4 py-3 text-sm font-semibold leading-6 text-amber-800">
-            Telegram-бот ещё не подключён, поэтому ответ из админки работает как
-            временный операторский канал и отображается покупателю в ЛК.
+          <p className="mt-4 rounded-lg bg-blue-50 px-4 py-3 text-sm font-semibold leading-6 text-blue-800">
+            Основной операторский канал работает через Telegram-топик этого чата.
+            Ответ из админки также отображается покупателю в ЛК и зеркалится в
+            Telegram.
           </p>
         </section>
 

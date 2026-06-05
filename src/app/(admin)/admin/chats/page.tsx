@@ -45,8 +45,8 @@ export default async function AdminChatsPage() {
               Чаты
             </h1>
             <p className="mt-2 text-slate-600">
-              Сообщения покупателей и временные ответы из админки до подключения
-              Telegram-бота.
+              Сообщения покупателей, ответы операторов из Telegram и резервные
+              ответы из админки.
             </p>
           </div>
           <span className="rounded-lg bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm ring-1 ring-slate-200">
