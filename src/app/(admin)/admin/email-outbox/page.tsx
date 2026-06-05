@@ -65,8 +65,8 @@ export default async function AdminEmailOutboxPage() {
           Email-очередь
         </h1>
         <p className="mt-2 text-slate-600">
-          Пока без SMTP: письма со счетами ставятся в очередь, чтобы событие
-          было видно и не терялось.
+          Письма отправляются через очередь. Worker забирает задачи, отправляет
+          их через подключенный email-провайдер и фиксирует результат.
         </p>
 
         <section className="mt-8 overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
@@ -77,14 +77,16 @@ export default async function AdminEmailOutboxPage() {
                 <th className="px-5 py-4">Тема</th>
                 <th className="px-5 py-4">Заказ / счет</th>
                 <th className="px-5 py-4">Статус</th>
+                <th className="px-5 py-4">Попытки</th>
                 <th className="px-5 py-4">Создано</th>
+                <th className="px-5 py-4">Отправлено</th>
                 <th className="px-5 py-4">Ошибка</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm">
               {emails.length === 0 ? (
                 <tr>
-                  <td className="px-5 py-8 text-center text-slate-500" colSpan={6}>
+                  <td className="px-5 py-8 text-center text-slate-500" colSpan={8}>
                     Писем пока нет.
                   </td>
                 </tr>
@@ -103,8 +105,12 @@ export default async function AdminEmailOutboxPage() {
                       {statusLabel(email.status)}
                     </span>
                   </td>
+                  <td className="px-5 py-4 text-slate-600">{email.attempts}</td>
                   <td className="px-5 py-4 text-slate-600">
                     {formatDateTime(email.createdAt)}
+                  </td>
+                  <td className="px-5 py-4 text-slate-600">
+                    {email.sentAt ? formatDateTime(email.sentAt) : "—"}
                   </td>
                   <td className="px-5 py-4 text-slate-600">
                     {email.lastError ?? "—"}

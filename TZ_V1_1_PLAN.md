@@ -179,8 +179,10 @@
 - Сделать: реквизиты юрлица + КПП/ОГРН покупателя, таблица позиций, НДС 22%, сумма прописью, подпись/печать/логотип; верстка 1:1 по референсу.
 
 ### P2-8. Email worker (реальная отправка)
-- Статус: ⛔ BLOCKED (C-06) · ТЗ: §21 · Где: worker по `email_outbox`.
+- Статус: ✅ DONE (code) / 🟡 NEEDS CONFIG (C-06) · ТЗ: §21 · Где: `src/lib/email/*`, `scripts/send-email-outbox.ts`, `/api/cron/email/send`.
 - Сделать: реальная отправка (счёт/новый счёт/договор/документы/статусы/ответ оператора/ошибки); ошибки в system events.
+- Изменения: добавлен worker `email:send`, Unisender Go Web API transport (`email/send.json`), вложения из private storage, обновление `email_outbox` (`sent/failed/attempts/lastError/sentAt`), `system_events` при ошибке, protected cron endpoint `/api/cron/email/send`.
+- Проверено человеком: нет
 
 ### P2-9. Матрица ин-апп/админ уведомлений v1.1
 - Статус: 🟡 PARTIAL (C-04/C-06) · ТЗ: §21.2 · Где: notification helpers.
