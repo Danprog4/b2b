@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 
+import { InnAutofillButton } from "@/components/company/inn-autofill-button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { registerBuyerAction } from "@/lib/auth/actions";
 
@@ -35,7 +36,6 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
           Регистрация покупателя
         </h1>
         <p className="mt-2 text-sm leading-6 text-slate-600">
-          Пока без внешнего сервиса ИНН: данные компании заполняются вручную.
           Если ИНН уже есть в системе, создается заявка на присоединение.
         </p>
 
@@ -75,6 +75,11 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
               />
             </label>
           </div>
+
+          <InnAutofillButton
+            companyNameFieldName="companyName"
+            typeFieldName="companyType"
+          />
 
           <label className="grid gap-2 text-sm font-bold text-slate-700">
             Название компании

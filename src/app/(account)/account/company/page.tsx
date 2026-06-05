@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 
+import { InnAutofillButton } from "@/components/company/inn-autofill-button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { db } from "@/db";
 import { buyerCompanies } from "@/db/schema";
@@ -217,6 +218,11 @@ export default async function AccountCompanyPage({
                 />
               </label>
             </div>
+
+            <InnAutofillButton
+              companyNameFieldName="name"
+              typeFieldName="type"
+            />
 
             <label className="grid gap-2 text-sm font-bold text-slate-700">
               Руководитель
