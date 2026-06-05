@@ -6,7 +6,9 @@ try {
   const result = await sendQueuedEmails();
 
   console.log(
-    `Email outbox processed: picked=${result.picked}, sent=${result.sent}, failed=${result.failed}`,
+    result.skipped
+      ? `Email outbox skipped: ${result.reason}`
+      : `Email outbox processed: picked=${result.picked}, sent=${result.sent}, failed=${result.failed}`,
   );
 } catch (error) {
   console.error(

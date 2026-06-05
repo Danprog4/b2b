@@ -2,7 +2,7 @@ import { and, asc, eq, lt, or } from "drizzle-orm";
 
 import { db } from "@/db";
 import { emailOutbox, files, systemEvents } from "@/db/schema";
-import { requireEmailConfig } from "@/lib/email/config";
+import { getEmailConfig } from "@/lib/email/config";
 import { sendUnisenderGoEmail } from "@/lib/email/unisender-go";
 import { readStorageFile } from "@/lib/files/storage";
 
@@ -39,7 +39,18 @@ async function loadAttachment(fileId: string | null) {
 }
 
 export async function sendQueuedEmails() {
-  const config = requireEmailConfig();
+  const config = getEmailConfig();
+
+  if (!config) {
+    return {
+      picked: 0,
+      sent: 0,
+      failed: 0,
+      skipped: true,
+      reason: "Email is not configured. Set EMAIL_FROM and UNISENDER_GO_API_KEY.",
+    };
+  }
+
   const rows = await db
     .select({
       id: emailOutbox.id,
@@ -64,6 +75,8 @@ export async function sendQueuedEmails() {
     picked: rows.length,
     sent: 0,
     failed: 0,
+    skipped: false,
+    reason: null as string | null,
   };
 
   for (const email of rows) {
