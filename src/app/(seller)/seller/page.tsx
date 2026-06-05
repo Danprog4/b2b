@@ -364,7 +364,10 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
 
         <section className="mt-5 grid gap-5 2xl:grid-cols-[minmax(0,1fr)_340px]">
           <div className="grid min-w-0 gap-5">
-            <section className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
+            <section
+              className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-100"
+              id="products"
+            >
               <div className="flex items-center gap-2">
                 <Landmark className="text-[#1157ff]" size={22} />
                 <h2 className="text-2xl font-black text-slate-950">

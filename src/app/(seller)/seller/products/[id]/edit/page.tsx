@@ -112,7 +112,30 @@ export default async function EditSellerProductPage({
             Кабинет продавца
           </Link>
           <span>/</span>
-          <span>{product.name}</span>
+          <Link className="text-[#1157ff]" href="/seller#products">
+            Товары
+          </Link>
+          <span>/</span>
+          <Link className="text-[#1157ff]" href={`/seller/products/${product.id}`}>
+            {product.name}
+          </Link>
+          <span>/</span>
+          <span>Редактирование</span>
+        </div>
+
+        <div className="mb-5 flex flex-wrap gap-3">
+          <Link
+            className="inline-flex h-10 items-center rounded-lg bg-white px-4 text-sm font-bold text-[#1157ff] shadow-sm ring-1 ring-slate-100 transition hover:bg-blue-50"
+            href={`/seller/products/${product.id}`}
+          >
+            ← К карточке товара
+          </Link>
+          <Link
+            className="inline-flex h-10 items-center rounded-lg bg-white px-4 text-sm font-bold text-slate-700 shadow-sm ring-1 ring-slate-100 transition hover:bg-slate-50"
+            href="/seller#products"
+          >
+            К списку товаров
+          </Link>
         </div>
 
         <section className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-100">

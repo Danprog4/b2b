@@ -98,11 +98,18 @@ export default async function SellerOrderPage({ params }: SellerOrderPageProps) 
             Кабинет продавца
           </Link>
           <span>/</span>
+          <Link className="text-[#1157ff]" href="/seller/orders">
+            Заказы
+          </Link>
+          <span>/</span>
           <span>{order.number}</span>
         </div>
 
-        <Link className="text-sm font-bold text-[#1157ff]" href="/seller">
-          ← Кабинет продавца
+        <Link
+          className="inline-flex h-10 items-center rounded-lg bg-white px-4 text-sm font-bold text-[#1157ff] shadow-sm ring-1 ring-slate-100 transition hover:bg-blue-50"
+          href="/seller/orders"
+        >
+          ← К списку заказов
         </Link>
 
         <section className="mt-5 rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-100">

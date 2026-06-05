@@ -177,10 +177,21 @@ export default async function SellerProductPage({ params }: SellerProductPagePro
             Кабинет продавца
           </Link>
           <span>/</span>
+          <Link className="text-[#1157ff]" href="/seller#products">
+            Товары
+          </Link>
+          <span>/</span>
           <span>{product.name}</span>
         </div>
 
-        <div className="flex flex-wrap items-start justify-between gap-4">
+        <Link
+          className="inline-flex h-10 items-center rounded-lg bg-white px-4 text-sm font-bold text-[#1157ff] shadow-sm ring-1 ring-slate-100 transition hover:bg-blue-50"
+          href="/seller#products"
+        >
+          ← К списку товаров
+        </Link>
+
+        <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-3xl font-black text-slate-950">
               {product.name}

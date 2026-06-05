@@ -41,8 +41,19 @@ export default async function NewSellerProductPage({
             Кабинет продавца
           </Link>
           <span>/</span>
+          <Link className="text-[#1157ff]" href="/seller#products">
+            Товары
+          </Link>
+          <span>/</span>
           <span>Новый товар</span>
         </div>
+
+        <Link
+          className="mb-5 inline-flex h-10 items-center rounded-lg bg-white px-4 text-sm font-bold text-[#1157ff] shadow-sm ring-1 ring-slate-100 transition hover:bg-blue-50"
+          href="/seller#products"
+        >
+          ← К списку товаров
+        </Link>
 
         <section className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
           <h1 className="text-3xl font-black text-slate-950">Новый товар</h1>
