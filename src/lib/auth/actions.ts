@@ -12,6 +12,7 @@ import {
 import { createSession, destroyCurrentSession } from "@/lib/auth/session";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { mergeGuestCartIntoUserCart } from "@/lib/cart/merge";
+import { insertAdminNotifications } from "@/lib/notifications/helpers";
 
 function getString(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -57,6 +58,26 @@ async function getLatestCompanyJoinRequest(userId: string) {
     .limit(1);
 
   return request;
+}
+
+type AuthTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+async function notifyAdminsAboutCompanyJoinRequest(
+  tx: AuthTransaction,
+  values: {
+    buyerCompanyId: string;
+    companyName: string;
+    companyInn: string;
+    userEmail: string;
+    userName: string;
+  },
+) {
+  await insertAdminNotifications(tx, {
+    buyerCompanyId: values.buyerCompanyId,
+    type: "company_join_request_created",
+    title: "Новая заявка на присоединение",
+    body: `${values.userName || values.userEmail} хочет присоединиться к ${values.companyName}, ИНН ${values.companyInn}.`,
+  });
 }
 
 export async function loginAction(formData: FormData) {
@@ -189,26 +210,44 @@ export async function registerBuyerAction(formData: FormData) {
           userId: existingUser.id,
           buyerCompanyId: existingCompany.id,
         });
+
+        await notifyAdminsAboutCompanyJoinRequest(tx, {
+          buyerCompanyId: existingCompany.id,
+          companyName: existingCompany.name,
+          companyInn: existingCompany.inn,
+          userEmail: email,
+          userName: name,
+        });
       });
 
       redirect("/login?pending=company&resubmitted=1");
     }
 
-    const [pendingUser] = await db
-      .insert(users)
-      .values({
-        name,
-        email,
-        phone,
-        passwordHash: hashPassword(password),
-        role: "buyer",
-        status: "pending_join",
-      })
-      .returning();
+    await db.transaction(async (tx) => {
+      const [pendingUser] = await tx
+        .insert(users)
+        .values({
+          name,
+          email,
+          phone,
+          passwordHash: hashPassword(password),
+          role: "buyer",
+          status: "pending_join",
+        })
+        .returning({ id: users.id });
 
-    await db.insert(companyJoinRequests).values({
-      userId: pendingUser.id,
-      buyerCompanyId: existingCompany.id,
+      await tx.insert(companyJoinRequests).values({
+        userId: pendingUser.id,
+        buyerCompanyId: existingCompany.id,
+      });
+
+      await notifyAdminsAboutCompanyJoinRequest(tx, {
+        buyerCompanyId: existingCompany.id,
+        companyName: existingCompany.name,
+        companyInn: existingCompany.inn,
+        userEmail: email,
+        userName: name,
+      });
     });
 
     redirect("/login?pending=company");

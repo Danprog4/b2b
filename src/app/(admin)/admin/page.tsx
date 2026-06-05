@@ -370,7 +370,7 @@ export default async function AdminPage() {
               Уведомления
               {unreadNotifications > 0 ? (
                 <span className="absolute -right-2 -top-2 min-w-5 rounded-full bg-[#1157ff] px-1.5 text-center text-[11px] font-black leading-5 text-white">
-                  {unreadNotifications > 99 ? "99+" : unreadNotifications}
+                  +{unreadNotifications > 99 ? "99" : unreadNotifications}
                 </span>
               ) : null}
             </Link>
@@ -637,7 +637,7 @@ export default async function AdminPage() {
             >
               {badge > 0 ? (
                 <span className="absolute right-4 top-4 min-w-5 rounded-full bg-[#1157ff] px-1.5 text-center text-[11px] font-black leading-5 text-white">
-                  {badge > 99 ? "99+" : badge}
+                  +{badge > 99 ? "99" : badge}
                 </span>
               ) : null}
               <h2 className="text-base font-bold">{module.title}</h2>

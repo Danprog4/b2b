@@ -66,6 +66,10 @@ export default async function AdminNotificationsPage() {
       return "/admin/documents";
     }
 
+    if (item.type.includes("company_join")) {
+      return "/admin/company-join-requests";
+    }
+
     return null;
   };
   const unreadCount = items.filter((item) => !item.isRead).length;
