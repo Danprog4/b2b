@@ -7,15 +7,27 @@ import postgres from "postgres";
 const defaultDatabaseUrl = "postgres://postgres:postgres@localhost:5432/city_market";
 
 function getDatabaseUrl() {
-  return (
-    process.env.DATABASE_URL ??
-    process.env.DATABASE_PRIVATE_URL ??
-    defaultDatabaseUrl
-  );
+  const databaseUrl = process.env.DATABASE_URL?.trim();
+
+  if (databaseUrl) {
+    return {
+      source: "DATABASE_URL",
+      url: databaseUrl,
+    };
+  }
+
+  if (process.env.NODE_ENV === "production" || process.env.RAILWAY_ENVIRONMENT) {
+    throw new Error("DATABASE_URL is required to run migrations.");
+  }
+
+  return {
+    source: "local default",
+    url: defaultDatabaseUrl,
+  };
 }
 
-async function repairDrizzleMigrationSequence() {
-  const sql = postgres(getDatabaseUrl(), { max: 1 });
+async function repairDrizzleMigrationSequence(databaseUrl: string) {
+  const sql = postgres(databaseUrl, { max: 1 });
 
   try {
     const [migrationTable] = await sql<{ exists: string | null }[]>`
@@ -54,11 +66,14 @@ async function repairDrizzleMigrationSequence() {
   }
 }
 
-function runDrizzleMigrate() {
+function runDrizzleMigrate(databaseUrl: string) {
   return new Promise<void>((resolve, reject) => {
     const child = spawn(process.execPath, ["run", "db:migrate:drizzle"], {
       stdio: "inherit",
-      env: process.env,
+      env: {
+        ...process.env,
+        DATABASE_URL: databaseUrl,
+      },
     });
 
     child.on("error", reject);
@@ -73,5 +88,14 @@ function runDrizzleMigrate() {
   });
 }
 
-await repairDrizzleMigrationSequence();
-await runDrizzleMigrate();
+try {
+  const database = getDatabaseUrl();
+  console.log(`Running migrations with ${database.source}.`);
+  await repairDrizzleMigrationSequence(database.url);
+  await runDrizzleMigrate(database.url);
+} catch (error) {
+  console.error(
+    `Database migration failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+  );
+  process.exit(1);
+}
