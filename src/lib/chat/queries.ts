@@ -92,7 +92,29 @@ export async function markCurrentBuyerChatNotificationsRead() {
 }
 
 export async function getAdminChatList() {
-  await requireUser(["admin"]);
+  const user = await requireUser(["admin"]);
+  const unreadChatNotifications = await db
+    .select({ buyerCompanyId: notifications.buyerCompanyId })
+    .from(notifications)
+    .where(
+      and(
+        eq(notifications.userId, user.id),
+        eq(notifications.isRead, false),
+        eq(notifications.type, "chat_message_created"),
+      ),
+    );
+  const unreadCountByCompanyId = new Map<string, number>();
+
+  for (const notification of unreadChatNotifications) {
+    if (!notification.buyerCompanyId) {
+      continue;
+    }
+
+    unreadCountByCompanyId.set(
+      notification.buyerCompanyId,
+      (unreadCountByCompanyId.get(notification.buyerCompanyId) ?? 0) + 1,
+    );
+  }
 
   const rows = await db
     .select({
@@ -134,8 +156,6 @@ export async function getAdminChatList() {
       userEmail: string;
       userPhone: string | null;
       incomingCount: number;
-      latestOperatorMessageAt: Date | null;
-      buyerMessageDates: Date[];
       lastMessage: {
         id: string;
         senderType: string;
@@ -162,28 +182,9 @@ export async function getAdminChatList() {
         userName: row.userName,
         userEmail: row.userEmail,
         userPhone: row.userPhone,
-        incomingCount: 0,
-        latestOperatorMessageAt: null,
-        buyerMessageDates: [],
+        incomingCount: unreadCountByCompanyId.get(row.companyId) ?? 0,
         lastMessage: null,
       };
-
-    if (row.messageId && row.messageCreatedAt) {
-      if (row.senderType === "buyer") {
-        chat.buyerMessageDates.push(row.messageCreatedAt);
-      }
-
-      if (
-        row.senderType === "admin" ||
-        row.senderType === "operator"
-      ) {
-        const currentLatest = chat.latestOperatorMessageAt?.getTime() ?? 0;
-
-        if (row.messageCreatedAt.getTime() > currentLatest) {
-          chat.latestOperatorMessageAt = row.messageCreatedAt;
-        }
-      }
-    }
 
     if (row.messageId && !chat.lastMessage) {
       chat.lastMessage = {
@@ -200,25 +201,7 @@ export async function getAdminChatList() {
     grouped.set(row.chatId, chat);
   }
 
-  return Array.from(grouped.values()).map((chat) => {
-    const latestOperatorTime = chat.latestOperatorMessageAt?.getTime() ?? 0;
-
-    return {
-      id: chat.id,
-      status: chat.status,
-      createdAt: chat.createdAt,
-      companyId: chat.companyId,
-      companyName: chat.companyName,
-      companyInn: chat.companyInn,
-      userName: chat.userName,
-      userEmail: chat.userEmail,
-      userPhone: chat.userPhone,
-      lastMessage: chat.lastMessage,
-      incomingCount: chat.buyerMessageDates.filter(
-        (createdAt) => createdAt.getTime() > latestOperatorTime,
-      ).length,
-    };
-  }).sort((a, b) => {
+  return Array.from(grouped.values()).sort((a, b) => {
     const aDate = a.lastMessage?.createdAt ?? a.createdAt;
     const bDate = b.lastMessage?.createdAt ?? b.createdAt;
     return bDate.getTime() - aDate.getTime();
@@ -280,4 +263,20 @@ export async function getAdminChat(chatId: string) {
     ...chat,
     messages: rows,
   };
+}
+
+export async function markAdminChatNotificationsRead(buyerCompanyId: string) {
+  const user = await requireUser(["admin"]);
+
+  await db
+    .update(notifications)
+    .set({ isRead: true })
+    .where(
+      and(
+        eq(notifications.userId, user.id),
+        eq(notifications.buyerCompanyId, buyerCompanyId),
+        eq(notifications.isRead, false),
+        eq(notifications.type, "chat_message_created"),
+      ),
+    );
 }

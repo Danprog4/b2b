@@ -4,7 +4,10 @@ import { notFound } from "next/navigation";
 
 import { SubmitButton } from "@/components/ui/submit-button";
 import { sendAdminChatMessageAction } from "@/lib/chat/actions";
-import { getAdminChat } from "@/lib/chat/queries";
+import {
+  getAdminChat,
+  markAdminChatNotificationsRead,
+} from "@/lib/chat/queries";
 import { formatFileSize } from "@/lib/documents/types";
 import { formatDateTime } from "@/lib/utils";
 
@@ -50,6 +53,8 @@ export default async function AdminChatPage({
   if (!chat) {
     notFound();
   }
+
+  await markAdminChatNotificationsRead(chat.companyId);
 
   return (
     <main className="min-h-screen bg-slate-100 px-6 py-8 text-slate-900">
