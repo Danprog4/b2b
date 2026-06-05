@@ -139,7 +139,7 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
     orderRows,
     financeSummary,
     latestPayments,
-    notificationRows,
+    notificationCounter,
   ] = await Promise.all([
     getCurrentSellerDocuments(),
     db
@@ -243,23 +243,18 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
       .orderBy(desc(paymentsToSeller.createdAt))
       .limit(5),
     db
-      .select({
-        id: notifications.id,
-        type: notifications.type,
-        title: notifications.title,
-        body: notifications.body,
-        isRead: notifications.isRead,
-        createdAt: notifications.createdAt,
-      })
+      .select({ count: count() })
       .from(notifications)
       .where(
-        or(
-          eq(notifications.sellerId, seller.id),
-          eq(notifications.userId, user.id),
+        and(
+          or(
+            eq(notifications.sellerId, seller.id),
+            eq(notifications.userId, user.id),
+          ),
+          eq(notifications.isRead, false),
         ),
       )
-      .orderBy(desc(notifications.createdAt))
-      .limit(20),
+      .then(([row]) => row),
   ]);
 
   const salesAmount = Number(financeSummary?.salesAmount ?? 0);
@@ -278,9 +273,7 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
       product.offerStatus === "rejected" ||
       product.latestRequestStatus === "rejected",
   ).length;
-  const unreadSellerNotifications = notificationRows.filter(
-    (notification) => !notification.isRead,
-  ).length;
+  const unreadSellerNotifications = notificationCounter?.count ?? 0;
   const summaryCards = [
     {
       title: "Товары",
@@ -306,29 +299,18 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
       description: "Документ продавца",
       Icon: Paperclip,
     },
+    {
+      title: "Уведомления",
+      value: unreadSellerNotifications,
+      description:
+        unreadSellerNotifications > 0
+          ? "Есть непрочитанные события"
+          : "Новых уведомлений нет",
+      Icon: Bell,
+      href: "/seller/notifications",
+      badge: unreadSellerNotifications,
+    },
   ] as const;
-  const getNotificationHref = (notification: {
-    title: string;
-    body: string | null;
-  }) => {
-    const text = `${notification.title} ${notification.body ?? ""}`;
-    const orderNumber = text.match(/ORD-\d+/)?.[0];
-    const order = orderNumber
-      ? orderRows.find((row) => row.number === orderNumber)
-      : null;
-
-    if (order) {
-      return `/seller/orders/${order.id}`;
-    }
-
-    const product = productRows.find((row) => text.includes(row.name));
-
-    if (product) {
-      return `/seller/products/${product.id}`;
-    }
-
-    return null;
-  };
 
   return (
     <main className="min-h-screen bg-[#f4f6fb] px-6 py-8 text-slate-900">
@@ -345,20 +327,41 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
           <LogoutButton />
         </div>
 
-        <section className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {summaryCards.map(({ title, value, description, Icon }) => (
-            <article
-              className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-100"
-              key={title}
-            >
-              <Icon className="text-[#1157ff]" size={24} />
-              <p className="mt-4 text-sm font-bold text-slate-500">{title}</p>
-              <p className="mt-2 text-2xl font-black text-slate-950">{value}</p>
-              <p className="mt-2 text-xs font-bold leading-5 text-slate-500">
-                {description}
-              </p>
-            </article>
-          ))}
+        <section className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          {summaryCards.map(({ title, value, description, Icon, ...card }) => {
+            const content = (
+              <>
+                {"badge" in card && card.badge > 0 ? (
+                  <span className="absolute right-4 top-4 min-w-5 rounded-full bg-[#1157ff] px-1.5 text-center text-[11px] font-black leading-5 text-white">
+                    {card.badge > 99 ? "99+" : card.badge}
+                  </span>
+                ) : null}
+                <Icon className="text-[#1157ff]" size={24} />
+                <p className="mt-4 text-sm font-bold text-slate-500">{title}</p>
+                <p className="mt-2 text-2xl font-black text-slate-950">{value}</p>
+                <p className="mt-2 text-xs font-bold leading-5 text-slate-500">
+                  {description}
+                </p>
+              </>
+            );
+
+            return "href" in card ? (
+              <Link
+                className="relative rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-100 transition hover:-translate-y-0.5 hover:shadow-md"
+                href={card.href}
+                key={title}
+              >
+                {content}
+              </Link>
+            ) : (
+              <article
+                className="relative rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-100"
+                key={title}
+              >
+                {content}
+              </article>
+            );
+          })}
         </section>
 
         {productSubmitted ? (
@@ -467,7 +470,10 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                         product.latestRequestStatus === "rejected";
 
                       return (
-                        <tr key={product.id}>
+                        <tr
+                          className="group cursor-pointer transition hover:bg-blue-50/40"
+                          key={product.id}
+                        >
                           <td className="px-4 py-3">
                             <Link
                               className="flex items-center gap-3 transition hover:text-[#1157ff]"
@@ -495,53 +501,73 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                             </Link>
                           </td>
                           <td className="px-4 py-3 text-slate-600">
-                            <span className="block font-bold text-slate-950">
-                              {product.categoryName}
-                            </span>
-                            <span className="mt-1 block">
-                              {product.subcategoryName ?? "Без подкатегории"}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 font-black">
-                            {formatCurrency(product.priceWithVat)}
-                          </td>
-                          <td className="px-4 py-3 font-bold text-slate-700">
-                            {Number(product.vatRate ?? 22).toFixed(0)}%
+                            <Link
+                              className="block transition group-hover:text-[#1157ff]"
+                              href={`/seller/products/${product.id}`}
+                            >
+                              <span className="block font-bold text-slate-950">
+                                {product.categoryName}
+                              </span>
+                              <span className="mt-1 block">
+                                {product.subcategoryName ?? "Без подкатегории"}
+                              </span>
+                            </Link>
                           </td>
                           <td className="px-4 py-3">
-                            <div className="flex flex-wrap gap-2">
-                              <span
-                                className={`rounded-full px-3 py-1 text-xs font-bold ${getOfferStatusClassName(
-                                  product.offerStatus,
-                                )}`}
-                              >
-                                {getOfferStatusLabel(product.offerStatus)}
-                              </span>
-                              {hasPendingChanges ? (
-                                <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
-                                  {product.offerStatus === "published"
-                                    ? "Изменения на модерации"
-                                    : "Товар на модерации"}
+                            <Link
+                              className="block font-black transition group-hover:text-[#1157ff]"
+                              href={`/seller/products/${product.id}`}
+                            >
+                              {formatCurrency(product.priceWithVat)}
+                            </Link>
+                          </td>
+                          <td className="px-4 py-3">
+                            <Link
+                              className="block font-bold text-slate-700 transition group-hover:text-[#1157ff]"
+                              href={`/seller/products/${product.id}`}
+                            >
+                              {Number(product.vatRate ?? 22).toFixed(0)}%
+                            </Link>
+                          </td>
+                          <td className="px-4 py-3">
+                            <Link
+                              className="block"
+                              href={`/seller/products/${product.id}`}
+                            >
+                              <div className="flex flex-wrap gap-2">
+                                <span
+                                  className={`rounded-full px-3 py-1 text-xs font-bold ${getOfferStatusClassName(
+                                    product.offerStatus,
+                                  )}`}
+                                >
+                                  {getOfferStatusLabel(product.offerStatus)}
                                 </span>
+                                {hasPendingChanges ? (
+                                  <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
+                                    {product.offerStatus === "published"
+                                      ? "Изменения на модерации"
+                                      : "Товар на модерации"}
+                                  </span>
+                                ) : null}
+                                {hasRejectedRequest && product.offerStatus !== "rejected" ? (
+                                  <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-red-700">
+                                    Правки отклонены
+                                  </span>
+                                ) : null}
+                              </div>
+                              {product.offerStatus === "published" && hasPendingChanges ? (
+                                <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
+                                  Текущая версия остаётся в каталоге до решения админа.
+                                </p>
                               ) : null}
-                              {hasRejectedRequest && product.offerStatus !== "rejected" ? (
-                                <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-red-700">
-                                  Правки отклонены
-                                </span>
+                              {hasRejectedRequest ? (
+                                <p className="mt-2 text-xs font-semibold leading-5 text-red-700">
+                                  {product.latestRequestComment
+                                    ? `Комментарий админа: ${product.latestRequestComment}`
+                                    : "Проверьте карточку и отправьте исправления повторно."}
+                                </p>
                               ) : null}
-                            </div>
-                            {product.offerStatus === "published" && hasPendingChanges ? (
-                              <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
-                                Текущая версия остаётся в каталоге до решения админа.
-                              </p>
-                            ) : null}
-                            {hasRejectedRequest ? (
-                              <p className="mt-2 text-xs font-semibold leading-5 text-red-700">
-                                {product.latestRequestComment
-                                  ? `Комментарий админа: ${product.latestRequestComment}`
-                                  : "Проверьте карточку и отправьте исправления повторно."}
-                              </p>
-                            ) : null}
+                            </Link>
                           </td>
                           <td className="px-4 py-3 text-right">
                             <Link
@@ -611,71 +637,6 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
           </div>
 
           <aside className="grid min-w-0 gap-5 self-start">
-            <section className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <Bell className="text-[#1157ff]" size={22} />
-                  <h2 className="text-xl font-black text-slate-950">
-                    Уведомления
-                  </h2>
-                </div>
-                {unreadSellerNotifications > 0 ? (
-                  <span className="rounded-full bg-[#1157ff] px-2.5 py-1 text-xs font-black text-white">
-                    {unreadSellerNotifications}
-                  </span>
-                ) : null}
-              </div>
-
-              <div className="mt-4 grid gap-3">
-                {notificationRows.length === 0 ? (
-                  <div className="flex min-h-24 items-center justify-center rounded-xl border border-dashed border-slate-200 text-center text-sm font-bold text-slate-500">
-                    Уведомлений пока нет.
-                  </div>
-                ) : (
-                  notificationRows.map((notification) => {
-                    const href = getNotificationHref(notification);
-                    const className = `block rounded-xl border p-4 transition ${
-                      notification.isRead
-                        ? "border-slate-200 hover:border-[#1157ff]"
-                        : "border-blue-100 bg-blue-50/50 hover:border-[#1157ff]"
-                    }`;
-                    const content = (
-                      <>
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                          <div>
-                            <h3 className="font-black text-slate-950">
-                              {notification.title}
-                            </h3>
-                            {notification.body ? (
-                              <p className="mt-1 text-sm leading-6 text-slate-600">
-                                {notification.body}
-                              </p>
-                            ) : null}
-                          </div>
-                          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-500">
-                            {notification.type}
-                          </span>
-                        </div>
-                        <p className="mt-2 text-xs font-semibold text-slate-500">
-                          {formatDateTime(notification.createdAt)}
-                        </p>
-                      </>
-                    );
-
-                    return href ? (
-                      <Link className={className} href={href} key={notification.id}>
-                        {content}
-                      </Link>
-                    ) : (
-                      <article className={className} key={notification.id}>
-                        {content}
-                      </article>
-                    );
-                  })
-                )}
-              </div>
-            </section>
-
             <section className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
               <div className="flex items-center gap-2">
                 <ReceiptText className="text-[#1157ff]" size={22} />

@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -8,6 +8,7 @@ import {
   files,
   products,
   sellerOffers,
+  sellerProductChangeRequests,
   subcategories,
 } from "@/db/schema";
 import { requireUser } from "@/lib/auth/session";
@@ -65,23 +66,43 @@ export default async function EditSellerProductPage({
     notFound();
   }
 
-  const [categoryOptions, subcategoryOptions] = await Promise.all([
-    db
-      .select({ id: categories.id, name: categories.name })
-      .from(categories)
-      .where(eq(categories.isActive, true))
-      .orderBy(asc(categories.sortOrder), asc(categories.name)),
-    db
-      .select({
-        id: subcategories.id,
-        name: subcategories.name,
-        categoryName: categories.name,
-      })
-      .from(subcategories)
-      .innerJoin(categories, eq(categories.id, subcategories.categoryId))
-      .where(eq(subcategories.isActive, true))
-      .orderBy(asc(categories.name), asc(subcategories.sortOrder), asc(subcategories.name)),
-  ]);
+  const [categoryOptions, subcategoryOptions, latestChangeRequest] =
+    await Promise.all([
+      db
+        .select({ id: categories.id, name: categories.name })
+        .from(categories)
+        .where(eq(categories.isActive, true))
+        .orderBy(asc(categories.sortOrder), asc(categories.name)),
+      db
+        .select({
+          id: subcategories.id,
+          name: subcategories.name,
+          categoryName: categories.name,
+        })
+        .from(subcategories)
+        .innerJoin(categories, eq(categories.id, subcategories.categoryId))
+        .where(eq(subcategories.isActive, true))
+        .orderBy(
+          asc(categories.name),
+          asc(subcategories.sortOrder),
+          asc(subcategories.name),
+        ),
+      db
+        .select({
+          status: sellerProductChangeRequests.status,
+          moderationComment: sellerProductChangeRequests.moderationComment,
+        })
+        .from(sellerProductChangeRequests)
+        .where(
+          and(
+            eq(sellerProductChangeRequests.productId, product.id),
+            eq(sellerProductChangeRequests.sellerId, user.sellerId),
+          ),
+        )
+        .orderBy(desc(sellerProductChangeRequests.submittedAt))
+        .limit(1)
+        .then(([row]) => row ?? null),
+    ]);
 
   return (
     <main className="min-h-screen bg-[#f4f6fb] px-6 py-8 text-slate-900">
@@ -120,6 +141,16 @@ export default async function EditSellerProductPage({
               }}
               subcategories={subcategoryOptions}
               submitText="Отправить изменения"
+              moderationAlert={
+                latestChangeRequest?.status === "rejected"
+                  ? {
+                      title: "Правки отклонены",
+                      body: latestChangeRequest.moderationComment
+                        ? `Комментарий администратора: ${latestChangeRequest.moderationComment}. Внесите изменения с учетом замечания и отправьте карточку на модерацию повторно.`
+                        : "Администратор отклонил последнюю версию карточки. Проверьте данные, внесите правки и отправьте товар на модерацию повторно.",
+                    }
+                  : null
+              }
             />
           </div>
         </section>

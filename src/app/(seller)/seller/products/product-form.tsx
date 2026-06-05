@@ -28,6 +28,10 @@ type ProductFormProps = {
   categories: Option[];
   subcategories: Array<Option & { categoryName: string }>;
   submitText: string;
+  moderationAlert?: {
+    title: string;
+    body: string;
+  } | null;
 };
 
 const productUnitOptions = ["шт", "кг", "т", "м", "м2", "м3", "л", "упак"] as const;
@@ -38,6 +42,7 @@ export function SellerProductForm({
   categories,
   subcategories,
   submitText,
+  moderationAlert,
 }: ProductFormProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const imageUrl = previewUrl ?? product?.mainImageUrl ?? null;
@@ -53,6 +58,15 @@ export function SellerProductForm({
   return (
     <form action={action} className="grid gap-5">
       {product ? <input name="productId" type="hidden" value={product.id} /> : null}
+
+      {moderationAlert ? (
+        <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-red-900">
+          <p className="text-sm font-black">{moderationAlert.title}</p>
+          <p className="mt-1 text-sm font-semibold leading-6">
+            {moderationAlert.body}
+          </p>
+        </div>
+      ) : null}
 
       <label className="grid gap-2 text-sm font-bold text-slate-700">
         Название товара
