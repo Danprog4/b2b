@@ -576,6 +576,9 @@ export const chats = pgTable("chats", {
   orderId: uuid("order_id").references(() => orders.id),
   status: varchar("status", { length: 32 }).default("open").notNull(),
   telegramThreadKey: varchar("telegram_thread_key", { length: 255 }),
+  telegramChatId: varchar("telegram_chat_id", { length: 64 }),
+  telegramMessageThreadId: integer("telegram_message_thread_id"),
+  telegramTopicName: varchar("telegram_topic_name", { length: 128 }),
   ...timestamps,
 });
 
@@ -596,7 +599,10 @@ export const messages = pgTable(
     telegramMessageId: varchar("telegram_message_id", { length: 128 }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [index("messages_chat_idx").on(table.chatId)],
+  (table) => [
+    index("messages_chat_idx").on(table.chatId),
+    index("messages_telegram_message_idx").on(table.telegramMessageId),
+  ],
 );
 
 export const notifications = pgTable("notifications", {

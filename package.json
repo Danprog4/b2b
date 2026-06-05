@@ -13,7 +13,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:copy-data": "bun run scripts/copy-db-data.ts",
     "db:seed": "bun run src/db/seed.ts",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "telegram:set-webhook": "bun run scripts/set-telegram-webhook.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1057.0",

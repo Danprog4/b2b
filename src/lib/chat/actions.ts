@@ -14,6 +14,10 @@ import {
   insertAdminNotifications,
   insertBuyerCompanyNotifications,
 } from "@/lib/notifications/helpers";
+import {
+  deliverBuyerMessageToTelegram,
+  mirrorAdminMessageToTelegram,
+} from "@/lib/telegram/chat-sync";
 
 const maxChatAttachmentSizeBytes = 50 * 1024 * 1024;
 const allowedExtensions = new Set([
@@ -143,7 +147,7 @@ export async function sendBuyerChatMessageAction(formData: FormData) {
     ? await persistAttachment(attachment, chatId, user.id)
     : null;
 
-  await db.transaction(async (tx) => {
+  const messageId = await db.transaction(async (tx) => {
     const [message] = await tx
       .insert(messages)
       .values({
@@ -173,7 +177,11 @@ export async function sendBuyerChatMessageAction(formData: FormData) {
         hasAttachment: Boolean(attachmentFileId),
       },
     });
+
+    return message.id;
   });
+
+  await deliverBuyerMessageToTelegram({ chatId, messageId });
 
   revalidatePath("/account");
   revalidatePath("/account/chat");
@@ -210,7 +218,7 @@ export async function sendAdminChatMessageAction(formData: FormData) {
     redirect("/admin/chats");
   }
 
-  await db.transaction(async (tx) => {
+  const messageId = await db.transaction(async (tx) => {
     const [message] = await tx
       .insert(messages)
       .values({
@@ -250,7 +258,11 @@ export async function sendAdminChatMessageAction(formData: FormData) {
         chatId: chat.id,
       },
     });
+
+    return message.id;
   });
+
+  await mirrorAdminMessageToTelegram({ chatId: chat.id, messageId });
 
   revalidatePath("/admin");
   revalidatePath("/admin/chats");
