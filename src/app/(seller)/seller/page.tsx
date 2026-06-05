@@ -41,7 +41,6 @@ import {
   sellerDocumentTypes,
 } from "@/lib/documents/types";
 import { getPublicFileUrl } from "@/lib/files/urls";
-import { getOrderStatusLabel } from "@/lib/orders/status";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
 type SellerPageProps = {
@@ -136,7 +135,7 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
   const [
     documents,
     productRows,
-    orderRows,
+    orderCounter,
     financeSummary,
     latestPayments,
     notificationCounter,
@@ -202,19 +201,11 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
       .limit(80),
     db
       .select({
-        id: orders.id,
-        number: orders.number,
-        status: orders.status,
-        createdAt: orders.createdAt,
-        itemCount: count(orderItems.id),
-        sellerAmount: sql<string>`coalesce(sum(${orderItems.lineTotal}), 0)`,
+        count: sql<number>`count(distinct ${orderItems.orderId})`,
       })
       .from(orderItems)
-      .innerJoin(orders, eq(orders.id, orderItems.orderId))
       .where(eq(orderItems.sellerId, seller.id))
-      .groupBy(orders.id)
-      .orderBy(desc(orders.createdAt))
-      .limit(30),
+      .then(([row]) => row),
     db
       .select({
         orderCount: sql<number>`count(distinct ${orderItems.orderId})`,
@@ -282,10 +273,11 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
       Icon: Boxes,
     },
     {
-      title: "Заказы к выплате",
-      value: financeSummary?.orderCount ?? 0,
-      description: "Оплаченные и выданные заказы",
+      title: "Заказы",
+      value: orderCounter?.count ?? 0,
+      description: `Оплаченные/выданные: ${financeSummary?.orderCount ?? 0}`,
       Icon: ReceiptText,
+      href: "/seller/orders",
     },
     {
       title: "Продажи",
@@ -586,54 +578,6 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
               </div>
             </section>
 
-            <section className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
-              <div className="flex items-center gap-2">
-                <ReceiptText className="text-[#1157ff]" size={22} />
-                <h2 className="text-2xl font-black text-slate-950">Заказы</h2>
-              </div>
-              <div className="mt-5 grid gap-3">
-                {orderRows.length === 0 ? (
-                  <div className="flex min-h-32 items-center justify-center rounded-xl border border-dashed border-slate-200 text-sm font-bold text-slate-500">
-                    Заказов с товарами продавца пока нет.
-                  </div>
-                ) : (
-                  orderRows.map((order) => {
-                    const amount = Number(order.sellerAmount);
-
-                    return (
-                      <Link
-                        className="block rounded-xl border border-slate-200 p-4 transition hover:border-[#1157ff] hover:bg-blue-50/30"
-                        href={`/seller/orders/${order.id}`}
-                        key={order.id}
-                      >
-                        <div className="flex flex-wrap items-start justify-between gap-4">
-                          <div>
-                            <h3 className="text-lg font-black text-slate-950">
-                              {order.number}
-                            </h3>
-                            <p className="mt-1 text-sm font-semibold text-slate-500">
-                              {formatDateTime(order.createdAt)} ·{" "}
-                              {getOrderStatusLabel(order.status)}
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-xl font-black">
-                              {formatCurrency(amount)}
-                            </p>
-                            <p className="mt-1 text-sm font-semibold text-slate-500">
-                              {Number(order.itemCount)} поз.
-                            </p>
-                          </div>
-                        </div>
-                        <div className="mt-4 rounded-lg bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600">
-                          К выплате: {formatCurrency(amount)}
-                        </div>
-                      </Link>
-                    );
-                  })
-                )}
-              </div>
-            </section>
           </div>
 
           <aside className="grid min-w-0 gap-5 self-start">
