@@ -5,6 +5,7 @@ import postgres from "postgres";
 const sourceUrl =
   process.env.SOURCE_DATABASE_URL ??
   process.env.LOCAL_DATABASE_URL ??
+  process.env.DATABASE_URL ??
   "postgres://postgres:postgres@localhost:5432/city_market";
 const targetUrl = process.env.TARGET_DATABASE_URL;
 
@@ -13,17 +14,22 @@ const tables = [
   "sellers",
   "users",
   "auth_sessions",
+  "password_reset_tokens",
   "company_join_requests",
   "files",
   "categories",
   "subcategories",
   "products",
+  "seller_offers",
+  "seller_product_change_requests",
   "product_images",
   "carts",
   "cart_items",
   "orders",
   "order_items",
   "invoices",
+  "contracts",
+  "payments_to_seller",
   "documents",
   "document_versions",
   "chats",
@@ -37,6 +43,7 @@ const tables = [
   "import_jobs",
   "import_job_rows",
 ] as const;
+const dryRun = process.env.DRY_RUN === "YES";
 
 function requireEnv() {
   if (!targetUrl) {
@@ -45,7 +52,7 @@ function requireEnv() {
     );
   }
 
-  if (process.env.CONFIRM_PROD_DATA_IMPORT !== "YES") {
+  if (!dryRun && process.env.CONFIRM_PROD_DATA_IMPORT !== "YES") {
     throw new Error(
       "Refusing to copy data without CONFIRM_PROD_DATA_IMPORT=YES. Target data will be truncated first.",
     );
@@ -112,6 +119,26 @@ async function assertMigrated(sql: postgres.Sql) {
   }
 }
 
+async function assertTableListCoversPublicSchema(sql: postgres.Sql) {
+  const ignoredTables = new Set(["__drizzle_migrations"]);
+  const knownTables = new Set<string>(tables);
+  const rows = await sql<{ table_name: string }[]>`
+    select table_name
+    from information_schema.tables
+    where table_schema = 'public' and table_type = 'BASE TABLE'
+    order by table_name
+  `;
+  const missingFromCopyList = rows
+    .map((row) => row.table_name)
+    .filter((table) => !ignoredTables.has(table) && !knownTables.has(table));
+
+  if (missingFromCopyList.length > 0) {
+    throw new Error(
+      `Copy table list is stale. Add tables before importing: ${missingFromCopyList.join(", ")}`,
+    );
+  }
+}
+
 async function getTableCounts(sql: postgres.Sql) {
   const counts = new Map<string, number>();
 
@@ -174,6 +201,16 @@ async function resetNumberSequences(sql: UnsafeSqlRunner) {
       exists(select 1 from sellers where contract_number ~ '^SC-[0-9]+$')
     )
   `);
+  await sql.unsafe(`
+    select setval(
+      '"city_market_contract_number_seq"',
+      coalesce(
+        (select max(substring(number from 4)::bigint) from contracts where number ~ '^ДГ-[0-9]+$'),
+        1
+      ),
+      exists(select 1 from contracts where number ~ '^ДГ-[0-9]+$')
+    )
+  `);
 }
 
 async function main() {
@@ -204,6 +241,17 @@ async function main() {
     console.log("Checking target schema...");
 
     await assertMigrated(target);
+    await assertTableListCoversPublicSchema(target);
+
+    if (dryRun) {
+      const sourceCounts = await getTableCounts(source);
+      console.log("DRY_RUN=YES: no data will be written.");
+      console.log("Rows that would be copied:");
+      for (const table of tables) {
+        console.log(`${table}: ${sourceCounts.get(table) ?? 0} rows`);
+      }
+      return;
+    }
 
     const targetCounts = await getTableCounts(target);
     const nonEmptyTargetTables = [...targetCounts.entries()].filter(
