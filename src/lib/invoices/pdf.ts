@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { PDFDocument, type PDFFont, type PDFPage, rgb, type RGB } from "pdf-lib";
 
+import { formatMoscowDate, formatMoscowLongDate } from "@/lib/datetime";
 import { amountInWords, amountShortWords } from "@/lib/invoices/amount-in-words";
 import { marketplaceSupplier } from "@/lib/invoices/supplier";
 
@@ -62,21 +63,11 @@ const LEFT = 40;
 const RIGHT = 555;
 
 function formatDateLong(value: Date) {
-  const formatted = new Intl.DateTimeFormat("ru-RU", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).format(value);
-
-  return formatted.replace(/\s*г\.$/, "");
+  return formatMoscowLongDate(value);
 }
 
 function formatDateShort(value: Date) {
-  return new Intl.DateTimeFormat("ru-RU", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(value);
+  return formatMoscowDate(value);
 }
 
 function money(value: number | string) {

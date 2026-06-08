@@ -93,7 +93,9 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
   const documentUploaded = search.documentUploaded === "1";
   const productSubmitted = search.productSubmitted === "1";
   const documentError =
-    typeof search.documentError === "string" ? search.documentError : null;
+    !documentUploaded && typeof search.documentError === "string"
+      ? search.documentError
+      : null;
 
   if (!user.sellerId) {
     return (

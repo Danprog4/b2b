@@ -26,7 +26,9 @@ export default async function AccountDocumentsPage({
   const params = (await searchParams) ?? {};
   const documentUploaded = params.documentUploaded === "1";
   const documentError =
-    typeof params.documentError === "string" ? params.documentError : null;
+    !documentUploaded && typeof params.documentError === "string"
+      ? params.documentError
+      : null;
   const documents = await getCurrentBuyerCompanyDocuments();
 
   return (
@@ -158,28 +160,35 @@ export default async function AccountDocumentsPage({
                     </Link>
                   </div>
 
-                  <form
-                    action={uploadBuyerCompanyDocumentVersionAction}
-                    className="mt-4 grid gap-3 rounded-lg bg-slate-50 p-3 md:grid-cols-[1fr_1fr_auto]"
-                  >
-                    <input name="documentId" type="hidden" value={document.id} />
-                    <FileUploadField
-                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xls,.xlsx"
-                      name="file"
-                      required
-                    />
-                    <input
-                      className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold"
-                      name="comment"
-                      placeholder="Комментарий к файлу"
-                    />
-                    <SubmitButton
-                      className="h-11 rounded-lg bg-slate-900 px-4 text-sm font-bold text-white transition hover:bg-slate-800"
-                      pendingText="Сохраняем"
+                  {document.target === "buyer_company" ? (
+                    <form
+                      action={uploadBuyerCompanyDocumentVersionAction}
+                      className="mt-4 grid gap-3 rounded-lg bg-slate-50 p-3 md:grid-cols-[1fr_1fr_auto]"
                     >
-                      Заменить файл
-                    </SubmitButton>
-                  </form>
+                      <input name="documentId" type="hidden" value={document.id} />
+                      <FileUploadField
+                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xls,.xlsx"
+                        name="file"
+                        required
+                      />
+                      <input
+                        className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold"
+                        name="comment"
+                        placeholder="Комментарий к файлу"
+                      />
+                      <SubmitButton
+                        className="h-11 rounded-lg bg-slate-900 px-4 text-sm font-bold text-white transition hover:bg-slate-800"
+                        pendingText="Сохраняем"
+                      >
+                        Заменить файл
+                      </SubmitButton>
+                    </form>
+                  ) : (
+                    <div className="mt-4 rounded-lg bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600">
+                      Этот документ относится к заказу. Его можно скачать, а
+                      замену выполняет администратор.
+                    </div>
+                  )}
                 </article>
               ))
             )}

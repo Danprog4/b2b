@@ -27,6 +27,7 @@ import {
   users,
 } from "@/db/schema";
 import { requireUser } from "@/lib/auth/session";
+import { parseMoscowDateInput } from "@/lib/datetime";
 import { getOrderStatusLabel } from "@/lib/orders/status";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
@@ -50,12 +51,7 @@ function getParam(
 }
 
 function parseDateInput(value: string, endOfDay = false) {
-  if (!value) {
-    return null;
-  }
-
-  const date = new Date(`${value}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}`);
-  return Number.isNaN(date.getTime()) ? null : date;
+  return parseMoscowDateInput(value, endOfDay);
 }
 
 function parseMoneyInput(value: string) {

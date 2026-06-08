@@ -10,6 +10,7 @@ import {
   sellers,
 } from "@/db/schema";
 import { requireUser } from "@/lib/auth/session";
+import { parseMoscowDateInput } from "@/lib/datetime";
 import { getOrderStatusLabel } from "@/lib/orders/status";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
@@ -29,14 +30,7 @@ function getParam(
 }
 
 function getDateParam(value: string, endOfDay = false) {
-  if (!value) {
-    return null;
-  }
-
-  const suffix = endOfDay ? "T23:59:59.999Z" : "T00:00:00.000Z";
-  const date = new Date(`${value}${suffix}`);
-
-  return Number.isNaN(date.getTime()) ? null : date;
+  return parseMoscowDateInput(value, endOfDay);
 }
 
 function toDateInputValue(value: string) {

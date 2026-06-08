@@ -3,23 +3,19 @@ import * as XLSX from "xlsx";
 
 import { db } from "@/db";
 import { buyerCompanies, orderItems, orders, sellers } from "@/db/schema";
+import {
+  buildMoscowDateStamp,
+  formatMoscowDateTime,
+  formatMoscowMonthYear,
+} from "@/lib/datetime";
 import { getOrderStatusLabel } from "@/lib/orders/status";
 
 function formatDate(value: Date) {
-  return new Intl.DateTimeFormat("ru-RU", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(value);
+  return formatMoscowDateTime(value);
 }
 
 function getPayoutPeriod(value: Date) {
-  return new Intl.DateTimeFormat("ru-RU", {
-    month: "2-digit",
-    year: "numeric",
-  }).format(value);
+  return formatMoscowMonthYear(value);
 }
 
 function getPayoutStatus(status: string) {
@@ -133,13 +129,7 @@ export function buildSellerReportWorkbook(
 }
 
 export function buildSellerReportFilename(sellerInn: string) {
-  const date = new Intl.DateTimeFormat("ru-RU", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  })
-    .format(new Date())
-    .replaceAll(".", "-");
+  const date = buildMoscowDateStamp();
 
   return `city-market-seller-${sellerInn}-${date}.xlsx`;
 }

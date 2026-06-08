@@ -81,7 +81,9 @@ export default async function AdminSellerPage({
   const documentUploaded = search.documentUploaded === "1";
   const documentUpdated = search.documentUpdated === "1";
   const documentError =
-    typeof search.documentError === "string" ? search.documentError : null;
+    !documentUploaded && !documentUpdated && typeof search.documentError === "string"
+      ? search.documentError
+      : null;
   const error = getErrorMessage(
     typeof search.error === "string" ? search.error : undefined,
   );

@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { auditEvents, paymentsToSeller, sellers } from "@/db/schema";
 import { requireUser } from "@/lib/auth/session";
+import { parseMoscowDateInput } from "@/lib/datetime";
 import { getNextSellerContractNumber } from "@/lib/numbering/sequences";
 import { insertSellerNotifications } from "@/lib/notifications/helpers";
 
@@ -46,12 +47,7 @@ function nullableValue<T>(value: T | null) {
 }
 
 function parseDateInput(value: string) {
-  if (!value) {
-    return null;
-  }
-
-  const date = new Date(`${value}T00:00:00.000Z`);
-  return Number.isNaN(date.getTime()) ? null : date;
+  return parseMoscowDateInput(value);
 }
 
 function getSellerValues(formData: FormData) {

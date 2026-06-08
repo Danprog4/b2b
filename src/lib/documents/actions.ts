@@ -74,21 +74,51 @@ function normalizeFileName(fileName: string) {
 }
 
 function redirectWithDocumentError(returnPath: string, message: string): never {
-  redirect(`${returnPath}?documentError=${encodeURIComponent(message)}`);
+  redirect(getRedirectPath(returnPath, "documentError", message));
 }
 
 function getAdminDocumentReturnPath(formData: FormData) {
   const returnPath = getString(formData, "returnPath");
 
   if (returnPath.startsWith("/admin/")) {
-    return returnPath;
+    return sanitizeDocumentReturnPath(returnPath, "/admin/documents");
   }
 
   return "/admin/documents";
 }
 
-function getRedirectPath(returnPath: string, key: string) {
-  return `${returnPath}${returnPath.includes("?") ? "&" : "?"}${key}=1`;
+function sanitizeDocumentReturnPath(returnPath: string, fallback: string) {
+  let url: URL;
+
+  try {
+    url = new URL(returnPath, "http://city-market.local");
+  } catch {
+    return fallback;
+  }
+
+  const isAllowedPath =
+    url.pathname.startsWith("/admin/") ||
+    url.pathname.startsWith("/account/") ||
+    url.pathname === "/seller";
+
+  if (!isAllowedPath) {
+    return fallback;
+  }
+
+  url.searchParams.delete("documentError");
+  url.searchParams.delete("documentUploaded");
+  url.searchParams.delete("documentUpdated");
+
+  const query = url.searchParams.toString();
+  return query ? `${url.pathname}?${query}` : url.pathname;
+}
+
+function getRedirectPath(returnPath: string, key: string, value = "1") {
+  const cleanedPath = sanitizeDocumentReturnPath(returnPath, returnPath);
+  const url = new URL(cleanedPath, "http://city-market.local");
+  url.searchParams.set(key, value);
+
+  return `${url.pathname}?${url.searchParams.toString()}`;
 }
 
 function validateDocumentFile(returnPath: string, value: FormDataEntryValue | null) {
@@ -483,10 +513,16 @@ export async function uploadBuyerCompanyDocumentVersionAction(formData: FormData
 
   if (
     !document ||
-    document.target !== "buyer_company" ||
     document.buyerCompanyId !== user.buyerCompanyId
   ) {
     redirectWithDocumentError(returnPath, "Документ не найден.");
+  }
+
+  if (document.target !== "buyer_company") {
+    redirectWithDocumentError(
+      returnPath,
+      "Этот документ нельзя заменить из кабинета покупателя. Счета и документы по заказу обновляет администратор.",
+    );
   }
 
   const nextVersion = document.currentVersion + 1;

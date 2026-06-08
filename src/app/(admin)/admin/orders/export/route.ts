@@ -24,6 +24,11 @@ import {
   users,
 } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/session";
+import {
+  buildMoscowDateStamp,
+  formatMoscowDateTime,
+  parseMoscowDateInput,
+} from "@/lib/datetime";
 import { getOrderStatusLabel } from "@/lib/orders/status";
 
 const statusOptions = [
@@ -34,34 +39,17 @@ const statusOptions = [
 ] as const;
 
 function formatDate(value: Date) {
-  return new Intl.DateTimeFormat("ru-RU", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(value);
+  return formatMoscowDateTime(value);
 }
 
 function buildFilename() {
-  const date = new Intl.DateTimeFormat("ru-RU", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  })
-    .format(new Date())
-    .replaceAll(".", "-");
+  const date = buildMoscowDateStamp();
 
   return `city-market-orders-${date}.xlsx`;
 }
 
 function parseDateInput(value: string | null, endOfDay = false) {
-  if (!value) {
-    return null;
-  }
-
-  const date = new Date(`${value}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}`);
-  return Number.isNaN(date.getTime()) ? null : date;
+  return parseMoscowDateInput(value, endOfDay);
 }
 
 function parseMoneyInput(value: string | null) {

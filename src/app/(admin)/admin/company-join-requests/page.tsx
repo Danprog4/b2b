@@ -8,16 +8,10 @@ import {
   approveCompanyJoinRequest,
   rejectCompanyJoinRequest,
 } from "@/lib/admin/company-join-actions";
+import { formatMoscowMediumDateTime } from "@/lib/datetime";
 
 function formatDate(value: Date | null) {
-  if (!value) {
-    return "—";
-  }
-
-  return new Intl.DateTimeFormat("ru-RU", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(value);
+  return formatMoscowMediumDateTime(value);
 }
 
 function statusLabel(status: string) {

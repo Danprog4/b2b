@@ -32,7 +32,9 @@ export default async function AdminDocumentsPage({
   const documentUploaded = params.documentUploaded === "1";
   const documentUpdated = params.documentUpdated === "1";
   const documentError =
-    typeof params.documentError === "string" ? params.documentError : null;
+    !documentUploaded && !documentUpdated && typeof params.documentError === "string"
+      ? params.documentError
+      : null;
   const [documents, options] = await Promise.all([
     getAdminDocuments(),
     getAdminDocumentOptions(),

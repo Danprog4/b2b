@@ -1,6 +1,8 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
+import { formatMoscowDateTime } from "@/lib/datetime";
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
@@ -16,13 +18,5 @@ export function formatCurrency(value: number | string) {
 }
 
 export function formatDateTime(value: Date | string) {
-  const date = typeof value === "string" ? new Date(value) : value;
-
-  return new Intl.DateTimeFormat("ru-RU", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
+  return formatMoscowDateTime(value);
 }

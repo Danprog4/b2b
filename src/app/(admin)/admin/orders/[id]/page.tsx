@@ -80,7 +80,9 @@ export default async function AdminOrderPage({
   const orderEditError =
     typeof search.orderEditError === "string" ? search.orderEditError : null;
   const documentError =
-    typeof search.documentError === "string" ? search.documentError : null;
+    !documentUploaded && typeof search.documentError === "string"
+      ? search.documentError
+      : null;
 
   const [order] = await db
     .select({
