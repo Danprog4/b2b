@@ -73,6 +73,7 @@ export async function GET(request: Request) {
   const status = searchParams.get("status")?.trim() ?? "";
   const company = searchParams.get("company")?.trim() ?? "";
   const inn = searchParams.get("inn")?.trim() ?? "";
+  const sellerId = searchParams.get("sellerId")?.trim() ?? "";
   const documentsFilter = searchParams.get("documents")?.trim() ?? "";
   const dateFrom = parseDateInput(searchParams.get("dateFrom"));
   const dateTo = parseDateInput(searchParams.get("dateTo"), true);
@@ -129,6 +130,10 @@ export async function GET(request: Request) {
 
   if (amountTo) {
     whereConditions.push(lte(orders.totalAmount, amountTo));
+  }
+
+  if (sellerId) {
+    whereConditions.push(eq(orderItems.sellerId, sellerId));
   }
 
   if (documentsFilter === "with") {

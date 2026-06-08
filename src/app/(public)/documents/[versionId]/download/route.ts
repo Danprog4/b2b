@@ -2,7 +2,13 @@ import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 import { db } from "@/db";
-import { documentVersions, documents, files, orders } from "@/db/schema";
+import {
+  auditEvents,
+  documentVersions,
+  documents,
+  files,
+  orders,
+} from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/session";
 import { isStorageFileNotFoundError, readStorageFile } from "@/lib/files/storage";
 
@@ -78,6 +84,18 @@ export async function GET(_request: Request, { params }: DocumentDownloadRoutePr
     throw error;
   }
   const encodedFileName = encodeURIComponent(document.fileName);
+
+  await db.insert(auditEvents).values({
+    actorId: user.id,
+    action: "document.download",
+    entityType: "document",
+    entityId: document.documentId,
+    metadata: {
+      versionId,
+      fileName: document.fileName,
+      role: user.role,
+    },
+  });
 
   return new Response(new Uint8Array(bytes), {
     headers: {

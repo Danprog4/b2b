@@ -314,6 +314,7 @@ export async function createSellerProductAction(formData: FormData) {
   }
 
   revalidatePath("/seller");
+  revalidatePath("/admin");
   revalidatePath("/admin/products/moderation");
   revalidatePath("/admin/notifications");
 
@@ -458,6 +459,7 @@ export async function requestExistingProductOfferAction(formData: FormData) {
 
   revalidatePath("/seller");
   revalidatePath("/seller/products/existing");
+  revalidatePath("/admin");
   revalidatePath("/admin/products/moderation");
   revalidatePath("/admin/notifications");
 
@@ -562,6 +564,7 @@ export async function requestSellerProductUpdateAction(formData: FormData) {
   });
 
   revalidatePath("/seller");
+  revalidatePath("/admin");
   revalidatePath("/admin/products/moderation");
   revalidatePath("/admin/notifications");
 

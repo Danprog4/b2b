@@ -29,6 +29,7 @@ import {
 } from "@/db/schema";
 import {
   addOrderItemAction,
+  changeOrderItemOfferAction,
   regenerateInvoiceAction,
   removeOrderItemAction,
   updateOrderItemQuantityAction,
@@ -132,6 +133,7 @@ export default async function AdminOrderPage({
     db
       .select({
         id: orderItems.id,
+        productId: orderItems.productId,
         sellerOfferId: orderItems.sellerOfferId,
         productName: orderItems.productNameSnapshot,
         sku: orderItems.skuSnapshot,
@@ -159,6 +161,7 @@ export default async function AdminOrderPage({
       ? db
           .select({
             id: sellerOffers.id,
+            productId: products.id,
             productName: products.name,
             sku: products.sku,
             unit: products.unit,
@@ -179,6 +182,13 @@ export default async function AdminOrderPage({
           .limit(1000)
       : Promise.resolve([]),
   ]);
+  const offerOptionsByProductId = offerOptions.reduce(
+    (map, offer) => {
+      map.set(offer.productId, [...(map.get(offer.productId) ?? []), offer]);
+      return map;
+    },
+    new Map<string, typeof offerOptions>(),
+  );
   const commissionBySeller = Array.from(
     items
       .reduce(
@@ -344,6 +354,38 @@ export default async function AdminOrderPage({
                     actions={
                       order.status === "accepted" ? (
                         <div className="mt-4 grid gap-2">
+                          <form
+                            action={changeOrderItemOfferAction}
+                            className="grid gap-2 rounded-lg bg-slate-50 p-2"
+                          >
+                            <input name="orderId" type="hidden" value={order.id} />
+                            <input name="itemId" type="hidden" value={item.id} />
+                            <label className="grid gap-1 text-xs font-bold text-slate-600">
+                              Предложение продавца
+                              <select
+                                className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800"
+                                name="sellerOfferId"
+                                defaultValue={item.sellerOfferId ?? ""}
+                              >
+                                {item.productId
+                                  ? (offerOptionsByProductId.get(item.productId) ?? []).map(
+                                      (offer) => (
+                                        <option key={offer.id} value={offer.id}>
+                                          {offer.sellerName} ·{" "}
+                                          {formatCurrency(offer.priceWithVat)}
+                                        </option>
+                                      ),
+                                    )
+                                  : null}
+                              </select>
+                            </label>
+                            <SubmitButton
+                              className="ml-auto h-10 rounded-lg bg-slate-900 px-3 text-sm font-bold text-white transition hover:bg-slate-800"
+                              pendingText="..."
+                            >
+                              Заменить
+                            </SubmitButton>
+                          </form>
                           <form
                             action={updateOrderItemQuantityAction}
                             className="flex justify-end gap-2"

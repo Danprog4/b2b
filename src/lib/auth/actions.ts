@@ -7,6 +7,7 @@ import { db } from "@/db";
 import {
   buyerCompanies,
   companyJoinRequests,
+  emailOutbox,
   users,
 } from "@/db/schema";
 import { createSession, destroyCurrentSession } from "@/lib/auth/session";
@@ -79,6 +80,34 @@ async function notifyAdminsAboutCompanyJoinRequest(
     type: "company_join_request_created",
     title: "Новая заявка на присоединение",
     body: `${values.userName || values.userEmail} хочет присоединиться к ${values.companyName}, ИНН ${values.companyInn}.`,
+  });
+}
+
+async function queueRegistrationEmail(
+  tx: AuthTransaction,
+  values: {
+    email: string;
+    name: string;
+    companyName: string;
+    pendingJoin: boolean;
+  },
+) {
+  await tx.insert(emailOutbox).values({
+    toEmail: values.email,
+    subject: values.pendingJoin
+      ? "Заявка на присоединение отправлена"
+      : "Регистрация в Сити Маркет",
+    body: values.pendingJoin
+      ? [
+          `Здравствуйте${values.name ? `, ${values.name}` : ""}.`,
+          `Мы получили вашу заявку на присоединение к компании ${values.companyName}.`,
+          "Администратор проверит заявку, после подтверждения вы сможете войти в личный кабинет.",
+        ].join("\n")
+      : [
+          `Здравствуйте${values.name ? `, ${values.name}` : ""}.`,
+          `Компания ${values.companyName} зарегистрирована в Сити Маркет.`,
+          "Теперь вы можете оформлять заказы, получать счета и документы в личном кабинете.",
+        ].join("\n"),
   });
 }
 
@@ -220,6 +249,13 @@ export async function registerBuyerAction(formData: FormData) {
           userEmail: email,
           userName: name,
         });
+
+        await queueRegistrationEmail(tx, {
+          email,
+          name,
+          companyName: existingCompany.name,
+          pendingJoin: true,
+        });
       });
 
       redirect("/login?pending=company&resubmitted=1");
@@ -249,6 +285,13 @@ export async function registerBuyerAction(formData: FormData) {
         companyInn: existingCompany.inn,
         userEmail: email,
         userName: name,
+      });
+
+      await queueRegistrationEmail(tx, {
+        email,
+        name,
+        companyName: existingCompany.name,
+        pendingJoin: true,
       });
     });
 
@@ -288,6 +331,13 @@ export async function registerBuyerAction(formData: FormData) {
           updatedAt: new Date(),
         })
         .where(eq(users.id, existingUser.id));
+
+      await queueRegistrationEmail(tx, {
+        email,
+        name,
+        companyName,
+        pendingJoin: false,
+      });
     });
 
     await generateBuyerCompanyContract(createdCompanyId, existingUser.id, {
@@ -325,6 +375,15 @@ export async function registerBuyerAction(formData: FormData) {
       buyerCompanyId: company.id,
     })
     .returning();
+
+  await db.transaction(async (tx) => {
+    await queueRegistrationEmail(tx, {
+      email,
+      name,
+      companyName,
+      pendingJoin: false,
+    });
+  });
 
   await generateBuyerCompanyContract(company.id, user.id, {
     source: "registration",

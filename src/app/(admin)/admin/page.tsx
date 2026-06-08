@@ -117,6 +117,11 @@ const adminModules = [
     href: "/admin/system-events?severity=error",
     description: "Журнал технических ошибок и событий, требующих внимания.",
   },
+  {
+    title: "Audit log",
+    href: "/admin/audit-log",
+    description: "Критические действия пользователей, администраторов и системы.",
+  },
 ];
 
 const dashboardStatuses = [

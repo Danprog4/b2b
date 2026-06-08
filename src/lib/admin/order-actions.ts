@@ -489,6 +489,145 @@ export async function addOrderItemAction(formData: FormData) {
   await regenerateInvoiceAfterOrderEdit(orderId, admin.id);
 }
 
+export async function changeOrderItemOfferAction(formData: FormData) {
+  const admin = await requireUser(["admin"]);
+  const orderId = getString(formData, "orderId");
+  const itemId = getString(formData, "itemId");
+  const sellerOfferId = getString(formData, "sellerOfferId");
+
+  if (!orderId || !itemId || !sellerOfferId) {
+    redirect("/admin/orders");
+  }
+
+  await db.transaction(async (tx) => {
+    const [order] = await tx
+      .select({ id: orders.id, status: orders.status })
+      .from(orders)
+      .where(eq(orders.id, orderId))
+      .limit(1);
+
+    if (!order) {
+      redirect("/admin/orders");
+    }
+
+    if (order.status !== "accepted") {
+      redirect(`/admin/orders/${order.id}?orderEditError=status`);
+    }
+
+    const [item] = await tx
+      .select({
+        id: orderItems.id,
+        productId: orderItems.productId,
+        quantity: orderItems.quantity,
+        sellerOfferId: orderItems.sellerOfferId,
+      })
+      .from(orderItems)
+      .where(and(eq(orderItems.id, itemId), eq(orderItems.orderId, order.id)))
+      .limit(1);
+
+    if (!item || !item.productId) {
+      redirect(`/admin/orders/${order.id}?orderEditError=item`);
+    }
+
+    const [offer] = await tx
+      .select({
+        productId: products.id,
+        sellerOfferId: sellerOffers.id,
+        sellerId: sellerOffers.sellerId,
+        productName: products.name,
+        sku: products.sku,
+        unit: products.unit,
+        priceWithVat: sellerOffers.priceWithVat,
+        vatRate: sellerOffers.vatRate,
+        commissionRate: sellers.commissionRate,
+      })
+      .from(sellerOffers)
+      .innerJoin(products, eq(products.id, sellerOffers.productId))
+      .innerJoin(sellers, eq(sellers.id, sellerOffers.sellerId))
+      .where(
+        and(
+          eq(sellerOffers.id, sellerOfferId),
+          eq(sellerOffers.productId, item.productId),
+          eq(sellerOffers.status, "published"),
+          eq(products.isActive, true),
+        ),
+      )
+      .limit(1);
+
+    if (!offer) {
+      redirect(`/admin/orders/${order.id}?orderEditError=offer`);
+    }
+
+    if (offer.sellerOfferId === item.sellerOfferId) {
+      redirect(`/admin/orders/${order.id}`);
+    }
+
+    const quantity = Number(item.quantity);
+    const priceWithVat = Number(offer.priceWithVat);
+    const vatRate = Number(offer.vatRate ?? 22);
+    const lineTotal = toMoney(quantity * priceWithVat);
+    const vatAmount = calculateVatAmount(lineTotal, vatRate);
+    const commissionRate = Number(offer.commissionRate ?? 5);
+
+    await tx
+      .update(orderItems)
+      .set({
+        productId: offer.productId,
+        sellerOfferId: offer.sellerOfferId,
+        sellerId: offer.sellerId,
+        productNameSnapshot: offer.productName,
+        skuSnapshot: offer.sku,
+        unitSnapshot: offer.unit,
+        priceWithVat: formatMoney(priceWithVat),
+        vatRate: formatMoney(vatRate),
+        vatAmount: formatMoney(vatAmount),
+        lineTotal: formatMoney(lineTotal),
+        commissionAmount: formatMoney(lineTotal * (commissionRate / 100)),
+        updatedAt: new Date(),
+      })
+      .where(eq(orderItems.id, item.id));
+
+    const totals = await tx
+      .select({
+        totalAmount: orderItems.lineTotal,
+        vatAmount: orderItems.vatAmount,
+      })
+      .from(orderItems)
+      .where(eq(orderItems.orderId, order.id));
+    const totalAmount = totals.reduce(
+      (sum, row) => sum + Number(row.totalAmount),
+      0,
+    );
+    const totalVatAmount = totals.reduce(
+      (sum, row) => sum + Number(row.vatAmount),
+      0,
+    );
+
+    await tx
+      .update(orders)
+      .set({
+        totalAmount: formatMoney(totalAmount),
+        vatAmount: formatMoney(totalVatAmount),
+        updatedAt: new Date(),
+      })
+      .where(eq(orders.id, order.id));
+
+    await tx.insert(auditEvents).values({
+      actorId: admin.id,
+      action: "order.item_offer_change",
+      entityType: "order",
+      entityId: order.id,
+      metadata: {
+        itemId: item.id,
+        fromSellerOfferId: item.sellerOfferId,
+        toSellerOfferId: offer.sellerOfferId,
+      },
+    });
+  });
+
+  await regenerateInvoiceAfterOrderEdit(orderId, admin.id);
+}
+
 export async function regenerateInvoiceAction(formData: FormData) {
   const admin = await requireUser(["admin"]);
   const orderId = getString(formData, "orderId");

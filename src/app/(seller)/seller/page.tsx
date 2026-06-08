@@ -580,7 +580,7 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                                 {product.offerStatus === "published" &&
                                 !isActiveOnStorefront ? (
                                   <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-[#1157ff]">
-                                    Не активно на витрине
+                                    Цену перебили
                                   </span>
                                 ) : null}
                                 {hasPendingChanges ? (
@@ -604,8 +604,9 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                               {product.offerStatus === "published" &&
                               !isActiveOnStorefront ? (
                                 <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
-                                  Покупатели сейчас видят другое предложение.
-                                  Обновите цену, чтобы вернуть товар в продажу.
+                                  Покупатели сейчас видят более выгодное
+                                  предложение по этому товару. Снизьте цену,
+                                  чтобы снова выйти на витрину.
                                 </p>
                               ) : null}
                               {hasRejectedRequest ? (

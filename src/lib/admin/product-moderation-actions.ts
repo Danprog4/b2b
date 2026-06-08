@@ -124,15 +124,36 @@ export async function approveProductModerationRequestAction(formData: FormData) 
       return;
     }
 
-    const [currentPriorityOffer] = await tx
+    const [productBeforeModeration] = await tx
+      .select({ priorityOfferId: products.priorityOfferId })
+      .from(products)
+      .where(eq(products.id, productId))
+      .limit(1);
+    const currentPublishedOffers = await tx
       .select({
         id: sellerOffers.id,
         sellerId: sellerOffers.sellerId,
+        priceWithVat: sellerOffers.priceWithVat,
       })
-      .from(products)
-      .innerJoin(sellerOffers, eq(sellerOffers.id, products.priorityOfferId))
-      .where(eq(products.id, productId))
-      .limit(1);
+      .from(sellerOffers)
+      .where(
+        and(
+          eq(sellerOffers.productId, productId),
+          eq(sellerOffers.status, "published"),
+        ),
+      );
+    const currentPriorityOffer =
+      currentPublishedOffers.find(
+        (offer) => offer.id === productBeforeModeration?.priorityOfferId,
+      ) ??
+      currentPublishedOffers.reduce<(typeof currentPublishedOffers)[number] | null>(
+        (best, offer) =>
+          !best || Number(offer.priceWithVat) < Number(best.priceWithVat)
+            ? offer
+            : best,
+        null,
+      );
+    let selectedPublishedOffer = currentPriorityOffer;
 
     if (request.type !== "offer_create") {
       await tx
@@ -156,7 +177,6 @@ export async function approveProductModerationRequestAction(formData: FormData) 
       await tx
         .update(products)
         .set({
-          priorityOfferId: request.sellerOfferId,
           updatedAt: new Date(),
         })
         .where(eq(products.id, productId));
@@ -173,7 +193,7 @@ export async function approveProductModerationRequestAction(formData: FormData) 
         priceWithVat: payload.priceWithVat,
         vatRate: payload.vatRate,
         status: "published",
-        isPriority: true,
+        isPriority: request.type !== "offer_create",
         moderationComment: comment || null,
         moderatedAt: new Date(),
         moderatedById: admin.id,
@@ -181,22 +201,105 @@ export async function approveProductModerationRequestAction(formData: FormData) 
       })
       .where(eq(sellerOffers.id, sellerOfferId));
 
+    if (request.type === "offer_create") {
+      const publishedOffers = await tx
+        .select({
+          id: sellerOffers.id,
+          sellerId: sellerOffers.sellerId,
+          priceWithVat: sellerOffers.priceWithVat,
+        })
+        .from(sellerOffers)
+        .where(
+          and(
+            eq(sellerOffers.productId, productId),
+            eq(sellerOffers.status, "published"),
+          ),
+        );
+      const newPublishedOffer = publishedOffers.find(
+        (offer) => offer.id === sellerOfferId,
+      );
+      const minPublishedOffer = publishedOffers.reduce<
+        (typeof publishedOffers)[number] | null
+      >(
+        (best, offer) =>
+          !best || Number(offer.priceWithVat) < Number(best.priceWithVat)
+            ? offer
+            : best,
+        null,
+      );
+      selectedPublishedOffer =
+        currentPriorityOffer &&
+        newPublishedOffer &&
+        Number(newPublishedOffer.priceWithVat) < Number(currentPriorityOffer.priceWithVat)
+          ? newPublishedOffer
+          : currentPriorityOffer ?? minPublishedOffer;
+
+      if (selectedPublishedOffer) {
+        await tx
+          .update(sellerOffers)
+          .set({ isPriority: false, updatedAt: new Date() })
+          .where(eq(sellerOffers.productId, productId));
+
+        await tx
+          .update(sellerOffers)
+          .set({ isPriority: true, updatedAt: new Date() })
+          .where(eq(sellerOffers.id, selectedPublishedOffer.id));
+
+        await tx
+          .update(products)
+          .set({
+            priorityOfferId: selectedPublishedOffer.id,
+            updatedAt: new Date(),
+          })
+          .where(eq(products.id, productId));
+      }
+    } else {
+      selectedPublishedOffer = {
+        id: sellerOfferId,
+        sellerId: request.sellerId,
+        priceWithVat: payload.priceWithVat,
+      };
+    }
+
     await insertSellerNotifications(tx, {
       sellerId: request.sellerId,
       type: "product_published",
       title:
         request.type === "offer_create"
-          ? "Предложение товара опубликовано"
+          ? selectedPublishedOffer?.id === sellerOfferId
+            ? "Предложение вышло на витрину"
+            : "Предложение товара опубликовано"
           : request.type === "update"
           ? "Изменения товара опубликованы"
           : "Товар опубликован",
-      body: comment ? `${payload.name}: ${comment}` : payload.name,
+      body:
+        request.type === "offer_create" && selectedPublishedOffer?.id === sellerOfferId
+          ? comment
+            ? `${payload.name}: покупатели теперь видят вашу цену в каталоге. ${comment}`
+            : `${payload.name}: покупатели теперь видят вашу цену в каталоге.`
+          : comment
+            ? `${payload.name}: ${comment}`
+            : payload.name,
     });
 
     if (
+      request.type === "offer_create" &&
+      selectedPublishedOffer &&
+      selectedPublishedOffer.id !== sellerOfferId
+    ) {
+      await insertSellerNotifications(tx, {
+        sellerId: request.sellerId,
+        type: "product_offer_displaced",
+        title: "Цена перебита",
+        body: `${payload.name}: предложение опубликовано, но покупатели сейчас видят более выгодную цену другого продавца. Снизьте цену, чтобы выйти на витрину.`,
+      });
+    }
+
+    if (
       currentPriorityOffer &&
-      currentPriorityOffer.id !== sellerOfferId &&
-      currentPriorityOffer.sellerId !== request.sellerId
+      selectedPublishedOffer &&
+      currentPriorityOffer.id !== selectedPublishedOffer.id &&
+      currentPriorityOffer.sellerId !== selectedPublishedOffer.sellerId
     ) {
       await insertSellerNotifications(tx, {
         sellerId: currentPriorityOffer.sellerId,
@@ -226,6 +329,8 @@ export async function approveProductModerationRequestAction(formData: FormData) 
   revalidatePath("/");
   revalidatePath("/catalog");
   revalidatePath("/seller");
+  revalidatePath("/seller/notifications");
+  revalidatePath(`/seller/products/${productId}`);
   revalidatePath("/admin/products");
   revalidatePath("/admin/products/moderation");
 
@@ -315,6 +420,8 @@ export async function rejectProductModerationRequestAction(formData: FormData) {
   }
 
   revalidatePath("/seller");
+  revalidatePath("/seller/notifications");
+  revalidatePath(`/seller/products/${request.productId}`);
   revalidatePath("/admin/products/moderation");
 
   redirect("/admin/products/moderation?moderated=1");
