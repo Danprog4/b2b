@@ -242,7 +242,7 @@ export default async function SellerProductPage({ params }: SellerProductPagePro
         ) : null}
 
         <section className="mt-6 grid gap-5 lg:grid-cols-[320px_1fr]">
-          <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-100">
+          <div className="self-start overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-100">
             {imageUrl ? (
               <img
                 alt={product.name}
