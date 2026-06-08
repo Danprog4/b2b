@@ -203,6 +203,12 @@ export async function importDatabaseDump(
   await assertMigrated(sql);
   await assertTableListCoversPublicSchema(sql);
 
+  const columnsByTable = new Map<DataTransferTable, string[]>();
+
+  for (const table of dataTransferTables) {
+    columnsByTable.set(table, await getColumns(sql, table));
+  }
+
   await sql.begin(async (tx) => {
     await tx.unsafe(
       `truncate table ${dataTransferTables
@@ -217,7 +223,12 @@ export async function importDatabaseDump(
         continue;
       }
 
-      const columns = await getColumns(sql, table);
+      const columns = columnsByTable.get(table);
+
+      if (!columns) {
+        throw new Error(`Missing column metadata for table ${table}.`);
+      }
+
       const quotedColumns = columns.map(quoteIdentifier).join(", ");
       const batchSize = 500;
 
