@@ -4,14 +4,11 @@ import {
   findCompanyByInn,
   isCompanyAutofillConfigured,
 } from "@/lib/company-autofill/dadata";
-
-function normalizeInn(value: string | null) {
-  return value?.replace(/\D/g, "") ?? "";
-}
+import { normalizeInn } from "@/lib/company-normalize";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const inn = normalizeInn(url.searchParams.get("inn"));
+  const inn = normalizeInn(url.searchParams.get("inn") ?? "");
   const type = url.searchParams.get("type");
 
   if (!inn || ![10, 12].includes(inn.length)) {

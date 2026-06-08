@@ -21,11 +21,13 @@ export async function GET(_request: Request, { params }: DocumentDownloadRoutePr
   const [document] = await db
     .select({
       documentId: documents.id,
+      currentVersion: documents.currentVersion,
       isVisibleToBuyer: documents.isVisibleToBuyer,
       isVisibleToSeller: documents.isVisibleToSeller,
       buyerCompanyId: documents.buyerCompanyId,
       sellerId: documents.sellerId,
       orderUserId: orders.userId,
+      version: documentVersions.version,
       fileName: files.originalName,
       storageKey: files.storageKey,
       mimeType: files.mimeType,
@@ -48,13 +50,16 @@ export async function GET(_request: Request, { params }: DocumentDownloadRoutePr
   }
 
   const isAdmin = user.role === "admin";
+  const isCurrentVersion = document.version === document.currentVersion;
   const isBuyerOwner =
     user.role === "buyer" &&
+    isCurrentVersion &&
     document.isVisibleToBuyer &&
     (document.orderUserId === user.id ||
       document.buyerCompanyId === user.buyerCompanyId);
   const isSellerOwner =
     user.role === "seller" &&
+    isCurrentVersion &&
     document.isVisibleToSeller &&
     document.sellerId === user.sellerId;
 

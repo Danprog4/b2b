@@ -3,7 +3,13 @@ import { Bell } from "lucide-react";
 import Link from "next/link";
 
 import { db } from "@/db";
-import { notifications, orderItems, orders, products } from "@/db/schema";
+import {
+  notifications,
+  orderItems,
+  orders,
+  products,
+  sellerOffers,
+} from "@/db/schema";
 import { requireUser } from "@/lib/auth/session";
 import { formatDateTime } from "@/lib/utils";
 
@@ -47,7 +53,8 @@ export default async function SellerNotificationsPage() {
         name: products.name,
       })
       .from(products)
-      .where(eq(products.sellerId, user.sellerId)),
+      .innerJoin(sellerOffers, eq(sellerOffers.productId, products.id))
+      .where(eq(sellerOffers.sellerId, user.sellerId)),
   ]);
 
   const unreadCount = items.filter((item) => !item.isRead).length;

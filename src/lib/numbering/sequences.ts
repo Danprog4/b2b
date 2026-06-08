@@ -1,7 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { invoices, orders, products, sellers } from "@/db/schema";
+import { contracts, invoices, orders, products, sellers } from "@/db/schema";
 
 async function getNextSequenceValue(sequenceName: string) {
   const [row] = await db.execute<{ value: string }>(
@@ -90,6 +90,25 @@ export async function getNextSellerContractNumber() {
       .select({ id: sellers.id })
       .from(sellers)
       .where(eq(sellers.contractNumber, contractNumber))
+      .limit(1);
+
+    if (!existing) {
+      return contractNumber;
+    }
+  }
+}
+
+export async function getNextBuyerContractNumber() {
+  while (true) {
+    const contractNumber = formatNumber(
+      "ДГ",
+      await getNextSequenceValue("city_market_contract_number_seq"),
+      5,
+    );
+    const [existing] = await db
+      .select({ id: contracts.id })
+      .from(contracts)
+      .where(eq(contracts.number, contractNumber))
       .limit(1);
 
     if (!existing) {

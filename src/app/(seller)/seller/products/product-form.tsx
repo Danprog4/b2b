@@ -114,7 +114,7 @@ export function SellerProductForm({
         </label>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3">
         <label className="grid gap-2 text-sm font-bold text-slate-700">
           Цена с НДС
           <input
@@ -128,18 +128,12 @@ export function SellerProductForm({
             type="number"
           />
         </label>
-        <label className="grid gap-2 text-sm font-bold text-slate-700">
-          НДС, %
-          <input
-            className="h-12 rounded-lg border border-slate-200 px-4 font-normal text-slate-950"
-            defaultValue={product?.vatRate ?? "22.00"}
-            inputMode="decimal"
-            min="0"
-            name="vatRate"
-            step="0.01"
-            type="number"
-          />
-        </label>
+        <div className="grid gap-2 text-sm font-bold text-slate-700">
+          НДС
+          <div className="flex h-12 items-center rounded-lg border border-slate-200 bg-slate-50 px-4 font-normal text-slate-700">
+            22%
+          </div>
+        </div>
         <label className="grid gap-2 text-sm font-bold text-slate-700">
           Размер
           <input

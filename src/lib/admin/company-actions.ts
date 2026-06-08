@@ -7,6 +7,8 @@ import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { auditEvents, buyerCompanies } from "@/db/schema";
 import { requireUser } from "@/lib/auth/session";
+import { normalizeInn } from "@/lib/company-normalize";
+import { generateBuyerCompanyContract } from "@/lib/contracts/generation";
 
 const allowedStatuses = new Set(["active", "blocked"]);
 
@@ -37,7 +39,7 @@ export async function updateBuyerCompanyAdminAction(formData: FormData) {
   const companyId = getString(formData, "companyId");
   const type = getString(formData, "type") === "ip" ? "ip" : "ooo";
   const name = getString(formData, "name");
-  const inn = getString(formData, "inn");
+  const inn = normalizeInn(getString(formData, "inn"));
   const status = getString(formData, "status") || "active";
 
   if (!companyId || !name || !inn || !allowedStatuses.has(status)) {
@@ -99,10 +101,17 @@ export async function updateBuyerCompanyAdminAction(formData: FormData) {
     },
   });
 
+  await generateBuyerCompanyContract(company.id, admin.id, {
+    source: "admin",
+    force: true,
+  });
+
   revalidatePath("/admin");
   revalidatePath("/admin/companies");
   revalidatePath(`/admin/companies/${company.id}`);
+  revalidatePath("/admin/documents");
   revalidatePath("/admin/users");
+  revalidatePath("/account/documents");
   revalidatePath("/checkout");
 
   redirect(`/admin/companies/${company.id}?saved=1`);

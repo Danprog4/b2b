@@ -51,9 +51,9 @@ function getSellerStatusLabel(status: string) {
   return status === "active" ? "Активен" : "Неактивен";
 }
 
-function getOfferStatusLabel(status: string) {
+function getOfferStatusLabel(status: string, isActiveOnStorefront: boolean) {
   if (status === "published") {
-    return "Продается";
+    return isActiveOnStorefront ? "Продается" : "Цена перебита";
   }
 
   if (status === "on_moderation") {
@@ -85,6 +85,17 @@ function getOfferStatusClassName(status: string) {
   }
 
   return "bg-slate-100 text-slate-500";
+}
+
+function getOfferStatusClassNameForStorefront(
+  status: string,
+  isActiveOnStorefront: boolean,
+) {
+  if (status === "published" && !isActiveOnStorefront) {
+    return "bg-slate-100 text-slate-600";
+  }
+
+  return getOfferStatusClassName(status);
 }
 
 export default async function SellerPage({ searchParams }: SellerPageProps) {
@@ -148,6 +159,8 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
         id: products.id,
         sku: products.sku,
         name: products.name,
+        priorityOfferId: products.priorityOfferId,
+        offerId: sellerOffers.id,
         priceWithVat: sellerOffers.priceWithVat,
         vatRate: sellerOffers.vatRate,
         unit: products.unit,
@@ -198,7 +211,7 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
       .innerJoin(categories, eq(categories.id, products.categoryId))
       .leftJoin(subcategories, eq(subcategories.id, products.subcategoryId))
       .leftJoin(files, eq(files.id, products.mainImageFileId))
-      .where(eq(products.sellerId, seller.id))
+      .where(eq(sellerOffers.sellerId, seller.id))
       .orderBy(asc(products.name))
       .limit(80),
     db
@@ -255,7 +268,15 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
     (document) => document.type === "seller_company_card",
   );
   const publishedProductsCount = productRows.filter(
-    (product) => product.offerStatus === "published",
+    (product) =>
+      product.offerStatus === "published" &&
+      (!product.priorityOfferId || product.offerId === product.priorityOfferId),
+  ).length;
+  const displacedProductsCount = productRows.filter(
+    (product) =>
+      product.offerStatus === "published" &&
+      Boolean(product.priorityOfferId) &&
+      product.offerId !== product.priorityOfferId,
   ).length;
   const moderationProductsCount = productRows.filter(
     (product) =>
@@ -271,7 +292,7 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
     {
       title: "Товары",
       value: publishedProductsCount,
-      description: `Продается · на модерации ${moderationProductsCount} · отклонено ${rejectedProductsCount}`,
+      description: `Продается · перебито ${displacedProductsCount} · на модерации ${moderationProductsCount} · отклонено ${rejectedProductsCount}`,
       Icon: Boxes,
     },
     {
@@ -426,13 +447,22 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                   <Package className="text-[#1157ff]" size={22} />
                   <h2 className="text-2xl font-black text-slate-950">Товары</h2>
                 </div>
-                <Link
-                  className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#1157ff] px-4 text-sm font-bold text-white transition hover:bg-[#0b49e0]"
-                  href="/seller/products/new"
-                >
-                  <Plus size={17} />
-                  Добавить
-                </Link>
+                <div className="flex flex-wrap gap-2">
+                  <Link
+                    className="inline-flex h-10 items-center gap-2 rounded-lg bg-slate-900 px-4 text-sm font-bold text-white transition hover:bg-slate-800"
+                    href="/seller/products/existing"
+                  >
+                    <Plus size={17} />
+                    К существующему
+                  </Link>
+                  <Link
+                    className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#1157ff] px-4 text-sm font-bold text-white transition hover:bg-[#0b49e0]"
+                    href="/seller/products/new"
+                  >
+                    <Plus size={17} />
+                    Новый товар
+                  </Link>
+                </div>
               </div>
               <div className="mt-5 overflow-x-auto rounded-xl border border-slate-200">
                 <table className="w-full min-w-[820px] border-collapse text-left text-sm">
@@ -465,6 +495,10 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                       const hasPendingChanges = Boolean(product.pendingRequestId);
                       const hasRejectedRequest =
                         product.latestRequestStatus === "rejected";
+                      const isActiveOnStorefront =
+                        product.offerStatus === "published" &&
+                        (!product.priorityOfferId ||
+                          product.offerId === product.priorityOfferId);
 
                       return (
                         <tr
@@ -533,12 +567,22 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                             >
                               <div className="flex flex-wrap gap-2">
                                 <span
-                                  className={`rounded-full px-3 py-1 text-xs font-bold ${getOfferStatusClassName(
+                                  className={`rounded-full px-3 py-1 text-xs font-bold ${getOfferStatusClassNameForStorefront(
                                     product.offerStatus,
+                                    isActiveOnStorefront,
                                   )}`}
                                 >
-                                  {getOfferStatusLabel(product.offerStatus)}
+                                  {getOfferStatusLabel(
+                                    product.offerStatus,
+                                    isActiveOnStorefront,
+                                  )}
                                 </span>
+                                {product.offerStatus === "published" &&
+                                !isActiveOnStorefront ? (
+                                  <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-[#1157ff]">
+                                    Не активно на витрине
+                                  </span>
+                                ) : null}
                                 {hasPendingChanges ? (
                                   <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
                                     {product.offerStatus === "published"
@@ -555,6 +599,13 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                               {product.offerStatus === "published" && hasPendingChanges ? (
                                 <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
                                   Текущая версия остаётся в каталоге до решения админа.
+                                </p>
+                              ) : null}
+                              {product.offerStatus === "published" &&
+                              !isActiveOnStorefront ? (
+                                <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
+                                  Покупатели сейчас видят другое предложение.
+                                  Обновите цену, чтобы вернуть товар в продажу.
                                 </p>
                               ) : null}
                               {hasRejectedRequest ? (

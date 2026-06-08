@@ -85,6 +85,13 @@
       "when": 1780666261800,
       "tag": "0011_calm_korg",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1780900800000,
+      "tag": "0012_city_market_contract_number_seq",
+      "breakpoints": true
     }
   ]
 }

@@ -76,38 +76,39 @@ export async function createOrderAction(formData: FormData) {
   let createdOrderId = "";
   const orderNumber = await getNextOrderNumber();
   const invoiceNumber = await getNextInvoiceNumber();
+  let cartUnavailable = false;
+
+  const [company] = await db
+    .select({
+      type: buyerCompanies.type,
+      name: buyerCompanies.name,
+      inn: buyerCompanies.inn,
+      kpp: buyerCompanies.kpp,
+      ogrn: buyerCompanies.ogrn,
+      directorName: buyerCompanies.directorName,
+      legalAddress: buyerCompanies.legalAddress,
+      bankDetails: buyerCompanies.bankDetails,
+      contactEmail: buyerCompanies.contactEmail,
+      contactPhone: buyerCompanies.contactPhone,
+      status: buyerCompanies.status,
+    })
+    .from(buyerCompanies)
+    .where(eq(buyerCompanies.id, buyerCompanyId))
+    .limit(1);
+
+  if (!company) {
+    redirect("/checkout?error=company");
+  }
+
+  if (getCompanyMissingFields(company).length > 0) {
+    redirect("/checkout?error=company_details");
+  }
+
+  if (company.status === "blocked") {
+    redirect("/checkout?error=company_blocked");
+  }
 
   await db.transaction(async (tx) => {
-    const [company] = await tx
-      .select({
-        type: buyerCompanies.type,
-        name: buyerCompanies.name,
-        inn: buyerCompanies.inn,
-        kpp: buyerCompanies.kpp,
-        ogrn: buyerCompanies.ogrn,
-        directorName: buyerCompanies.directorName,
-        legalAddress: buyerCompanies.legalAddress,
-        bankDetails: buyerCompanies.bankDetails,
-        contactEmail: buyerCompanies.contactEmail,
-        contactPhone: buyerCompanies.contactPhone,
-        status: buyerCompanies.status,
-      })
-      .from(buyerCompanies)
-      .where(eq(buyerCompanies.id, buyerCompanyId))
-      .limit(1);
-
-    if (!company) {
-      throw new Error("buyer_company_not_found");
-    }
-
-    if (getCompanyMissingFields(company).length > 0) {
-      redirect("/checkout?error=company_details");
-    }
-
-    if (company.status === "blocked") {
-      redirect("/checkout?error=company_blocked");
-    }
-
     const rows = await tx
       .select({
         itemId: cartItems.id,
@@ -134,7 +135,8 @@ export async function createOrderAction(formData: FormData) {
       rows.length === 0 ||
       rows.some((row) => !row.isActive || row.offerStatus !== "published")
     ) {
-      throw new Error("cart_unavailable");
+      cartUnavailable = true;
+      return;
     }
 
     const calculatedItems = rows.map((row) => {
@@ -227,6 +229,10 @@ export async function createOrderAction(formData: FormData) {
 
     createdOrderId = order.id;
   });
+
+  if (cartUnavailable || !createdOrderId) {
+    redirect("/cart?error=product_unavailable");
+  }
 
   await generateOrderInvoice(createdOrderId, user.id, { source: "checkout" });
 

@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { db } from "@/db";
 import {
   buyerCompanies,
+  contracts,
   documentVersions,
   documents,
   files,
@@ -14,6 +15,7 @@ import {
 } from "@/db/schema";
 import { updateBuyerCompanyAdminAction } from "@/lib/admin/company-actions";
 import { requireUser } from "@/lib/auth/session";
+import { regenerateBuyerCompanyContractAdminAction } from "@/lib/contracts/actions";
 import { getDocumentTypeLabel } from "@/lib/documents/types";
 import { getOrderStatusLabel } from "@/lib/orders/status";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
@@ -104,6 +106,46 @@ function getErrorMessage(error: string | undefined) {
   return null;
 }
 
+function getContractStatusLabel(status: string | null | undefined) {
+  if (!status) {
+    return "Не сформирован";
+  }
+
+  if (status === "pending") {
+    return "Формируется";
+  }
+
+  if (status === "generated") {
+    return "Сформирован";
+  }
+
+  if (status === "requires_update") {
+    return "Требует обновления";
+  }
+
+  if (status === "failed") {
+    return "Ошибка генерации";
+  }
+
+  return status;
+}
+
+function getContractStatusClassName(status: string | null | undefined) {
+  if (status === "generated") {
+    return "bg-emerald-50 text-emerald-700";
+  }
+
+  if (status === "failed") {
+    return "bg-red-50 text-red-700";
+  }
+
+  if (status === "requires_update") {
+    return "bg-amber-50 text-amber-700";
+  }
+
+  return "bg-slate-100 text-slate-600";
+}
+
 export default async function AdminCompanyPage({
   params,
   searchParams,
@@ -112,6 +154,8 @@ export default async function AdminCompanyPage({
   const { id } = await params;
   const search = (await searchParams) ?? {};
   const saved = search.saved === "1";
+  const contractGenerated = search.contractGenerated === "1";
+  const contractError = search.contractError === "1";
   const error = getErrorMessage(
     typeof search.error === "string" ? search.error : undefined,
   );
@@ -126,7 +170,7 @@ export default async function AdminCompanyPage({
     notFound();
   }
 
-  const [companyUsers, recentOrders, companyDocuments] = await Promise.all([
+  const [companyUsers, recentOrders, companyDocuments, currentContract] = await Promise.all([
     db
       .select({
         id: users.id,
@@ -182,7 +226,25 @@ export default async function AdminCompanyPage({
       .where(and(eq(documents.buyerCompanyId, company.id), eq(documents.isActive, true)))
       .orderBy(desc(documents.createdAt))
       .limit(10),
+    db
+      .select({
+        id: contracts.id,
+        number: contracts.number,
+        status: contracts.status,
+        fileId: contracts.fileId,
+        errorMessage: contracts.errorMessage,
+        generatedAt: contracts.generatedAt,
+        updatedAt: contracts.updatedAt,
+      })
+      .from(contracts)
+      .where(and(eq(contracts.buyerCompanyId, company.id), eq(contracts.isCurrent, true)))
+      .orderBy(desc(contracts.createdAt))
+      .limit(1)
+      .then(([row]) => row ?? null),
   ]);
+  const contractDocument = companyDocuments.find(
+    (document) => document.type === "contract",
+  );
 
   return (
     <main className="min-h-screen bg-slate-100 px-6 py-8 text-slate-900">
@@ -229,6 +291,19 @@ export default async function AdminCompanyPage({
         {saved ? (
           <div className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
             Компания сохранена.
+          </div>
+        ) : null}
+
+        {contractGenerated ? (
+          <div className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
+            Договор сформирован.
+          </div>
+        ) : null}
+
+        {contractError ? (
+          <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+            Договор не удалось сформировать. Подробность сохранена в статусе
+            договора и системных событиях.
           </div>
         ) : null}
 
@@ -463,6 +538,61 @@ export default async function AdminCompanyPage({
               >
                 Управление документами
               </Link>
+            </section>
+
+            <section className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+              <h2 className="flex items-center gap-2 text-xl font-black text-slate-950">
+                <FileText size={20} />
+                Договор
+              </h2>
+              <div className="mt-4 grid gap-3 text-sm">
+                <div className="flex justify-between gap-3">
+                  <span className="text-slate-500">Номер</span>
+                  <span className="font-black">
+                    {currentContract?.number ?? "Будет присвоен"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-slate-500">Статус</span>
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-black ${getContractStatusClassName(
+                      currentContract?.status,
+                    )}`}
+                  >
+                    {getContractStatusLabel(currentContract?.status)}
+                  </span>
+                </div>
+                {currentContract?.generatedAt ? (
+                  <div className="flex justify-between gap-3">
+                    <span className="text-slate-500">Сформирован</span>
+                    <span className="font-black">
+                      {formatDateTime(currentContract.generatedAt)}
+                    </span>
+                  </div>
+                ) : null}
+                {currentContract?.errorMessage ? (
+                  <p className="rounded-lg bg-red-50 px-3 py-2 font-bold leading-6 text-red-700">
+                    {currentContract.errorMessage}
+                  </p>
+                ) : null}
+              </div>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <form action={regenerateBuyerCompanyContractAdminAction}>
+                  <input name="companyId" type="hidden" value={company.id} />
+                  <button className="rounded-lg bg-[#1157ff] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#0b49e0]">
+                    {currentContract ? "Перегенерировать" : "Сформировать"}
+                  </button>
+                </form>
+                {contractDocument ? (
+                  <Link
+                    className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-200"
+                    href={`/documents/${contractDocument.versionId}/download`}
+                  >
+                    <Download size={16} />
+                    Скачать
+                  </Link>
+                ) : null}
+              </div>
             </section>
           </aside>
         </div>

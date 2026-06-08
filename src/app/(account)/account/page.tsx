@@ -20,6 +20,7 @@ type AccountSection = [string, string, string, LucideIcon];
 const accountSections: AccountSection[] = [
   ["Профиль", "Персональные данные и пароль", "/account/profile", UserRound],
   ["Компания", "Реквизиты, ИНН, юридический адрес", "/account/company", FileText],
+  ["Договор", "Актуальный договор с Сити Маркет", "/account/contract", FileText],
   ["Документы", "Документы компании и загруженные файлы", "/account/documents", FileText],
   ["Заказы", "История, счета, документы, повтор заказа", "/account/orders", Repeat2],
   ["Чат", "Переписка с оператором", "/account/chat", MessageSquare],

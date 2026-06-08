@@ -16,6 +16,7 @@ import {
 import { requireUser } from "@/lib/auth/session";
 import { writeStorageFile } from "@/lib/files/storage";
 import { getNextProductSku } from "@/lib/numbering/sequences";
+import { insertSellerNotifications } from "@/lib/notifications/helpers";
 
 const allowedImageMimeTypes = new Set([
   "image/jpeg",
@@ -590,7 +591,12 @@ export async function upsertProductOfferAction(formData: FormData) {
   }
 
   const [product] = await db
-    .select({ id: products.id, slug: products.slug })
+    .select({
+      id: products.id,
+      slug: products.slug,
+      name: products.name,
+      priorityOfferId: products.priorityOfferId,
+    })
     .from(products)
     .where(eq(products.id, productId))
     .limit(1);
@@ -600,6 +606,17 @@ export async function upsertProductOfferAction(formData: FormData) {
   }
 
   await db.transaction(async (tx) => {
+    const [currentPriorityOffer] = product.priorityOfferId
+      ? await tx
+          .select({
+            id: sellerOffers.id,
+            sellerId: sellerOffers.sellerId,
+          })
+          .from(sellerOffers)
+          .where(eq(sellerOffers.id, product.priorityOfferId))
+          .limit(1)
+      : [];
+
     const [offer] = await tx
       .insert(sellerOffers)
       .values({
@@ -637,6 +654,19 @@ export async function upsertProductOfferAction(formData: FormData) {
         .update(products)
         .set({ priorityOfferId: offer.id, updatedAt: new Date() })
         .where(eq(products.id, productId));
+
+      if (
+        currentPriorityOffer &&
+        currentPriorityOffer.id !== offer.id &&
+        currentPriorityOffer.sellerId !== sellerId
+      ) {
+        await insertSellerNotifications(tx, {
+          sellerId: currentPriorityOffer.sellerId,
+          type: "product_offer_displaced",
+          title: "Вашу цену перебили",
+          body: `${product.name}: ваше предложение больше не активно на витрине. Обновите цену, если хотите вернуть товар в продажу.`,
+        });
+      }
     }
 
     await tx.insert(auditEvents).values({
@@ -672,7 +702,12 @@ export async function setPriorityProductOfferAction(formData: FormData) {
   }
 
   const [product] = await db
-    .select({ id: products.id, slug: products.slug })
+    .select({
+      id: products.id,
+      slug: products.slug,
+      name: products.name,
+      priorityOfferId: products.priorityOfferId,
+    })
     .from(products)
     .where(eq(products.id, productId))
     .limit(1);
@@ -682,6 +717,30 @@ export async function setPriorityProductOfferAction(formData: FormData) {
   }
 
   await db.transaction(async (tx) => {
+    const [selectedOffer] = await tx
+      .select({
+        id: sellerOffers.id,
+        sellerId: sellerOffers.sellerId,
+      })
+      .from(sellerOffers)
+      .where(and(eq(sellerOffers.id, offerId), eq(sellerOffers.productId, productId)))
+      .limit(1);
+
+    if (!selectedOffer) {
+      redirect(`/admin/products/${productId}?offerError=1`);
+    }
+
+    const [currentPriorityOffer] = product.priorityOfferId
+      ? await tx
+          .select({
+            id: sellerOffers.id,
+            sellerId: sellerOffers.sellerId,
+          })
+          .from(sellerOffers)
+          .where(eq(sellerOffers.id, product.priorityOfferId))
+          .limit(1)
+      : [];
+
     await tx
       .update(sellerOffers)
       .set({ isPriority: false, updatedAt: new Date() })
@@ -696,6 +755,19 @@ export async function setPriorityProductOfferAction(formData: FormData) {
       .update(products)
       .set({ priorityOfferId: offerId, updatedAt: new Date() })
       .where(eq(products.id, productId));
+
+    if (
+      currentPriorityOffer &&
+      currentPriorityOffer.id !== selectedOffer.id &&
+      currentPriorityOffer.sellerId !== selectedOffer.sellerId
+    ) {
+      await insertSellerNotifications(tx, {
+        sellerId: currentPriorityOffer.sellerId,
+        type: "product_offer_displaced",
+        title: "Вашу цену перебили",
+        body: `${product.name}: ваше предложение больше не активно на витрине. Обновите цену, если хотите вернуть товар в продажу.`,
+      });
+    }
 
     await tx.insert(auditEvents).values({
       actorId: admin.id,

@@ -12,6 +12,8 @@ import {
 import { createSession, destroyCurrentSession } from "@/lib/auth/session";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { mergeGuestCartIntoUserCart } from "@/lib/cart/merge";
+import { normalizeInn } from "@/lib/company-normalize";
+import { generateBuyerCompanyContract } from "@/lib/contracts/generation";
 import { insertAdminNotifications } from "@/lib/notifications/helpers";
 
 function getString(formData: FormData, key: string) {
@@ -134,7 +136,7 @@ export async function logoutAction() {
 
 export async function registerBuyerAction(formData: FormData) {
   const companyType = getString(formData, "companyType");
-  const inn = getString(formData, "inn");
+  const inn = normalizeInn(getString(formData, "inn"));
   const email = getString(formData, "email").toLowerCase();
   const password = getString(formData, "password");
   const name = getString(formData, "name");
@@ -254,6 +256,8 @@ export async function registerBuyerAction(formData: FormData) {
   }
 
   if (existingUser && canReusePendingUser) {
+    let createdCompanyId = "";
+
     await db.transaction(async (tx) => {
       const [company] = await tx
         .insert(buyerCompanies)
@@ -270,6 +274,8 @@ export async function registerBuyerAction(formData: FormData) {
         })
         .returning({ id: buyerCompanies.id });
 
+      createdCompanyId = company.id;
+
       await tx
         .update(users)
         .set({
@@ -284,6 +290,9 @@ export async function registerBuyerAction(formData: FormData) {
         .where(eq(users.id, existingUser.id));
     });
 
+    await generateBuyerCompanyContract(createdCompanyId, existingUser.id, {
+      source: "registration",
+    });
     await createSession(existingUser.id);
     await mergeGuestCartIntoUserCart(existingUser.id);
     redirect("/account");
@@ -317,6 +326,9 @@ export async function registerBuyerAction(formData: FormData) {
     })
     .returning();
 
+  await generateBuyerCompanyContract(company.id, user.id, {
+    source: "registration",
+  });
   await createSession(user.id);
   await mergeGuestCartIntoUserCart(user.id);
   redirect("/account");

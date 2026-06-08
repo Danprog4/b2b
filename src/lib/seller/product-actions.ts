@@ -186,7 +186,7 @@ function getSellerProductPayload(
   const categoryId = getString(formData, "categoryId");
   const subcategoryId = getString(formData, "subcategoryId");
   const priceWithVat = normalizeMoney(getString(formData, "priceWithVat"));
-  const vatRate = normalizeMoney(getString(formData, "vatRate") || "22.00", "22.00");
+  const vatRate = "22.00";
   const unit = getString(formData, "unit");
   const size = getString(formData, "size");
   const description = getString(formData, "description");
@@ -320,6 +320,150 @@ export async function createSellerProductAction(formData: FormData) {
   redirect("/seller?productSubmitted=1");
 }
 
+export async function requestExistingProductOfferAction(formData: FormData) {
+  const user = await requireUser(["seller"]);
+  const productId = getString(formData, "productId");
+  const priceWithVat = normalizeMoney(getString(formData, "priceWithVat"));
+  const vatRate = "22.00";
+  const returnPath = "/seller/products/existing";
+
+  if (!user.sellerId || !productId || Number(priceWithVat) <= 0) {
+    redirectWithProductError(returnPath, "Заполните цену предложения.");
+  }
+
+  const sellerId = user.sellerId;
+  const [product] = await db
+    .select({
+      id: products.id,
+      name: products.name,
+      categoryId: products.categoryId,
+      subcategoryId: products.subcategoryId,
+      description: products.description,
+      size: products.size,
+      unit: products.unit,
+      mainImageFileId: products.mainImageFileId,
+      isActive: products.isActive,
+    })
+    .from(products)
+    .where(eq(products.id, productId))
+    .limit(1);
+
+  if (!product || !product.isActive) {
+    redirectWithProductError(returnPath, "Товар не найден или недоступен.");
+  }
+
+  const [existingOffer] = await db
+    .select({ id: sellerOffers.id, status: sellerOffers.status })
+    .from(sellerOffers)
+    .where(
+      and(
+        eq(sellerOffers.productId, product.id),
+        eq(sellerOffers.sellerId, sellerId),
+      ),
+    )
+    .limit(1);
+
+  if (existingOffer && existingOffer.status !== "rejected") {
+    redirectWithProductError(
+      returnPath,
+      "У вас уже есть предложение по этому товару.",
+    );
+  }
+
+  const [existingPendingRequest] = await db
+    .select({ id: sellerProductChangeRequests.id })
+    .from(sellerProductChangeRequests)
+    .where(
+      and(
+        eq(sellerProductChangeRequests.productId, product.id),
+        eq(sellerProductChangeRequests.sellerId, sellerId),
+        eq(sellerProductChangeRequests.status, "on_moderation"),
+      ),
+    )
+    .limit(1);
+
+  if (existingPendingRequest) {
+    redirectWithProductError(
+      returnPath,
+      "По этому товару уже есть заявка на модерации.",
+    );
+  }
+
+  const payload: SellerProductPayload = {
+    name: product.name,
+    categoryId: product.categoryId,
+    subcategoryId: product.subcategoryId,
+    description: product.description,
+    priceWithVat,
+    vatRate,
+    size: product.size,
+    unit: product.unit,
+    mainImageFileId: product.mainImageFileId,
+  };
+
+  await db.transaction(async (tx) => {
+    const [offer] = await tx
+      .insert(sellerOffers)
+      .values({
+        productId: product.id,
+        sellerId,
+        priceWithVat,
+        vatRate,
+        status: "on_moderation",
+        submittedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: [sellerOffers.productId, sellerOffers.sellerId],
+        set: {
+          priceWithVat,
+          vatRate,
+          status: "on_moderation",
+          moderationComment: null,
+          submittedAt: new Date(),
+          updatedAt: new Date(),
+        },
+      })
+      .returning({ id: sellerOffers.id });
+
+    const [request] = await tx
+      .insert(sellerProductChangeRequests)
+      .values({
+        productId: product.id,
+        sellerOfferId: offer.id,
+        sellerId,
+        type: "offer_create",
+        status: "on_moderation",
+        payload,
+      })
+      .returning({ id: sellerProductChangeRequests.id });
+
+    await insertAdminNotifications(tx, {
+      type: "product_offer_moderation_requested",
+      title: "Предложение продавца отправлено на модерацию",
+      body: product.name,
+      sellerId,
+    });
+
+    await tx.insert(auditEvents).values({
+      actorId: user.id,
+      action: "seller_product.offer_create_request",
+      entityType: "seller_product_change_request",
+      entityId: request.id,
+      metadata: {
+        productId: product.id,
+        offerId: offer.id,
+      },
+    });
+  });
+
+  revalidatePath("/seller");
+  revalidatePath("/seller/products/existing");
+  revalidatePath("/admin/products/moderation");
+  revalidatePath("/admin/notifications");
+
+  redirect("/seller?productSubmitted=1");
+}
+
 export async function requestSellerProductUpdateAction(formData: FormData) {
   const user = await requireUser(["seller"]);
   const productId = getString(formData, "productId");
@@ -350,7 +494,7 @@ export async function requestSellerProductUpdateAction(formData: FormData) {
         eq(sellerOffers.sellerId, sellerId),
       ),
     )
-    .where(and(eq(products.id, productId), eq(products.sellerId, sellerId)))
+    .where(eq(products.id, productId))
     .limit(1);
 
   if (!row) {

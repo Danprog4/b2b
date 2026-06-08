@@ -183,6 +183,15 @@ export default async function AccountDocumentsPage({
                         Заменить файл
                       </SubmitButton>
                     </form>
+                  ) : document.target === "contract" ? (
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600">
+                      <span>
+                        Договор управляется в отдельном разделе личного кабинета.
+                      </span>
+                      <Link className="text-[#1157ff]" href="/account/contract">
+                        Открыть договор
+                      </Link>
+                    </div>
                   ) : (
                     <div className="mt-4 rounded-lg bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600">
                       Этот документ относится к заказу. Его можно скачать, а

@@ -124,23 +124,48 @@ export async function approveProductModerationRequestAction(formData: FormData) 
       return;
     }
 
-    await tx
-      .update(products)
-      .set({
-        name: payload.name,
-        categoryId: payload.categoryId,
-        subcategoryId: payload.subcategoryId,
-        description: payload.description,
-        priceWithVat: payload.priceWithVat,
-        vatRate: payload.vatRate,
-        size: payload.size,
-        unit: payload.unit,
-        mainImageFileId: payload.mainImageFileId ?? undefined,
-        isActive: true,
-        priorityOfferId: request.sellerOfferId,
-        updatedAt: new Date(),
+    const [currentPriorityOffer] = await tx
+      .select({
+        id: sellerOffers.id,
+        sellerId: sellerOffers.sellerId,
       })
-      .where(eq(products.id, productId));
+      .from(products)
+      .innerJoin(sellerOffers, eq(sellerOffers.id, products.priorityOfferId))
+      .where(eq(products.id, productId))
+      .limit(1);
+
+    if (request.type !== "offer_create") {
+      await tx
+        .update(products)
+        .set({
+          name: payload.name,
+          categoryId: payload.categoryId,
+          subcategoryId: payload.subcategoryId,
+          description: payload.description,
+          priceWithVat: payload.priceWithVat,
+          vatRate: payload.vatRate,
+          size: payload.size,
+          unit: payload.unit,
+          mainImageFileId: payload.mainImageFileId ?? undefined,
+          isActive: true,
+          priorityOfferId: request.sellerOfferId,
+          updatedAt: new Date(),
+        })
+        .where(eq(products.id, productId));
+    } else {
+      await tx
+        .update(products)
+        .set({
+          priorityOfferId: request.sellerOfferId,
+          updatedAt: new Date(),
+        })
+        .where(eq(products.id, productId));
+    }
+
+    await tx
+      .update(sellerOffers)
+      .set({ isPriority: false, updatedAt: new Date() })
+      .where(eq(sellerOffers.productId, productId));
 
     await tx
       .update(sellerOffers)
@@ -160,11 +185,26 @@ export async function approveProductModerationRequestAction(formData: FormData) 
       sellerId: request.sellerId,
       type: "product_published",
       title:
-        request.type === "update"
+        request.type === "offer_create"
+          ? "Предложение товара опубликовано"
+          : request.type === "update"
           ? "Изменения товара опубликованы"
           : "Товар опубликован",
       body: comment ? `${payload.name}: ${comment}` : payload.name,
     });
+
+    if (
+      currentPriorityOffer &&
+      currentPriorityOffer.id !== sellerOfferId &&
+      currentPriorityOffer.sellerId !== request.sellerId
+    ) {
+      await insertSellerNotifications(tx, {
+        sellerId: currentPriorityOffer.sellerId,
+        type: "product_offer_displaced",
+        title: "Вашу цену перебили",
+        body: `${payload.name}: ваше предложение больше не активно на витрине. Обновите цену, если хотите вернуть товар в продажу.`,
+      });
+    }
 
     await tx.insert(auditEvents).values({
       actorId: admin.id,
@@ -232,7 +272,10 @@ export async function rejectProductModerationRequestAction(formData: FormData) {
       return;
     }
 
-    if (request.type === "create" && request.sellerOfferId) {
+    if (
+      (request.type === "create" || request.type === "offer_create") &&
+      request.sellerOfferId
+    ) {
       await tx
         .update(sellerOffers)
         .set({

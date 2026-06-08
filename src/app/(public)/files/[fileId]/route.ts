@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 import { db } from "@/db";
 import { files } from "@/db/schema";
-import { readStorageFile } from "@/lib/files/storage";
+import { isStorageFileNotFoundError, readStorageFile } from "@/lib/files/storage";
 
 type PublicFileRouteProps = {
   params: Promise<{ fileId: string }>;
@@ -25,10 +25,19 @@ export async function GET(_request: Request, { params }: PublicFileRouteProps) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const bytes = await readStorageFile(file.storageKey);
+  let bytes: Buffer;
+  try {
+    bytes = await readStorageFile(file.storageKey);
+  } catch (error) {
+    if (isStorageFileNotFoundError(error)) {
+      return NextResponse.json({ error: "File not found" }, { status: 404 });
+    }
+
+    throw error;
+  }
   const encodedName = encodeURIComponent(file.originalName);
 
-  return new Response(bytes, {
+  return new Response(new Uint8Array(bytes), {
     headers: {
       "Content-Type": file.mimeType,
       "Content-Disposition": `inline; filename*=UTF-8''${encodedName}`,

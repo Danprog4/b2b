@@ -37,6 +37,7 @@ export async function GET(_request: Request, { params }: InvoiceRouteProps) {
         eq(orders.id, id),
         eq(orders.buyerCompanyId, user.buyerCompanyId),
         eq(invoices.isCurrent, true),
+        eq(files.isActive, true),
       ),
     )
     .limit(1);

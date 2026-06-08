@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, ne, or } from "drizzle-orm";
+import { and, eq, ne, or, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { randomUUID } from "node:crypto";
@@ -26,6 +26,7 @@ import { getNextProductSku } from "@/lib/numbering/sequences";
 const maxImportFileSizeBytes = 8 * 1024 * 1024;
 const maxImportRows = 1000;
 const allowedExtensions = new Set(["xlsx", "xls", "csv"]);
+const importReadErrorParam = "read";
 const requiredColumnGroups = [
   ["name", "название", "товар", "название товара"],
   ["category", "categoryName", "категория"],
@@ -286,7 +287,14 @@ async function persistImportFile(file: File, uploadedById: string) {
 }
 
 function readWorkbookRows(bytes: Uint8Array) {
-  const workbook = XLSX.read(bytes, { type: "array" });
+  let workbook: XLSX.WorkBook;
+
+  try {
+    workbook = XLSX.read(bytes, { type: "array" });
+  } catch {
+    return null;
+  }
+
   const sheetName = workbook.SheetNames[0];
 
   if (!sheetName) {
@@ -593,6 +601,10 @@ export async function importProductsAction(formData: FormData) {
   const bytes = new Uint8Array(await file.arrayBuffer());
   const rows = readWorkbookRows(bytes);
 
+  if (!rows) {
+    redirect(`/admin/products/import?error=${importReadErrorParam}`);
+  }
+
   if (rows.length === 0) {
     redirect("/admin/products/import?error=empty");
   }
@@ -749,81 +761,91 @@ export async function confirmProductImportAction(formData: FormData) {
     redirect("/admin/products/import");
   }
 
-  const [job] = await db
-    .select({
-      id: importJobs.id,
-      status: importJobs.status,
-    })
-    .from(importJobs)
-    .where(eq(importJobs.id, jobId))
-    .limit(1);
+  const importedJobId = await db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${jobId}))`);
 
-  if (!job || job.status !== "validated") {
+    const [job] = await tx
+      .select({
+        id: importJobs.id,
+        status: importJobs.status,
+      })
+      .from(importJobs)
+      .where(eq(importJobs.id, jobId))
+      .limit(1);
+
+    if (!job || job.status !== "validated") {
+      return null;
+    }
+
+    const rows = await tx
+      .select({
+        id: importJobRows.id,
+        rowNumber: importJobRows.rowNumber,
+        status: importJobRows.status,
+        payload: importJobRows.payload,
+        errors: importJobRows.errors,
+      })
+      .from(importJobRows)
+      .where(eq(importJobRows.importJobId, job.id));
+    let createdRows = 0;
+    let updatedRows = 0;
+    const errorRows = rows.filter((row) => row.status === "error").length;
+
+    for (const row of rows) {
+      if (row.status !== "ready_create" && row.status !== "ready_update") {
+        continue;
+      }
+
+      const resolvedRow = getResolvedRowFromPreview(row);
+      const result = await applyResolvedRow(resolvedRow, admin.id);
+
+      if (result.status === "created") {
+        createdRows += 1;
+      } else {
+        updatedRows += 1;
+      }
+
+      await tx
+        .update(importJobRows)
+        .set({
+          status: result.status,
+          payload: {
+            ...row.payload,
+            productId: result.productId,
+          },
+        })
+        .where(eq(importJobRows.id, row.id));
+    }
+
+    await tx
+      .update(importJobs)
+      .set({
+        status: "imported",
+        createdRows,
+        updatedRows,
+        errorRows,
+        updatedAt: new Date(),
+      })
+      .where(eq(importJobs.id, job.id));
+
+    await tx.insert(auditEvents).values({
+      actorId: admin.id,
+      action: "product.import",
+      entityType: "import_job",
+      entityId: job.id,
+      metadata: {
+        createdRows,
+        updatedRows,
+        errorRows,
+      },
+    });
+
+    return job.id;
+  });
+
+  if (!importedJobId) {
     redirect("/admin/products/import");
   }
-
-  const rows = await db
-    .select({
-      id: importJobRows.id,
-      rowNumber: importJobRows.rowNumber,
-      status: importJobRows.status,
-      payload: importJobRows.payload,
-      errors: importJobRows.errors,
-    })
-    .from(importJobRows)
-    .where(eq(importJobRows.importJobId, job.id));
-  let createdRows = 0;
-  let updatedRows = 0;
-  const errorRows = rows.filter((row) => row.status === "error").length;
-
-  for (const row of rows) {
-    if (row.status !== "ready_create" && row.status !== "ready_update") {
-      continue;
-    }
-
-    const resolvedRow = getResolvedRowFromPreview(row);
-    const result = await applyResolvedRow(resolvedRow, admin.id);
-
-    if (result.status === "created") {
-      createdRows += 1;
-    } else {
-      updatedRows += 1;
-    }
-
-    await db
-      .update(importJobRows)
-      .set({
-        status: result.status,
-        payload: {
-          ...row.payload,
-          productId: result.productId,
-        },
-      })
-      .where(eq(importJobRows.id, row.id));
-  }
-
-  await db
-    .update(importJobs)
-    .set({
-      status: "imported",
-      createdRows,
-      updatedRows,
-      errorRows,
-      updatedAt: new Date(),
-    })
-    .where(eq(importJobs.id, job.id));
-
-  await db.insert(auditEvents).values({
-    actorId: admin.id,
-    action: "product.import",
-    entityType: "import_job",
-    entityId: job.id,
-    metadata: {
-      createdRows,
-      updatedRows,
-      errorRows,
-    },
-  });
 
   revalidatePath("/");
   revalidatePath("/catalog");
@@ -831,5 +853,5 @@ export async function confirmProductImportAction(formData: FormData) {
   revalidatePath("/admin/products");
   revalidatePath("/admin/products/import");
 
-  redirect(`/admin/products/import?job=${job.id}&imported=1`);
+  redirect(`/admin/products/import?job=${importedJobId}&imported=1`);
 }

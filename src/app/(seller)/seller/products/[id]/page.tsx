@@ -34,6 +34,10 @@ function getRequestTypeLabel(type: string) {
     return "Создание товара";
   }
 
+  if (type === "offer_create") {
+    return "Предложение к товару";
+  }
+
   if (type === "update") {
     return "Изменение товара";
   }
@@ -73,13 +77,13 @@ function getRequestStatusClassName(status: string) {
   return "bg-slate-100 text-slate-500";
 }
 
-function getOfferStatusLabel(status: string) {
+function getOfferStatusLabel(status: string, isActiveOnStorefront: boolean) {
   if (status === "published") {
-    return "Продается";
+    return isActiveOnStorefront ? "Продается" : "Цена перебита";
   }
 
   if (status === "on_moderation") {
-    return "Не продается, новая карточка на модерации";
+    return "Не продается, предложение на модерации";
   }
 
   if (status === "rejected") {
@@ -107,6 +111,7 @@ export default async function SellerProductPage({ params }: SellerProductPagePro
       id: products.id,
       sku: products.sku,
       name: products.name,
+      priorityOfferId: products.priorityOfferId,
       description: products.description,
       size: products.size,
       unit: products.unit,
@@ -114,6 +119,7 @@ export default async function SellerProductPage({ params }: SellerProductPagePro
       subcategoryName: subcategories.name,
       priceWithVat: sellerOffers.priceWithVat,
       vatRate: sellerOffers.vatRate,
+      offerId: sellerOffers.id,
       offerStatus: sellerOffers.status,
       imageFileId: files.id,
       imageStorageKey: files.storageKey,
@@ -130,7 +136,7 @@ export default async function SellerProductPage({ params }: SellerProductPagePro
     .innerJoin(categories, eq(categories.id, products.categoryId))
     .leftJoin(subcategories, eq(subcategories.id, products.subcategoryId))
     .leftJoin(files, eq(files.id, products.mainImageFileId))
-    .where(and(eq(products.id, id), eq(products.sellerId, user.sellerId)))
+    .where(eq(products.id, id))
     .limit(1);
 
   if (!product) {
@@ -168,6 +174,9 @@ export default async function SellerProductPage({ params }: SellerProductPagePro
   const latestRequest = requests[0];
   const latestRejectedRequest =
     latestRequest?.status === "rejected" ? latestRequest : null;
+  const isActiveOnStorefront =
+    product.offerStatus === "published" &&
+    (!product.priorityOfferId || product.offerId === product.priorityOfferId);
 
   return (
     <main className="min-h-screen bg-[#f4f6fb] px-6 py-8 text-slate-900">
@@ -252,14 +261,21 @@ export default async function SellerProductPage({ params }: SellerProductPagePro
               <span
                 className={`rounded-full px-3 py-1 text-xs font-bold ${
                   product.offerStatus === "published"
-                    ? "bg-emerald-50 text-emerald-700"
+                    ? isActiveOnStorefront
+                      ? "bg-emerald-50 text-emerald-700"
+                      : "bg-slate-100 text-slate-600"
                     : product.offerStatus === "rejected"
                       ? "bg-red-50 text-red-700"
                       : "bg-amber-50 text-amber-700"
                 }`}
               >
-                {getOfferStatusLabel(product.offerStatus)}
+                {getOfferStatusLabel(product.offerStatus, isActiveOnStorefront)}
               </span>
+              {product.offerStatus === "published" && !isActiveOnStorefront ? (
+                <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-[#1157ff]">
+                  Не активно на витрине
+                </span>
+              ) : null}
               {pendingRequest ? (
                 <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
                   {product.offerStatus === "published"
@@ -268,6 +284,14 @@ export default async function SellerProductPage({ params }: SellerProductPagePro
                 </span>
               ) : null}
             </div>
+
+            {product.offerStatus === "published" && !isActiveOnStorefront ? (
+              <div className="mt-4 rounded-lg bg-slate-50 px-4 py-3 text-sm font-semibold leading-6 text-slate-600">
+                Покупатели сейчас видят другое предложение по этому товару.
+                Обновите цену и отправьте правки на модерацию, чтобы вернуть
+                предложение на витрину.
+              </div>
+            ) : null}
 
             <dl className="mt-5 grid gap-3 text-sm md:grid-cols-2">
               <div className="rounded-lg bg-slate-50 p-3">

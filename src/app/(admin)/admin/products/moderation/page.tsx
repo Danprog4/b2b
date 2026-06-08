@@ -32,6 +32,10 @@ function getRequestTypeLabel(type: string) {
     return "Новый товар";
   }
 
+  if (type === "offer_create") {
+    return "Новое предложение";
+  }
+
   if (type === "update") {
     return "Изменение";
   }
@@ -133,6 +137,7 @@ export default async function ProductModerationPage({
             const size = getPayloadString(request.payload, "size");
             const description = getPayloadString(request.payload, "description");
             const isUpdate = request.type === "update";
+            const isOfferCreate = request.type === "offer_create";
             const currentIsPublished = request.currentOfferStatus === "published";
 
             return (
@@ -199,11 +204,13 @@ export default async function ProductModerationPage({
                   </p>
                 ) : null}
 
-                {isUpdate ? (
+                {isUpdate || isOfferCreate ? (
                   <div className="mt-5 grid gap-3 lg:grid-cols-2">
                     <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-4">
                       <p className="text-xs font-black uppercase text-emerald-700">
-                        Сейчас на витрине
+                        {isOfferCreate
+                          ? "Текущий товар"
+                          : "Сейчас на витрине"}
                       </p>
                       <h3 className="mt-2 font-black text-slate-950">
                         {request.productName ?? "Без названия"}
@@ -215,14 +222,18 @@ export default async function ProductModerationPage({
                         {request.currentSize ? ` · ${request.currentSize}` : ""}
                       </p>
                       <p className="mt-3 text-xs font-bold text-emerald-700">
-                        {currentIsPublished
-                          ? "Старая версия продаётся до одобрения изменений."
-                          : "Текущая версия не опубликована."}
+                        {isOfferCreate
+                          ? "Будет добавлено новое предложение продавца к этой карточке."
+                          : currentIsPublished
+                            ? "Старая версия продаётся до одобрения изменений."
+                            : "Текущая версия не опубликована."}
                       </p>
                     </div>
                     <div className="rounded-lg border border-amber-100 bg-amber-50 p-4">
                       <p className="text-xs font-black uppercase text-amber-700">
-                        Будет после одобрения
+                        {isOfferCreate
+                          ? "Предложение продавца"
+                          : "Будет после одобрения"}
                       </p>
                       <h3 className="mt-2 font-black text-slate-950">
                         {name || "Без названия"}

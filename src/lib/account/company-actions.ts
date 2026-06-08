@@ -8,6 +8,8 @@ import { db } from "@/db";
 import { auditEvents, buyerCompanies } from "@/db/schema";
 import { requireUser } from "@/lib/auth/session";
 import { getCompanyMissingFields } from "@/lib/account/company-validation";
+import { normalizeInn } from "@/lib/company-normalize";
+import { generateBuyerCompanyContract } from "@/lib/contracts/generation";
 
 function getString(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -36,7 +38,7 @@ export async function updateBuyerCompanyAction(formData: FormData) {
   const buyerCompanyId = user.buyerCompanyId;
   const type = getString(formData, "type") === "ip" ? "ip" : "ooo";
   const name = getString(formData, "name");
-  const inn = getString(formData, "inn");
+  const inn = normalizeInn(getString(formData, "inn"));
   const kpp = getString(formData, "kpp");
   const ogrn = getString(formData, "ogrn");
   const directorName = getString(formData, "directorName");
@@ -107,8 +109,14 @@ export async function updateBuyerCompanyAction(formData: FormData) {
     });
   });
 
+  await generateBuyerCompanyContract(buyerCompanyId, user.id, {
+    source: "company_update",
+    force: true,
+  });
+
   revalidatePath("/account");
   revalidatePath("/account/company");
+  revalidatePath("/account/documents");
   revalidatePath("/checkout");
 
   if (nextPath) {

@@ -59,7 +59,7 @@ export default async function EditSellerProductPage({
       ),
     )
     .leftJoin(files, eq(files.id, products.mainImageFileId))
-    .where(and(eq(products.id, id), eq(products.sellerId, user.sellerId)))
+    .where(eq(products.id, id))
     .limit(1);
 
   if (!product) {
