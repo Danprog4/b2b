@@ -353,17 +353,20 @@ export default async function AdminOrderPage({
                     }
                     actions={
                       order.status === "accepted" ? (
-                        <div className="mt-4 grid gap-2">
+                        <div className="mt-4 w-full min-w-[320px] max-w-[360px] rounded-lg border border-slate-200 bg-slate-50 p-3 text-left">
+                          <p className="text-xs font-black uppercase text-slate-500">
+                            Редактирование позиции
+                          </p>
                           <form
                             action={changeOrderItemOfferAction}
-                            className="grid gap-2 rounded-lg bg-slate-50 p-2"
+                            className="mt-3 grid gap-2"
                           >
                             <input name="orderId" type="hidden" value={order.id} />
                             <input name="itemId" type="hidden" value={item.id} />
-                            <label className="grid gap-1 text-xs font-bold text-slate-600">
-                              Предложение продавца
+                            <label className="grid gap-1.5 text-xs font-bold text-slate-600">
+                              Продавец и цена
                               <select
-                                className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800"
+                                className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-900"
                                 name="sellerOfferId"
                                 defaultValue={item.sellerOfferId ?? ""}
                               >
@@ -380,42 +383,50 @@ export default async function AdminOrderPage({
                               </select>
                             </label>
                             <SubmitButton
-                              className="ml-auto h-10 rounded-lg bg-slate-900 px-3 text-sm font-bold text-white transition hover:bg-slate-800"
-                              pendingText="..."
+                              className="h-10 rounded-lg bg-slate-900 px-3 text-sm font-bold text-white transition hover:bg-slate-800"
+                              pendingText="Заменяем"
                             >
-                              Заменить
+                              Заменить предложение
                             </SubmitButton>
                           </form>
                           <form
                             action={updateOrderItemQuantityAction}
-                            className="flex justify-end gap-2"
+                            className="mt-3 grid gap-2 border-t border-slate-200 pt-3"
                           >
                             <input name="orderId" type="hidden" value={order.id} />
                             <input name="itemId" type="hidden" value={item.id} />
-                            <input
-                              className="h-10 w-24 rounded-lg border border-slate-200 px-3 text-right text-sm font-bold"
-                              min="1"
-                              name="quantity"
-                              step="1"
-                              type="number"
-                              defaultValue={Number(item.quantity)}
-                            />
-                            <SubmitButton
-                              className="h-10 rounded-lg bg-slate-900 px-3 text-sm font-bold text-white transition hover:bg-slate-800"
-                              pendingText="..."
-                            >
-                              OK
-                            </SubmitButton>
+                            <label className="grid gap-1.5 text-xs font-bold text-slate-600">
+                              Количество
+                              <div className="flex gap-2">
+                                <input
+                                  className="h-10 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-center text-sm font-black text-slate-950"
+                                  min="1"
+                                  name="quantity"
+                                  step="1"
+                                  type="number"
+                                  defaultValue={Number(item.quantity)}
+                                />
+                                <SubmitButton
+                                  className="h-10 rounded-lg bg-slate-900 px-4 text-sm font-bold text-white transition hover:bg-slate-800"
+                                  pendingText="..."
+                                >
+                                  Сохранить
+                                </SubmitButton>
+                              </div>
+                            </label>
                           </form>
-                          <form action={removeOrderItemAction}>
+                          <form
+                            action={removeOrderItemAction}
+                            className="mt-3 border-t border-slate-200 pt-3"
+                          >
                             <input name="orderId" type="hidden" value={order.id} />
                             <input name="itemId" type="hidden" value={item.id} />
                             <SubmitButton
-                              className="ml-auto h-10 rounded-lg bg-red-50 px-3 text-sm font-bold text-red-700 transition hover:bg-red-100"
-                              pendingText="..."
+                              className="h-10 w-full rounded-lg bg-red-50 px-3 text-sm font-bold text-red-700 transition hover:bg-red-100"
+                              pendingText="Удаляем"
                             >
                               <Trash2 size={15} />
-                              Удалить
+                              Удалить позицию
                             </SubmitButton>
                           </form>
                         </div>
