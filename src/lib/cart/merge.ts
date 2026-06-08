@@ -62,13 +62,16 @@ export async function mergeGuestCartIntoUserCart(userId: string) {
 
   await db.transaction(async (tx) => {
     for (const guestItem of guestItems) {
+      const itemIdentityFilter = guestItem.sellerOfferId
+        ? eq(cartItems.sellerOfferId, guestItem.sellerOfferId)
+        : eq(cartItems.productId, guestItem.productId);
       const [existingItem] = await tx
         .select()
         .from(cartItems)
         .where(
           and(
             eq(cartItems.cartId, userCart.id),
-            eq(cartItems.productId, guestItem.productId),
+            itemIdentityFilter,
           ),
         )
         .limit(1);
@@ -85,6 +88,7 @@ export async function mergeGuestCartIntoUserCart(userId: string) {
         await tx.insert(cartItems).values({
           cartId: userCart.id,
           productId: guestItem.productId,
+          sellerOfferId: guestItem.sellerOfferId,
           quantity: guestItem.quantity,
           priceSnapshot: guestItem.priceSnapshot,
         });
