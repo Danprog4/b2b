@@ -3,22 +3,25 @@
 import { Loader2, Search } from "lucide-react";
 import { useState } from "react";
 
+export type AutofilledCompany = {
+  type: "ooo" | "ip";
+  name: string;
+  inn: string;
+  kpp: string;
+  ogrn: string;
+  directorName: string;
+  legalAddress: string;
+};
+
 type CompanyAutofillResponse = {
-  company?: {
-    type: "ooo" | "ip";
-    name: string;
-    inn: string;
-    kpp: string;
-    ogrn: string;
-    directorName: string;
-    legalAddress: string;
-  } | null;
+  company?: AutofilledCompany | null;
   error?: string;
 };
 
 type InnAutofillButtonProps = {
   companyNameFieldName: "companyName" | "name";
   typeFieldName: "companyType" | "type";
+  onCompanyFilled?: (company: AutofilledCompany) => void;
 };
 
 function getField(form: HTMLFormElement, name: string) {
@@ -56,6 +59,7 @@ function getErrorMessage(error: string | undefined) {
 
 export function InnAutofillButton({
   companyNameFieldName,
+  onCompanyFilled,
   typeFieldName,
 }: InnAutofillButtonProps) {
   const [status, setStatus] = useState<"idle" | "loading" | "filled" | "error">(
@@ -98,6 +102,7 @@ export function InnAutofillButton({
     setFieldValue(form, "ogrn", payload.company.ogrn);
     setFieldValue(form, "directorName", payload.company.directorName);
     setFieldValue(form, "legalAddress", payload.company.legalAddress);
+    onCompanyFilled?.(payload.company);
 
     setStatus("filled");
     setMessage("Данные заполнены.");

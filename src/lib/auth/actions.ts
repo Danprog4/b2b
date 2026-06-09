@@ -14,6 +14,7 @@ import { createSession, destroyCurrentSession } from "@/lib/auth/session";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { mergeGuestCartIntoUserCart } from "@/lib/cart/merge";
 import { normalizeInn } from "@/lib/company-normalize";
+import { getCompanyMissingFields } from "@/lib/account/company-validation";
 import { generateBuyerCompanyContract } from "@/lib/contracts/generation";
 import { insertAdminNotifications } from "@/lib/notifications/helpers";
 
@@ -175,6 +176,14 @@ export async function registerBuyerAction(formData: FormData) {
   const ogrn = getString(formData, "ogrn");
   const directorName = getString(formData, "directorName");
   const legalAddress = getString(formData, "legalAddress");
+  const contactEmail = getString(formData, "contactEmail") || email;
+  const contactPhone = getString(formData, "contactPhone") || phone;
+  const bankDetails = {
+    bankName: getString(formData, "bankName"),
+    bik: getString(formData, "bik"),
+    checkingAccount: getString(formData, "checkingAccount"),
+    correspondentAccount: getString(formData, "correspondentAccount"),
+  };
 
   if (!email || !password || !inn || !companyName || !phone) {
     redirect("/register?error=required");
@@ -298,6 +307,24 @@ export async function registerBuyerAction(formData: FormData) {
     redirect("/login?pending=company");
   }
 
+  const type = companyType === "ip" ? "ip" : "ooo";
+  const missingCompanyFields = getCompanyMissingFields({
+    type,
+    name: companyName,
+    inn,
+    kpp,
+    ogrn,
+    directorName,
+    legalAddress,
+    bankDetails,
+    contactEmail,
+    contactPhone,
+  });
+
+  if (missingCompanyFields.length > 0) {
+    redirect("/register?error=required");
+  }
+
   if (existingUser && canReusePendingUser) {
     let createdCompanyId = "";
 
@@ -305,15 +332,16 @@ export async function registerBuyerAction(formData: FormData) {
       const [company] = await tx
         .insert(buyerCompanies)
         .values({
-          type: companyType === "ip" ? "ip" : "ooo",
+          type,
           name: companyName,
           inn,
-          kpp: kpp || null,
-          ogrn: ogrn || null,
-          directorName: directorName || null,
-          legalAddress: legalAddress || null,
-          contactEmail: email,
-          contactPhone: phone,
+          kpp: type === "ooo" ? kpp : null,
+          ogrn,
+          directorName,
+          legalAddress,
+          bankDetails,
+          contactEmail,
+          contactPhone,
         })
         .returning({ id: buyerCompanies.id });
 
@@ -351,15 +379,16 @@ export async function registerBuyerAction(formData: FormData) {
   const [company] = await db
     .insert(buyerCompanies)
     .values({
-      type: companyType === "ip" ? "ip" : "ooo",
+      type,
       name: companyName,
       inn,
-      kpp: kpp || null,
-      ogrn: ogrn || null,
-      directorName: directorName || null,
-      legalAddress: legalAddress || null,
-      contactEmail: email,
-      contactPhone: phone,
+      kpp: type === "ooo" ? kpp : null,
+      ogrn,
+      directorName,
+      legalAddress,
+      bankDetails,
+      contactEmail,
+      contactPhone,
     })
     .returning();
 
