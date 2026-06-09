@@ -7,10 +7,10 @@ import { formatCurrency } from "@/lib/utils";
 
 export function ProductCard({ product }: { product: ProductListItem }) {
   return (
-    <article className="flex h-[360px] flex-col rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-100">
+    <article className="flex h-[430px] flex-col rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-100">
       <Link
         href={`/product/${product.slug}`}
-        className="mb-3 flex h-40 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-100 transition hover:bg-slate-200"
+        className="mb-4 flex h-48 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-100 transition hover:bg-slate-200"
       >
         {product.mainImageUrl ? (
           <img
@@ -22,7 +22,7 @@ export function ProductCard({ product }: { product: ProductListItem }) {
           <ShoppingCart className="text-slate-300" size={44} />
         )}
       </Link>
-      <div className="line-clamp-2 text-xs font-semibold leading-5">
+      <div className="min-h-9 text-xs font-semibold leading-5">
         <Link
           href={`/catalog/${product.categorySlug}`}
           className="text-slate-500 hover:text-[#1157ff]"
@@ -47,7 +47,7 @@ export function ProductCard({ product }: { product: ProductListItem }) {
         {product.sku}
         {product.size ? ` · ${product.size}` : ""} · {product.unit}
       </p>
-      <div className="mt-auto flex items-center justify-between gap-3 pt-3">
+      <div className="mt-auto flex items-center justify-between gap-3 pt-4">
         <span className="text-xl font-black leading-none">
           {formatCurrency(product.priceWithVat)}
         </span>
