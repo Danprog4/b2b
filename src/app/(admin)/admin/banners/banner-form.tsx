@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, ImageIcon } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight, ImageIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { FileUploadField } from "@/components/ui/file-upload-field";
@@ -124,6 +124,12 @@ function BannerPreview({
   ctaText: string;
 }) {
   const isMobile = mode === "mobile";
+  const hasImage = Boolean(imageUrl);
+  const titleClass = hasImage
+    ? "text-white drop-shadow-[0_2px_12px_rgba(2,6,23,0.45)]"
+    : "text-slate-950";
+  const headlineClass = hasImage ? "text-white/95" : "text-slate-900";
+  const subheadlineClass = hasImage ? "text-white/80" : "text-slate-600";
 
   return (
     <div
@@ -138,57 +144,86 @@ function BannerPreview({
       ) : (
         <PreviewPlaceholder />
       )}
-      {imageUrl ? (
-        <div className="absolute inset-0 bg-white/70 backdrop-blur-[1px]" />
+      {hasImage ? (
+        <>
+          <div
+            aria-hidden
+            className={
+              isMobile
+                ? "absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/45 to-transparent"
+                : "absolute inset-0 bg-gradient-to-r from-slate-950/85 via-slate-950/55 to-transparent"
+            }
+          />
+          <div
+            aria-hidden
+            className="absolute inset-0 bg-[#1157ff]/10 mix-blend-multiply"
+          />
+        </>
       ) : null}
       <div
         className={
           isMobile
-            ? "relative flex h-full items-center px-8 py-10"
+            ? "relative flex h-full items-end px-7 py-9"
             : "relative flex h-full items-center px-8 py-10 md:px-20 md:py-14"
         }
       >
         <div className={isMobile ? "w-full max-w-full" : "w-full max-w-[720px]"}>
+          {!isMobile && headline ? (
+            <span
+              className={`mb-4 inline-flex items-center rounded-full px-3.5 py-1.5 text-xs font-bold uppercase tracking-[0.16em] ${
+                hasImage
+                  ? "bg-white/15 text-white ring-1 ring-inset ring-white/25 backdrop-blur-sm"
+                  : "bg-[#1157ff]/10 text-[#1157ff]"
+              }`}
+            >
+              Сити Маркет
+            </span>
+          ) : null}
           <h3
-            className={
+            className={`${
               isMobile
-                ? "line-clamp-3 text-3xl font-black leading-tight text-slate-950"
-                : "line-clamp-3 text-5xl font-black leading-tight text-slate-950"
-            }
+                ? "line-clamp-3 text-3xl"
+                : "line-clamp-3 text-5xl"
+            } font-black leading-[1.05] tracking-tight ${titleClass}`}
           >
             {title || "Название баннера"}
           </h3>
           {headline ? (
-            <p className="mt-5 line-clamp-2 max-w-xl text-lg font-black leading-7 text-slate-900">
+            <p
+              className={`mt-5 line-clamp-2 max-w-xl text-lg font-bold leading-7 ${headlineClass}`}
+            >
               {headline}
             </p>
           ) : null}
           {subheadline ? (
-            <p className="mt-5 line-clamp-2 max-w-xl text-base leading-7 text-slate-600">
+            <p
+              className={`mt-4 line-clamp-2 max-w-xl text-base leading-7 ${subheadlineClass}`}
+            >
               {subheadline}
             </p>
           ) : null}
           {ctaText ? (
-            <span className="mt-8 inline-flex rounded-lg bg-[#1157ff] px-6 py-3 text-base font-bold text-white shadow-sm">
+            <span className="mt-8 inline-flex items-center gap-2 rounded-xl bg-[#1157ff] px-6 py-3 text-base font-bold text-white shadow-lg shadow-[#1157ff]/25">
               {ctaText}
+              <ArrowRight size={18} />
             </span>
           ) : null}
         </div>
       </div>
       {!isMobile ? (
         <>
-          <span className="absolute left-4 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-900 shadow-sm">
+          <span className="absolute left-4 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-slate-900 shadow-lg ring-1 ring-white/60 backdrop-blur">
             <ChevronLeft size={22} />
           </span>
-          <span className="absolute right-4 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-900 shadow-sm">
+          <span className="absolute right-4 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-slate-900 shadow-lg ring-1 ring-white/60 backdrop-blur">
             <ChevronRight size={22} />
           </span>
         </>
       ) : null}
-      <div className="absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 gap-2 rounded-full bg-white/80 px-3 py-2 shadow-sm">
-        <span className="h-2.5 w-2.5 rounded-full bg-slate-300" />
-        <span className="h-2.5 w-7 rounded-full bg-[#1157ff]" />
-        <span className="h-2.5 w-2.5 rounded-full bg-slate-300" />
+      <div className="absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 gap-2 rounded-full bg-slate-950/30 px-3 py-2 shadow-sm ring-1 ring-white/20 backdrop-blur">
+        <span className="h-2.5 w-2.5 rounded-full bg-white/50" />
+        <span className="h-2.5 w-7 rounded-full bg-white" />
+        <span className="h-2.5 w-2.5 rounded-full bg-white/50" />
       </div>
     </div>
   );
