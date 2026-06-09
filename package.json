@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "bun run scripts/start.ts",
     "lint": "eslint",
     "db:up": "docker-compose up -d db",
     "db:down": "docker-compose down",
@@ -17,7 +17,6 @@
     "db:push-data-http:dry": "DRY_RUN=YES bun run scripts/push-db-data-http.ts",
     "db:seed": "bun run src/db/seed.ts",
     "assets:seed": "bun run scripts/seed-demo-images.ts",
-    "prod:seed-demo": "bun run scripts/apply-prod-demo-content.ts",
     "db:studio": "drizzle-kit studio",
     "email:send": "bun run scripts/send-email-outbox.ts",
     "telegram:set-webhook": "bun run scripts/set-telegram-webhook.ts"

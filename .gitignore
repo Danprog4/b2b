@@ -52,7 +52,6 @@ bun-debug.log*
 # env files
 .env*
 !.env.example
-!.env.prod-seed.example
 
 # deployment local state
 .vercel
