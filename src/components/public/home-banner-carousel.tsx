@@ -119,21 +119,21 @@ export function HomeBannerCarousel({
       ) : null}
 
       <div
-        className={`relative flex h-full items-center px-8 py-10 md:px-12 md:py-14 ${
+        className={`relative flex h-full items-center px-8 py-10 md:px-20 md:py-14 ${
           imageUrl || mobileImageUrl ? "bg-white/70 backdrop-blur-[1px]" : ""
         }`}
       >
-        <div className="max-w-2xl">
-          <h1 className="text-4xl font-black leading-tight text-slate-950 md:text-6xl">
+        <div className="w-full max-w-[720px]">
+          <h1 className="line-clamp-3 text-3xl font-black leading-tight text-slate-950 md:text-5xl">
             {activeBanner.title}
           </h1>
           {activeBanner.headline ? (
-            <p className="mt-5 max-w-xl text-xl font-black leading-7 text-slate-900">
+            <p className="mt-5 line-clamp-2 max-w-xl text-lg font-black leading-7 text-slate-900">
               {activeBanner.headline}
             </p>
           ) : null}
           {activeBanner.subheadline ? (
-            <p className="mt-5 max-w-xl text-lg leading-8 text-slate-600">
+            <p className="mt-5 line-clamp-2 max-w-xl text-base leading-7 text-slate-600">
               {activeBanner.subheadline}
             </p>
           ) : null}
