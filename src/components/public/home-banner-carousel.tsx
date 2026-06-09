@@ -24,10 +24,12 @@ function BannerAction({
   href,
   children,
   variant = "primary",
+  tabIndex,
 }: {
   href: string | null;
   children: React.ReactNode;
   variant?: "primary" | "secondary";
+  tabIndex?: number;
 }) {
   const className =
     variant === "primary"
@@ -40,16 +42,94 @@ function BannerAction({
 
   if (/^https?:\/\//i.test(href)) {
     return (
-      <a className={className} href={href} rel="noreferrer" target="_blank">
+      <a
+        className={className}
+        href={href}
+        rel="noreferrer"
+        tabIndex={tabIndex}
+        target="_blank"
+      >
         {children}
       </a>
     );
   }
 
   return (
-    <Link className={className} href={href}>
+    <Link className={className} href={href} tabIndex={tabIndex}>
       {children}
     </Link>
+  );
+}
+
+function BannerSlide({
+  banner,
+  isActive,
+}: {
+  banner: HomeBanner;
+  isActive: boolean;
+}) {
+  const imageUrl = banner.imageUrl;
+  const mobileImageUrl = banner.mobileImageUrl ?? imageUrl;
+  const hasImage = Boolean(imageUrl || mobileImageUrl);
+  const actionTabIndex = isActive ? undefined : -1;
+
+  return (
+    <div
+      aria-hidden={!isActive}
+      className={`absolute inset-0 transition-[opacity,transform] duration-700 ease-out motion-reduce:transition-none ${
+        isActive
+          ? "z-10 translate-x-0 opacity-100"
+          : "z-0 pointer-events-none translate-x-4 opacity-0"
+      }`}
+    >
+      {hasImage ? (
+        <picture>
+          {mobileImageUrl ? (
+            <source media="(max-width: 767px)" srcSet={mobileImageUrl} />
+          ) : null}
+          <img
+            alt={banner.title}
+            className={`absolute inset-0 h-full w-full object-cover transition-transform duration-[1400ms] ease-out motion-reduce:transition-none ${
+              isActive ? "scale-100" : "scale-105"
+            }`}
+            src={imageUrl ?? mobileImageUrl ?? ""}
+          />
+        </picture>
+      ) : null}
+
+      <div
+        className={`relative flex h-full items-center px-8 py-10 md:px-20 md:py-14 ${
+          hasImage ? "bg-white/70 backdrop-blur-[1px]" : ""
+        }`}
+      >
+        <div
+          className={`w-full max-w-[720px] transition-[opacity,transform] delay-100 duration-700 ease-out motion-reduce:transition-none ${
+            isActive ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
+          }`}
+        >
+          <h1 className="line-clamp-3 text-3xl font-black leading-tight text-slate-950 md:text-5xl">
+            {banner.title}
+          </h1>
+          {banner.headline ? (
+            <p className="mt-5 line-clamp-2 max-w-xl text-lg font-black leading-7 text-slate-900">
+              {banner.headline}
+            </p>
+          ) : null}
+          {banner.subheadline ? (
+            <p className="mt-5 line-clamp-2 max-w-xl text-base leading-7 text-slate-600">
+              {banner.subheadline}
+            </p>
+          ) : null}
+          {banner.ctaText ? (
+            <div className="mt-8 flex flex-wrap gap-3">
+              <BannerAction href={banner.href} tabIndex={actionTabIndex}>
+                {banner.ctaText}
+              </BannerAction>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -59,7 +139,6 @@ export function HomeBannerCarousel({
 }: HomeBannerCarouselProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const hasSlides = banners.length > 0;
-  const activeBanner = banners[activeIndex];
 
   useEffect(() => {
     if (banners.length < 2) {
@@ -100,56 +179,21 @@ export function HomeBannerCarousel({
     );
   }
 
-  const imageUrl = activeBanner.imageUrl;
-  const mobileImageUrl = activeBanner.mobileImageUrl ?? imageUrl;
-
   return (
     <div className="relative h-[420px] overflow-hidden rounded-2xl bg-[#dff0ff] shadow-sm">
-      {imageUrl || mobileImageUrl ? (
-        <picture>
-          {mobileImageUrl ? (
-            <source media="(max-width: 767px)" srcSet={mobileImageUrl} />
-          ) : null}
-          <img
-            alt={activeBanner.title}
-            className="absolute inset-0 h-full w-full object-cover"
-            src={imageUrl ?? mobileImageUrl ?? ""}
-          />
-        </picture>
-      ) : null}
-
-      <div
-        className={`relative flex h-full items-center px-8 py-10 md:px-20 md:py-14 ${
-          imageUrl || mobileImageUrl ? "bg-white/70 backdrop-blur-[1px]" : ""
-        }`}
-      >
-        <div className="w-full max-w-[720px]">
-          <h1 className="line-clamp-3 text-3xl font-black leading-tight text-slate-950 md:text-5xl">
-            {activeBanner.title}
-          </h1>
-          {activeBanner.headline ? (
-            <p className="mt-5 line-clamp-2 max-w-xl text-lg font-black leading-7 text-slate-900">
-              {activeBanner.headline}
-            </p>
-          ) : null}
-          {activeBanner.subheadline ? (
-            <p className="mt-5 line-clamp-2 max-w-xl text-base leading-7 text-slate-600">
-              {activeBanner.subheadline}
-            </p>
-          ) : null}
-          {activeBanner.ctaText ? (
-            <div className="mt-8 flex flex-wrap gap-3">
-              <BannerAction href={activeBanner.href}>{activeBanner.ctaText}</BannerAction>
-            </div>
-          ) : null}
-        </div>
-      </div>
+      {banners.map((banner, index) => (
+        <BannerSlide
+          banner={banner}
+          isActive={index === activeIndex}
+          key={banner.id}
+        />
+      ))}
 
       {banners.length > 1 ? (
         <>
           <button
             aria-label="Предыдущий баннер"
-            className="absolute left-4 top-1/2 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-900 shadow-sm transition hover:bg-white md:flex"
+            className="absolute left-4 top-1/2 z-20 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-900 shadow-sm transition hover:bg-white md:flex"
             type="button"
             onClick={() =>
               setActiveIndex((index) => (index - 1 + banners.length) % banners.length)
@@ -159,13 +203,13 @@ export function HomeBannerCarousel({
           </button>
           <button
             aria-label="Следующий баннер"
-            className="absolute right-4 top-1/2 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-900 shadow-sm transition hover:bg-white md:flex"
+            className="absolute right-4 top-1/2 z-20 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-900 shadow-sm transition hover:bg-white md:flex"
             type="button"
             onClick={() => setActiveIndex((index) => (index + 1) % banners.length)}
           >
             <ChevronRight size={22} />
           </button>
-          <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-2 rounded-full bg-white/80 px-3 py-2 shadow-sm">
+          <div className="absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 gap-2 rounded-full bg-white/80 px-3 py-2 shadow-sm">
             {banners.map((banner, index) => (
               <button
                 aria-label={`Открыть баннер ${index + 1}`}
