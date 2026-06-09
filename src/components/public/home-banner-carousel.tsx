@@ -37,8 +37,8 @@ function BannerAction({
 }) {
   const className =
     variant === "primary"
-      ? "rounded-lg bg-[#1157ff] px-6 py-3 text-base font-bold text-white shadow-sm transition hover:bg-[#0b49e0]"
-      : "rounded-lg bg-white px-6 py-3 text-base font-bold text-slate-900 shadow-sm ring-1 ring-slate-200 transition hover:ring-[#1157ff]";
+      ? "rounded-xl bg-[#1157ff] px-7 py-3.5 text-base font-bold text-white shadow-sm transition hover:bg-[#0b49e0]"
+      : "rounded-xl bg-white px-7 py-3.5 text-base font-bold text-slate-900 shadow-sm ring-1 ring-slate-200 transition hover:ring-[#1157ff]";
 
   if (!href) {
     return <span className={className}>{children}</span>;
@@ -88,12 +88,12 @@ function BannerContent({
         {title}
       </h1>
       {headline ? (
-        <p className="mt-5 line-clamp-2 max-w-xl text-lg font-black leading-7 text-slate-900">
+        <p className="mt-5 line-clamp-2 max-w-3xl text-lg font-black leading-7 text-slate-900 md:text-xl md:leading-8">
           {headline}
         </p>
       ) : null}
       {subheadline ? (
-        <p className="mt-5 line-clamp-2 max-w-xl text-base leading-7 text-slate-600">
+        <p className="mt-5 line-clamp-2 max-w-2xl text-base leading-7 text-slate-600 md:text-lg md:leading-8">
           {subheadline}
         </p>
       ) : null}
@@ -147,8 +147,8 @@ function BannerSlide({
       ) : null}
 
       <div
-        className={`relative flex h-full items-center px-8 py-10 md:px-20 md:py-14 ${
-          hasImage ? "bg-white/70 backdrop-blur-[1px]" : ""
+        className={`relative flex h-full items-center px-8 py-10 md:px-24 md:py-16 xl:px-32 ${
+          hasImage ? "bg-white/65 backdrop-blur-[1px]" : ""
         }`}
       >
         <div
@@ -157,7 +157,7 @@ function BannerSlide({
           }`}
         >
           <BannerContent
-            className="hidden max-w-[720px] md:block"
+            className="hidden max-w-[860px] md:block"
             ctaText={banner.ctaText}
             headline={banner.headline}
             href={banner.href}
@@ -201,7 +201,7 @@ export function HomeBannerCarousel({
 
   if (!hasSlides) {
     return (
-      <div className="relative overflow-hidden rounded-2xl bg-[#dff0ff] px-8 py-10 shadow-sm md:px-12 md:py-14">
+      <div className="relative min-h-[360px] overflow-hidden rounded-[28px] bg-[#dff0ff] px-8 py-10 shadow-sm md:min-h-[460px] md:px-24 md:py-16 xl:px-32">
         <div className="max-w-2xl">
           <p className="mb-3 text-sm font-bold uppercase tracking-[0.16em] text-[#1157ff]">
             B2B закупки
@@ -227,7 +227,7 @@ export function HomeBannerCarousel({
   }
 
   return (
-    <div className="relative h-[420px] overflow-hidden rounded-2xl bg-[#dff0ff] shadow-sm">
+    <div className="relative h-[360px] overflow-hidden rounded-[28px] bg-[#dff0ff] shadow-sm md:h-[460px]">
       {banners.map((banner, index) => (
         <BannerSlide
           banner={banner}
@@ -240,7 +240,7 @@ export function HomeBannerCarousel({
         <>
           <button
             aria-label="Предыдущий баннер"
-            className="absolute left-4 top-1/2 z-20 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-900 shadow-sm transition hover:bg-white md:flex"
+            className="absolute left-5 top-1/2 z-20 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-900 shadow-sm transition hover:bg-white md:flex"
             type="button"
             onClick={() =>
               setActiveIndex((index) => (index - 1 + banners.length) % banners.length)
@@ -250,13 +250,13 @@ export function HomeBannerCarousel({
           </button>
           <button
             aria-label="Следующий баннер"
-            className="absolute right-4 top-1/2 z-20 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-900 shadow-sm transition hover:bg-white md:flex"
+            className="absolute right-5 top-1/2 z-20 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-900 shadow-sm transition hover:bg-white md:flex"
             type="button"
             onClick={() => setActiveIndex((index) => (index + 1) % banners.length)}
           >
             <ChevronRight size={22} />
           </button>
-          <div className="absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 gap-2 rounded-full bg-white/80 px-3 py-2 shadow-sm">
+          <div className="absolute bottom-5 left-1/2 z-20 flex -translate-x-1/2 gap-2 rounded-full bg-white/80 px-3 py-2 shadow-sm">
             {banners.map((banner, index) => (
               <button
                 aria-label={`Открыть баннер ${index + 1}`}

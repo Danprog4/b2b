@@ -4,7 +4,6 @@ import {
   FileText,
   ImageIcon,
   ShieldCheck,
-  Truck,
 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -56,34 +55,15 @@ export default async function Home() {
 
   return (
     <main className="min-h-screen bg-[#f4f6fb] text-slate-900">
-      <section className="scroll-reveal mx-auto max-w-[1480px] px-5 py-5">
-        <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
-          <HomeBannerCarousel
-            banners={banners}
-            isAuthenticated={Boolean(currentUser)}
-          />
-
-          <aside className="grid gap-4">
-            <div className="scroll-reveal rounded-2xl bg-white p-6 shadow-sm">
-              <Building2 className="mb-4 text-[#1157ff]" size={30} />
-              <h2 className="text-xl font-bold">Для ООО и ИП</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-600">
-                Регистрация по ИНН, реквизиты, счета и документы в кабинете.
-              </p>
-            </div>
-            <div className="scroll-reveal rounded-2xl bg-white p-6 shadow-sm">
-              <Truck className="mb-4 text-[#1157ff]" size={30} />
-              <h2 className="text-xl font-bold">Поставка с менеджером</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-600">
-                Доставка и условия отгрузки согласуются с оператором.
-              </p>
-            </div>
-          </aside>
-        </div>
+      <section className="scroll-reveal mx-auto max-w-[1920px] px-5 py-5">
+        <HomeBannerCarousel
+          banners={banners}
+          isAuthenticated={Boolean(currentUser)}
+        />
       </section>
 
       <section>
-        <div className="mx-auto grid max-w-[1480px] gap-4 px-5 py-8 md:grid-cols-2 xl:grid-cols-4">
+        <div className="mx-auto grid max-w-[1480px] gap-4 px-5 py-6 md:grid-cols-2 xl:grid-cols-4">
           {advantages.map((advantage) => {
             const Icon = advantage.icon;
 
