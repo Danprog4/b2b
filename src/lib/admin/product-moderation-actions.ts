@@ -134,6 +134,8 @@ export async function approveProductModerationRequestAction(formData: FormData) 
         id: sellerOffers.id,
         sellerId: sellerOffers.sellerId,
         priceWithVat: sellerOffers.priceWithVat,
+        publishedAt: sellerOffers.moderatedAt,
+        createdAt: sellerOffers.createdAt,
       })
       .from(sellerOffers)
       .where(
@@ -148,7 +150,11 @@ export async function approveProductModerationRequestAction(formData: FormData) 
       ) ??
       currentPublishedOffers.reduce<(typeof currentPublishedOffers)[number] | null>(
         (best, offer) =>
-          !best || Number(offer.priceWithVat) < Number(best.priceWithVat)
+          !best ||
+          Number(offer.priceWithVat) < Number(best.priceWithVat) ||
+          (Number(offer.priceWithVat) === Number(best.priceWithVat) &&
+            (offer.publishedAt ?? offer.createdAt).getTime() <
+              (best.publishedAt ?? best.createdAt).getTime())
             ? offer
             : best,
         null,
@@ -207,6 +213,8 @@ export async function approveProductModerationRequestAction(formData: FormData) 
           id: sellerOffers.id,
           sellerId: sellerOffers.sellerId,
           priceWithVat: sellerOffers.priceWithVat,
+          publishedAt: sellerOffers.moderatedAt,
+          createdAt: sellerOffers.createdAt,
         })
         .from(sellerOffers)
         .where(
@@ -222,7 +230,11 @@ export async function approveProductModerationRequestAction(formData: FormData) 
         (typeof publishedOffers)[number] | null
       >(
         (best, offer) =>
-          !best || Number(offer.priceWithVat) < Number(best.priceWithVat)
+          !best ||
+          Number(offer.priceWithVat) < Number(best.priceWithVat) ||
+          (Number(offer.priceWithVat) === Number(best.priceWithVat) &&
+            (offer.publishedAt ?? offer.createdAt).getTime() <
+              (best.publishedAt ?? best.createdAt).getTime())
             ? offer
             : best,
         null,
@@ -258,6 +270,8 @@ export async function approveProductModerationRequestAction(formData: FormData) 
         id: sellerOfferId,
         sellerId: request.sellerId,
         priceWithVat: payload.priceWithVat,
+        publishedAt: new Date(),
+        createdAt: new Date(),
       };
     }
 

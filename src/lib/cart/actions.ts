@@ -80,6 +80,8 @@ async function getSelectedOffer(productId: string, sellerOfferId?: string) {
       priorityOfferId: products.priorityOfferId,
       offerId: sellerOffers.id,
       priceWithVat: sellerOffers.priceWithVat,
+      publishedAt: sellerOffers.moderatedAt,
+      createdAt: sellerOffers.createdAt,
     })
     .from(products)
     .innerJoin(sellerOffers, eq(sellerOffers.productId, products.id))
@@ -92,7 +94,12 @@ async function getSelectedOffer(productId: string, sellerOfferId?: string) {
   return (
     rows.find((row) => row.offerId === row.priorityOfferId) ??
     rows.reduce((best, row) =>
-      Number(row.priceWithVat) < Number(best.priceWithVat) ? row : best,
+      Number(row.priceWithVat) < Number(best.priceWithVat) ||
+      (Number(row.priceWithVat) === Number(best.priceWithVat) &&
+        (row.publishedAt ?? row.createdAt).getTime() <
+          (best.publishedAt ?? best.createdAt).getTime())
+        ? row
+        : best,
     )
   );
 }

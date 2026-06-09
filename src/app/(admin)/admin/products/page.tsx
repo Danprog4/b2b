@@ -33,6 +33,8 @@ export default async function AdminProductsPage() {
       offerId: sellerOffers.id,
       offerPriceWithVat: sellerOffers.priceWithVat,
       offerStatus: sellerOffers.status,
+      offerPublishedAt: sellerOffers.moderatedAt,
+      offerCreatedAt: sellerOffers.createdAt,
       offerSellerName: sellers.name,
       mainImageFileId: files.id,
       mainImageStorageKey: files.storageKey,
@@ -64,7 +66,11 @@ export default async function AdminProductsPage() {
         (best, offer) =>
           !best ||
           Number(offer.offerPriceWithVat ?? Infinity) <
-            Number(best.offerPriceWithVat ?? Infinity)
+            Number(best.offerPriceWithVat ?? Infinity) ||
+          (Number(offer.offerPriceWithVat ?? Infinity) ===
+            Number(best.offerPriceWithVat ?? Infinity) &&
+            ((offer.offerPublishedAt ?? offer.offerCreatedAt)?.getTime() ?? Infinity) <
+              ((best.offerPublishedAt ?? best.offerCreatedAt)?.getTime() ?? Infinity))
             ? offer
             : best,
         null,

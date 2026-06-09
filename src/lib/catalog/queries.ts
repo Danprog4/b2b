@@ -137,6 +137,8 @@ type ProductOfferRow = {
   sellerOfferId: string;
   offerPriceWithVat: string;
   offerVatRate: string;
+  offerPublishedAt: Date | null;
+  offerCreatedAt: Date;
   unit: string;
   size: string | null;
   isActive: boolean;
@@ -145,6 +147,21 @@ type ProductOfferRow = {
   mainImageStorageKey: string | null;
   mainImageIsActive: boolean | null;
 };
+
+function getOfferPublishedTime(row: Pick<ProductOfferRow, "offerCreatedAt" | "offerPublishedAt">) {
+  return (row.offerPublishedAt ?? row.offerCreatedAt).getTime();
+}
+
+function isBetterStorefrontOffer(candidate: ProductOfferRow, current: ProductOfferRow) {
+  const priceDelta =
+    Number(candidate.offerPriceWithVat) - Number(current.offerPriceWithVat);
+
+  if (priceDelta !== 0) {
+    return priceDelta < 0;
+  }
+
+  return getOfferPublishedTime(candidate) < getOfferPublishedTime(current);
+}
 
 function toProductListItems(rows: ProductOfferRow[]) {
   const byProduct = new Map<string, ProductOfferRow[]>();
@@ -160,7 +177,7 @@ function toProductListItems(rows: ProductOfferRow[]) {
     const selectedOffer =
       priorityOffer ??
       offerRows.reduce((best, row) =>
-        Number(row.offerPriceWithVat) < Number(best.offerPriceWithVat) ? row : best,
+        isBetterStorefrontOffer(row, best) ? row : best,
       );
 
     return withMainImageUrl({
@@ -253,6 +270,8 @@ export async function getCatalogProducts({
       sellerOfferId: sellerOffers.id,
       offerPriceWithVat: sellerOffers.priceWithVat,
       offerVatRate: sellerOffers.vatRate,
+      offerPublishedAt: sellerOffers.moderatedAt,
+      offerCreatedAt: sellerOffers.createdAt,
       unit: products.unit,
       size: products.size,
       isActive: products.isActive,
@@ -320,6 +339,8 @@ export async function getProductBySlug(slug: string) {
       sellerOfferId: sellerOffers.id,
       offerPriceWithVat: sellerOffers.priceWithVat,
       offerVatRate: sellerOffers.vatRate,
+      offerPublishedAt: sellerOffers.moderatedAt,
+      offerCreatedAt: sellerOffers.createdAt,
       isActive: products.isActive,
       createdAt: products.createdAt,
       mainImageFileId: files.id,
