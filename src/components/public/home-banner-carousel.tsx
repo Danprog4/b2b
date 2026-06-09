@@ -253,7 +253,7 @@ export function HomeBannerCarousel({
 
   if (!hasSlides) {
     return (
-      <div className="relative min-h-[360px] overflow-hidden rounded-[28px] bg-gradient-to-br from-[#eaf2ff] via-[#dfeaff] to-[#f4f8ff] px-8 py-10 shadow-sm ring-1 ring-slate-200/70 md:min-h-[460px] md:px-24 md:py-16 xl:px-32">
+      <div className="relative min-h-[480px] overflow-hidden rounded-[28px] bg-gradient-to-br from-[#eaf2ff] via-[#dfeaff] to-[#f4f8ff] px-8 py-10 shadow-sm ring-1 ring-slate-200/70 md:min-h-[460px] md:px-24 md:py-16 xl:px-32">
         <div
           aria-hidden
           className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[#1157ff]/15 blur-3xl"
@@ -287,7 +287,7 @@ export function HomeBannerCarousel({
   }
 
   return (
-    <div className="relative h-[360px] overflow-hidden rounded-[28px] bg-[#dff0ff] shadow-sm ring-1 ring-slate-200/70 md:h-[460px]">
+    <div className="relative h-[480px] overflow-hidden rounded-[28px] bg-[#dff0ff] shadow-sm ring-1 ring-slate-200/70 md:h-[460px]">
       {banners.map((banner, index) => (
         <BannerSlide
           banner={banner}
