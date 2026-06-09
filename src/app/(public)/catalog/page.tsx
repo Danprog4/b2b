@@ -1,4 +1,4 @@
-import { ImageIcon, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -240,25 +240,14 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
                 return (
                   <Link
                     key={category.id}
-                    className={`flex w-[calc(100%-20px)] items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold ${
+                    className={`block w-[calc(100%-20px)] rounded-lg px-3 py-2 text-sm font-bold ${
                       category.slug === categorySlug
                         ? "bg-[#eaf1ff] text-[#1157ff]"
                         : "text-slate-700 hover:bg-slate-50"
                     }`}
                     href={href}
                   >
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-md bg-slate-100 text-slate-300">
-                      {category.imageUrl ? (
-                        <img
-                          alt={category.name}
-                          className="h-full w-full object-cover"
-                          src={category.imageUrl}
-                        />
-                      ) : (
-                        <ImageIcon size={15} />
-                      )}
-                    </span>
-                    <span className="min-w-0 truncate">{category.name}</span>
+                    <span className="block truncate">{category.name}</span>
                   </Link>
                 );
               })}
@@ -283,24 +272,13 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
                     return (
                       <Link
                         key={subcategory.id}
-                        className={`flex w-[calc(100%-20px)] items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold ${
+                        className={`block w-[calc(100%-20px)] rounded-lg px-3 py-2 text-sm font-bold ${
                           subcategory.slug === subcategorySlug
                             ? "bg-[#eaf1ff] text-[#1157ff]"
                             : "text-slate-700 hover:bg-slate-50"
                         }`}
                         href={href}
                       >
-                        <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-md bg-slate-100 text-slate-300">
-                          {subcategory.imageUrl ? (
-                            <img
-                              alt={subcategory.name}
-                              className="h-full w-full object-cover"
-                              src={subcategory.imageUrl}
-                            />
-                          ) : (
-                            <ImageIcon size={15} />
-                          )}
-                        </span>
                         <span className="min-w-0">
                           {!categorySlug ? (
                             <span className="block truncate text-xs font-semibold text-slate-400">
