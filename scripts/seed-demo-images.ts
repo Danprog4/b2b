@@ -27,9 +27,13 @@ type ImageAsset = {
 type BannerAsset = {
   sortOrder: number;
   title: string;
+  mobileTitle: string;
   headline: string;
+  mobileHeadline: string;
   subheadline: string;
+  mobileSubheadline: string;
   ctaText: string;
+  mobileCtaText: string;
   href: string;
   desktopUrl: string;
   mobileUrl: string;
@@ -219,10 +223,14 @@ const bannerAssets: BannerAsset[] = [
   {
     sortOrder: 1,
     title: "Стройматериалы для объектов",
+    mobileTitle: "Стройматериалы",
     headline: "Цемент, металлопрокат и складские позиции от проверенных продавцов",
+    mobileHeadline: "Цемент, металлопрокат и складские позиции",
     subheadline:
       "Соберите закупку в корзине, получите счет Сити Маркета и ведите документы в личном кабинете.",
+    mobileSubheadline: "Соберите закупку, получите счет и ведите документы в кабинете.",
     ctaText: "Перейти в каталог",
+    mobileCtaText: "В каталог",
     href: "/catalog",
     desktopUrl: `https://images.unsplash.com/photo-1589939705384-5185137a7f0f?${bannerDesktopParams}`,
     mobileUrl: `https://images.unsplash.com/photo-1589939705384-5185137a7f0f?${bannerMobileParams}`,
@@ -230,10 +238,14 @@ const bannerAssets: BannerAsset[] = [
   {
     sortOrder: 2,
     title: "Закупки для склада и производства",
+    mobileTitle: "Закупки для склада",
     headline: "Оборудование, фурнитура и расходники в одном заказе",
+    mobileHeadline: "Оборудование и расходники в одном заказе",
     subheadline:
       "Сравнивайте предложения продавцов, выбирайте актуальную цену и оформляйте поставку от юридического лица.",
+    mobileSubheadline: "Сравнивайте продавцов и оформляйте поставку от юрлица.",
     ctaText: "Смотреть оборудование",
+    mobileCtaText: "Оборудование",
     href: "/catalog/oborudovanie",
     desktopUrl: `https://images.unsplash.com/photo-1587293852726-70cdb56c2866?${bannerDesktopParams}`,
     mobileUrl: `https://images.unsplash.com/photo-1587293852726-70cdb56c2866?${bannerMobileParams}`,
@@ -241,10 +253,14 @@ const bannerAssets: BannerAsset[] = [
   {
     sortOrder: 3,
     title: "Регулярные поставки для бизнеса",
+    mobileTitle: "Поставки для бизнеса",
     headline: "Продукты, химия, электроника и запчасти для ежедневных задач",
+    mobileHeadline: "Продукты, химия, электроника и запчасти",
     subheadline:
       "Каталог подходит для повторных закупок, а менеджер помогает согласовать доставку и условия отгрузки.",
+    mobileSubheadline: "Повторные закупки, доставка и условия отгрузки с менеджером.",
     ctaText: "Выбрать товары",
+    mobileCtaText: "Выбрать товары",
     href: "/catalog",
     desktopUrl: `https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?${bannerDesktopParams}`,
     mobileUrl: `https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?${bannerMobileParams}`,
@@ -485,9 +501,13 @@ async function applyBanner(bannerAsset: BannerAsset): Promise<"updated"> {
   });
   const values = {
     title: bannerAsset.title,
+    mobileTitle: bannerAsset.mobileTitle,
     headline: bannerAsset.headline,
+    mobileHeadline: bannerAsset.mobileHeadline,
     subheadline: bannerAsset.subheadline,
+    mobileSubheadline: bannerAsset.mobileSubheadline,
     ctaText: bannerAsset.ctaText,
+    mobileCtaText: bannerAsset.mobileCtaText,
     href: bannerAsset.href,
     sortOrder: bannerAsset.sortOrder,
     desktopImageFileId,
