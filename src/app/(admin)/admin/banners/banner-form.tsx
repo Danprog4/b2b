@@ -37,6 +37,24 @@ type BannerFormProps = {
 };
 
 const bannerOrderSlots = [1, 2, 3, 4];
+const bannerTextLimits = {
+  title: 72,
+  headline: 96,
+  subheadline: 160,
+  ctaText: 32,
+  href: 320,
+};
+const demoBannerPreview = {
+  title: "Стройматериалы для объектов",
+  headline: "Цемент, металлопрокат и складские позиции от проверенных продавцов",
+  subheadline:
+    "Соберите закупку в корзине, получите счет Сити Маркета и ведите документы в личном кабинете.",
+  ctaText: "Перейти в каталог",
+  imageUrl:
+    "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&w=1480&h=420&q=84",
+  mobileImageUrl:
+    "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&w=720&h=1120&q=84",
+};
 
 function dateTimeLocalValue(value: Date | string | null) {
   if (!value) {
@@ -66,6 +84,20 @@ function PreviewPlaceholder() {
     <div className="absolute inset-0 flex items-center justify-center bg-slate-100 text-slate-300">
       <ImageIcon size={34} />
     </div>
+  );
+}
+
+function TextCounter({ value, limit }: { value: string; limit: number }) {
+  const isNearLimit = value.length > limit * 0.85;
+
+  return (
+    <span
+      className={`text-xs font-semibold ${
+        isNearLimit ? "text-amber-700" : "text-slate-400"
+      }`}
+    >
+      {value.length}/{limit}
+    </span>
   );
 }
 
@@ -217,6 +249,13 @@ export function BannerForm({
   const desktopPreviewUrl = desktopUploadUrl ?? banner?.desktopImageUrl ?? null;
   const mobilePreviewUrl =
     mobileUploadUrl ?? banner?.mobileImageUrl ?? desktopPreviewUrl;
+  const previewTitle = title || demoBannerPreview.title;
+  const previewHeadline = headline || demoBannerPreview.headline;
+  const previewSubheadline = subheadline || demoBannerPreview.subheadline;
+  const previewCtaText = ctaText || demoBannerPreview.ctaText;
+  const previewDesktopImageUrl = desktopPreviewUrl ?? demoBannerPreview.imageUrl;
+  const previewMobileImageUrl =
+    mobilePreviewUrl ?? desktopPreviewUrl ?? demoBannerPreview.mobileImageUrl;
   const showHrefSuggestions =
     isHrefSuggestionsOpen &&
     href.startsWith("/") &&
@@ -245,12 +284,12 @@ export function BannerForm({
               Desktop
             </p>
             <BannerPreview
-              ctaText={ctaText}
-              headline={headline}
-              imageUrl={desktopPreviewUrl}
+              ctaText={previewCtaText}
+              headline={previewHeadline}
+              imageUrl={previewDesktopImageUrl}
               mode="desktop"
-              subheadline={subheadline}
-              title={title}
+              subheadline={previewSubheadline}
+              title={previewTitle}
             />
           </div>
 
@@ -259,12 +298,12 @@ export function BannerForm({
               Mobile
             </p>
             <BannerPreview
-              ctaText={ctaText}
-              headline={headline}
-              imageUrl={mobilePreviewUrl}
+              ctaText={previewCtaText}
+              headline={previewHeadline}
+              imageUrl={previewMobileImageUrl}
               mode="mobile"
-              subheadline={subheadline}
-              title={title}
+              subheadline={previewSubheadline}
+              title={previewTitle}
             />
           </div>
         </div>
@@ -278,9 +317,13 @@ export function BannerForm({
         {banner ? <input name="bannerId" type="hidden" value={banner.id} /> : null}
 
         <label className="grid gap-2 text-sm font-bold text-slate-700">
-          Название
+          <span className="flex items-center justify-between gap-3">
+            Название
+            <TextCounter limit={bannerTextLimits.title} value={title} />
+          </span>
           <input
             className="h-11 rounded-lg border border-slate-200 px-3 font-normal text-slate-950"
+            maxLength={bannerTextLimits.title}
             name="title"
             required
             value={title}
@@ -289,9 +332,13 @@ export function BannerForm({
         </label>
 
         <label className="grid gap-2 text-sm font-bold text-slate-700">
-          Дополнительный заголовок
+          <span className="flex items-center justify-between gap-3">
+            Дополнительный заголовок
+            <TextCounter limit={bannerTextLimits.headline} value={headline} />
+          </span>
           <input
             className="h-11 rounded-lg border border-slate-200 px-3 font-normal text-slate-950"
+            maxLength={bannerTextLimits.headline}
             name="headline"
             value={headline}
             onChange={(event) => setHeadline(event.currentTarget.value)}
@@ -299,9 +346,13 @@ export function BannerForm({
         </label>
 
         <label className="grid gap-2 text-sm font-bold text-slate-700">
-          Подзаголовок
+          <span className="flex items-center justify-between gap-3">
+            Подзаголовок
+            <TextCounter limit={bannerTextLimits.subheadline} value={subheadline} />
+          </span>
           <textarea
             className="min-h-28 rounded-lg border border-slate-200 px-3 py-2 font-normal text-slate-950"
+            maxLength={bannerTextLimits.subheadline}
             name="subheadline"
             value={subheadline}
             onChange={(event) => setSubheadline(event.currentTarget.value)}
@@ -310,9 +361,13 @@ export function BannerForm({
 
         <div className="grid gap-4 md:grid-cols-3">
           <label className="grid gap-2 text-sm font-bold text-slate-700">
-            CTA
+            <span className="flex items-center justify-between gap-3">
+              CTA
+              <TextCounter limit={bannerTextLimits.ctaText} value={ctaText} />
+            </span>
             <input
               className="h-11 rounded-lg border border-slate-200 px-3 font-normal text-slate-950"
+              maxLength={bannerTextLimits.ctaText}
               name="ctaText"
               placeholder="Перейти"
               value={ctaText}
@@ -324,6 +379,7 @@ export function BannerForm({
               Ссылка
               <input
                 className="h-11 rounded-lg border border-slate-200 px-3 font-normal text-slate-950"
+                maxLength={bannerTextLimits.href}
                 name="href"
                 placeholder="/catalog или https://..."
                 value={href}

@@ -56,7 +56,7 @@ export default async function Home() {
 
   return (
     <main className="min-h-screen bg-[#f4f6fb] text-slate-900">
-      <section className="mx-auto max-w-[1480px] px-5 py-5">
+      <section className="scroll-reveal mx-auto max-w-[1480px] px-5 py-5">
         <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
           <HomeBannerCarousel
             banners={banners}
@@ -64,14 +64,14 @@ export default async function Home() {
           />
 
           <aside className="grid gap-4">
-            <div className="rounded-2xl bg-white p-6 shadow-sm">
+            <div className="scroll-reveal rounded-2xl bg-white p-6 shadow-sm">
               <Building2 className="mb-4 text-[#1157ff]" size={30} />
               <h2 className="text-xl font-bold">Для ООО и ИП</h2>
               <p className="mt-2 text-sm leading-6 text-slate-600">
                 Регистрация по ИНН, реквизиты, счета и документы в кабинете.
               </p>
             </div>
-            <div className="rounded-2xl bg-white p-6 shadow-sm">
+            <div className="scroll-reveal rounded-2xl bg-white p-6 shadow-sm">
               <Truck className="mb-4 text-[#1157ff]" size={30} />
               <h2 className="text-xl font-bold">Поставка с менеджером</h2>
               <p className="mt-2 text-sm leading-6 text-slate-600">
@@ -89,7 +89,7 @@ export default async function Home() {
 
             return (
               <div
-                className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm"
+                className="scroll-reveal rounded-xl border border-slate-100 bg-white p-5 shadow-sm"
                 key={advantage.title}
               >
                 <Icon className="text-[#1157ff]" size={28} />
@@ -105,7 +105,7 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-[1480px] px-5 pb-8">
+      <section className="scroll-reveal mx-auto max-w-[1480px] px-5 pb-8">
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-8">
           {categories.map((category) => (
             <Link
@@ -132,7 +132,7 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-[1480px] px-5 pb-12">
+      <section className="scroll-reveal mx-auto max-w-[1480px] px-5 pb-12">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-2xl font-black">Новые товары</h2>
           <Link className="text-sm font-bold text-[#1157ff]" href="/catalog">

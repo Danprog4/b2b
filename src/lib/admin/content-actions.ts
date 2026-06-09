@@ -17,6 +17,13 @@ const allowedBannerMimeTypes = new Set([
 ]);
 const maxBannerImageSizeBytes = 10 * 1024 * 1024;
 const maxBannerSlides = 4;
+const bannerTextLimits = {
+  title: 72,
+  headline: 96,
+  subheadline: 160,
+  ctaText: 32,
+  href: 320,
+};
 
 const translit: Record<string, string> = {
   а: "a",
@@ -133,8 +140,31 @@ function parseOptionalDate(value: string) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+function assertTextLength({
+  bannerId,
+  label,
+  limit,
+  value,
+}: {
+  bannerId: string | null;
+  label: string;
+  limit: number;
+  value: string;
+}) {
+  if (value.length > limit) {
+    redirectWithBannerError(
+      bannerId,
+      `${label}: максимум ${limit} символов.`,
+    );
+  }
+}
+
 function getBannerValues(formData: FormData, bannerId: string | null) {
   const title = getString(formData, "title");
+  const headline = getString(formData, "headline");
+  const subheadline = getString(formData, "subheadline");
+  const ctaText = getString(formData, "ctaText");
+  const href = getString(formData, "href");
   const sortOrder = Number(getString(formData, "sortOrder") || "0");
 
   if (!title) {
@@ -148,12 +178,43 @@ function getBannerValues(formData: FormData, bannerId: string | null) {
     );
   }
 
+  assertTextLength({
+    bannerId,
+    label: "Название",
+    limit: bannerTextLimits.title,
+    value: title,
+  });
+  assertTextLength({
+    bannerId,
+    label: "Дополнительный заголовок",
+    limit: bannerTextLimits.headline,
+    value: headline,
+  });
+  assertTextLength({
+    bannerId,
+    label: "Подзаголовок",
+    limit: bannerTextLimits.subheadline,
+    value: subheadline,
+  });
+  assertTextLength({
+    bannerId,
+    label: "CTA",
+    limit: bannerTextLimits.ctaText,
+    value: ctaText,
+  });
+  assertTextLength({
+    bannerId,
+    label: "Ссылка",
+    limit: bannerTextLimits.href,
+    value: href,
+  });
+
   return {
     title,
-    headline: getString(formData, "headline") || null,
-    subheadline: getString(formData, "subheadline") || null,
-    ctaText: getString(formData, "ctaText") || null,
-    href: getString(formData, "href") || null,
+    headline: headline || null,
+    subheadline: subheadline || null,
+    ctaText: ctaText || null,
+    href: href || null,
     sortOrder: Number.isFinite(sortOrder) ? sortOrder : 0,
     isActive: formData.get("isActive") === "on",
     startsAt: parseOptionalDate(getString(formData, "startsAt")),
