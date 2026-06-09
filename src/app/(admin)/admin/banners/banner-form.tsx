@@ -135,8 +135,8 @@ function BannerPreview({
     <div
       className={
         isMobile
-          ? "relative mx-auto h-[420px] w-full max-w-[340px] overflow-hidden rounded-2xl bg-slate-100 shadow-sm ring-1 ring-slate-200"
-          : "relative h-[420px] w-full overflow-hidden rounded-2xl bg-slate-100 shadow-sm ring-1 ring-slate-200"
+          ? "relative mx-auto h-[400px] w-full max-w-[340px] overflow-hidden rounded-2xl bg-slate-100 shadow-sm ring-1 ring-slate-200"
+          : "relative h-[460px] w-full overflow-hidden rounded-2xl bg-slate-100 shadow-sm ring-1 ring-slate-200"
       }
     >
       {imageUrl ? (
@@ -163,11 +163,17 @@ function BannerPreview({
       <div
         className={
           isMobile
-            ? "relative flex h-full items-end px-7 py-9"
+            ? "relative flex h-full items-stretch px-7 pb-14 pt-8"
             : "relative flex h-full items-center px-8 py-10 md:px-20 md:py-14"
         }
       >
-        <div className={isMobile ? "w-full max-w-full" : "w-full max-w-[720px]"}>
+        <div
+          className={
+            isMobile
+              ? "flex h-full w-full flex-col"
+              : "w-full max-w-[720px]"
+          }
+        >
           {!isMobile && headline ? (
             <span
               className={`mb-4 inline-flex items-center rounded-full px-3.5 py-1.5 text-xs font-bold uppercase tracking-[0.16em] ${
@@ -203,10 +209,12 @@ function BannerPreview({
             </p>
           ) : null}
           {ctaText ? (
-            <span className="mt-8 inline-flex items-center gap-2 rounded-xl bg-[#1157ff] px-6 py-3 text-base font-bold text-white shadow-lg shadow-[#1157ff]/25">
-              {ctaText}
-              <ArrowRight size={18} />
-            </span>
+            <div className={isMobile ? "relative z-30 mt-auto flex pt-6" : "mt-8 flex"}>
+              <span className="inline-flex items-center gap-2 rounded-xl bg-[#1157ff] px-6 py-3 text-base font-bold text-white shadow-lg shadow-[#1157ff]/25">
+                {ctaText}
+                <ArrowRight size={18} />
+              </span>
+            </div>
           ) : null}
         </div>
       </div>
@@ -220,7 +228,7 @@ function BannerPreview({
           </span>
         </>
       ) : null}
-      <div className="absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 gap-2 rounded-full bg-slate-950/30 px-3 py-2 shadow-sm ring-1 ring-white/20 backdrop-blur">
+      <div className="absolute bottom-5 left-1/2 z-20 flex -translate-x-1/2 gap-2 rounded-full bg-slate-950/30 px-3 py-2 shadow-sm ring-1 ring-white/20 backdrop-blur">
         <span className="h-2.5 w-2.5 rounded-full bg-white/50" />
         <span className="h-2.5 w-7 rounded-full bg-white" />
         <span className="h-2.5 w-2.5 rounded-full bg-white/50" />
