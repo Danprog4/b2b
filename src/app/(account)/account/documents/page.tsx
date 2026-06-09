@@ -4,6 +4,11 @@ import Link from "next/link";
 import { FileUploadField } from "@/components/ui/file-upload-field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import {
+  getCompanyDocumentReadiness,
+  requiredCompanyDocumentTypes,
+} from "@/lib/account/company-documents";
+import { requireUser } from "@/lib/auth/session";
+import {
   uploadBuyerCompanyDocumentAction,
   uploadBuyerCompanyDocumentVersionAction,
 } from "@/lib/documents/actions";
@@ -29,7 +34,17 @@ export default async function AccountDocumentsPage({
     !documentUploaded && typeof params.documentError === "string"
       ? params.documentError
       : null;
-  const documents = await getCurrentBuyerCompanyDocuments();
+  const user = await requireUser(["buyer"]);
+  const [documents, documentReadiness] = await Promise.all([
+    getCurrentBuyerCompanyDocuments(),
+    user.buyerCompanyId
+      ? getCompanyDocumentReadiness(user.buyerCompanyId)
+      : Promise.resolve({
+          uploadedTypes: [],
+          missingTypes: requiredCompanyDocumentTypes.slice(),
+          isReady: false,
+        }),
+  ]);
 
   return (
     <main className="min-h-screen bg-[#f4f6fb] px-6 py-8 text-slate-900">
@@ -68,6 +83,28 @@ export default async function AccountDocumentsPage({
             {documentError}
           </div>
         ) : null}
+
+        <section className="mt-5 rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
+          <h2 className="text-xl font-black text-slate-950">
+            Готовность к оформлению заказа
+          </h2>
+          {documentReadiness.isReady ? (
+            <div className="mt-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
+              Обязательные документы компании загружены.
+            </div>
+          ) : (
+            <div className="mt-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <p className="font-black">
+                Чтобы убрать предупреждение в компании и checkout, загрузите:
+              </p>
+              <ul className="mt-2 list-disc space-y-1 pl-5 font-semibold">
+                {documentReadiness.missingTypes.map((document) => (
+                  <li key={document.type}>{document.label}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
 
         <section className="mt-5 rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
           <h2 className="text-xl font-black text-slate-950">

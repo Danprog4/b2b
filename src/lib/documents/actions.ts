@@ -47,6 +47,38 @@ const allowedMimeTypes = new Set([
   "image/jpeg",
   "image/png",
 ]);
+const inferredMimeTypeByExtension = new Map([
+  ["pdf", "application/pdf"],
+  ["doc", "application/msword"],
+  ["docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+  ["jpg", "image/jpeg"],
+  ["jpeg", "image/jpeg"],
+  ["png", "image/png"],
+  ["xls", "application/vnd.ms-excel"],
+  ["xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"],
+]);
+const mimeTypesByExtension = new Map([
+  ["pdf", new Set(["application/pdf"])],
+  ["doc", new Set(["application/msword"])],
+  [
+    "docx",
+    new Set([
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/zip",
+    ]),
+  ],
+  ["jpg", new Set(["image/jpeg"])],
+  ["jpeg", new Set(["image/jpeg"])],
+  ["png", new Set(["image/png"])],
+  ["xls", new Set(["application/vnd.ms-excel"])],
+  [
+    "xlsx",
+    new Set([
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/zip",
+    ]),
+  ],
+]);
 const maxDocumentSizeBytes = 50 * 1024 * 1024;
 const buyerCompanyDocumentTypeValues = new Set(
   buyerCompanyDocumentTypes.map(([value]) => value),
@@ -62,6 +94,38 @@ function getString(formData: FormData, key: string) {
 
 function getFileExtension(fileName: string) {
   return fileName.split(".").pop()?.toLowerCase() ?? "";
+}
+
+function bytesStartWith(bytes: Uint8Array, signature: number[]) {
+  if (bytes.length < signature.length) {
+    return false;
+  }
+
+  return signature.every((byte, index) => bytes[index] === byte);
+}
+
+function hasExpectedFileSignature(extension: string, bytes: Uint8Array) {
+  if (extension === "pdf") {
+    return bytesStartWith(bytes, [0x25, 0x50, 0x44, 0x46, 0x2d]);
+  }
+
+  if (extension === "png") {
+    return bytesStartWith(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  }
+
+  if (extension === "jpg" || extension === "jpeg") {
+    return bytesStartWith(bytes, [0xff, 0xd8, 0xff]);
+  }
+
+  if (extension === "doc" || extension === "xls") {
+    return bytesStartWith(bytes, [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
+  }
+
+  if (extension === "docx" || extension === "xlsx") {
+    return bytesStartWith(bytes, [0x50, 0x4b, 0x03, 0x04]);
+  }
+
+  return false;
 }
 
 function normalizeFileName(fileName: string) {
@@ -121,7 +185,10 @@ function getRedirectPath(returnPath: string, key: string, value = "1") {
   return `${url.pathname}?${url.searchParams.toString()}`;
 }
 
-function validateDocumentFile(returnPath: string, value: FormDataEntryValue | null) {
+async function validateDocumentFile(
+  returnPath: string,
+  value: FormDataEntryValue | null,
+) {
   if (!(value instanceof File) || value.size === 0) {
     redirectWithDocumentError(returnPath, "Выберите файл документа.");
   }
@@ -135,7 +202,15 @@ function validateDocumentFile(returnPath: string, value: FormDataEntryValue | nu
     );
   }
 
-  if (value.type && !allowedMimeTypes.has(value.type)) {
+  const mimeType = value.type || "";
+  const expectedMimeTypes = mimeTypesByExtension.get(extension);
+  const isGenericMimeType =
+    !mimeType || mimeType === "application/octet-stream";
+
+  if (
+    !isGenericMimeType &&
+    (!allowedMimeTypes.has(mimeType) || !expectedMimeTypes?.has(mimeType))
+  ) {
     redirectWithDocumentError(returnPath, "Формат файла не поддерживается.");
   }
 
@@ -143,7 +218,22 @@ function validateDocumentFile(returnPath: string, value: FormDataEntryValue | nu
     redirectWithDocumentError(returnPath, "Файл должен быть не больше 50 МБ.");
   }
 
-  return value;
+  const bytes = new Uint8Array(await value.arrayBuffer());
+
+  if (!hasExpectedFileSignature(extension, bytes)) {
+    redirectWithDocumentError(
+      returnPath,
+      "Файл не соответствует выбранному формату. Проверьте расширение и загрузите документ повторно.",
+    );
+  }
+
+  return {
+    bytes,
+    file: value,
+    mimeType: isGenericMimeType
+      ? (inferredMimeTypeByExtension.get(extension) ?? "application/octet-stream")
+      : mimeType,
+  };
 }
 
 function assertDocumentType(
@@ -156,12 +246,16 @@ function assertDocumentType(
   }
 }
 
-async function persistDocumentFile(file: File, uploadedById: string, storagePrefix: string) {
-  const bytes = new Uint8Array(await file.arrayBuffer());
+async function persistDocumentFile(
+  documentFile: Awaited<ReturnType<typeof validateDocumentFile>>,
+  uploadedById: string,
+  storagePrefix: string,
+) {
+  const { bytes, file, mimeType } = documentFile;
   const fileName = normalizeFileName(file.name);
   const storageKey = `${storagePrefix}/${randomUUID()}-${fileName}`;
   const { sizeBytes } = await writeStorageFile(storageKey, bytes, {
-    contentType: file.type || "application/octet-stream",
+    contentType: mimeType,
   });
 
   const [storedFile] = await db
@@ -169,7 +263,7 @@ async function persistDocumentFile(file: File, uploadedById: string, storagePref
     .values({
       originalName: file.name,
       storageKey,
-      mimeType: file.type || "application/octet-stream",
+      mimeType,
       sizeBytes,
       access: "private",
       uploadedById,
@@ -250,7 +344,7 @@ export async function uploadOrderDocumentAction(formData: FormData) {
 
   assertDocumentType(returnPath, type, orderDocumentTypeValues);
 
-  const file = validateDocumentFile(returnPath, formData.get("file"));
+  const file = await validateDocumentFile(returnPath, formData.get("file"));
   const [order] = await db
     .select({
       id: orders.id,
@@ -336,7 +430,7 @@ export async function uploadOrderDocumentVersionAction(formData: FormData) {
     redirect("/admin/orders");
   }
 
-  const file = validateDocumentFile(returnPath, formData.get("file"));
+  const file = await validateDocumentFile(returnPath, formData.get("file"));
   const [document] = await db
     .select({
       id: documents.id,
@@ -426,7 +520,7 @@ export async function uploadBuyerCompanyDocumentAction(formData: FormData) {
 
   assertDocumentType(returnPath, type, buyerCompanyDocumentTypeValues);
 
-  const file = validateDocumentFile(returnPath, formData.get("file"));
+  const file = await validateDocumentFile(returnPath, formData.get("file"));
   const storedFile = await persistDocumentFile(
     file,
     user.id,
@@ -496,7 +590,7 @@ export async function uploadBuyerCompanyDocumentVersionAction(formData: FormData
     redirect(returnPath);
   }
 
-  const file = validateDocumentFile(returnPath, formData.get("file"));
+  const file = await validateDocumentFile(returnPath, formData.get("file"));
   const [document] = await db
     .select({
       id: documents.id,
@@ -569,7 +663,10 @@ export async function uploadBuyerCompanyDocumentVersionAction(formData: FormData
     });
   });
 
+  revalidatePath("/account");
+  revalidatePath("/account/company");
   revalidatePath("/account/documents");
+  revalidatePath("/checkout");
   revalidatePath("/admin/documents");
   revalidatePath("/account/notifications");
   revalidatePath("/admin");
@@ -595,7 +692,7 @@ export async function uploadSellerDocumentAction(formData: FormData) {
 
   assertDocumentType(returnPath, type, sellerDocumentTypeValues);
 
-  const file = validateDocumentFile(returnPath, formData.get("file"));
+  const file = await validateDocumentFile(returnPath, formData.get("file"));
   const storedFile = await persistDocumentFile(
     file,
     user.id,
@@ -662,7 +759,7 @@ export async function uploadSellerDocumentVersionAction(formData: FormData) {
     redirect(returnPath);
   }
 
-  const file = validateDocumentFile(returnPath, formData.get("file"));
+  const file = await validateDocumentFile(returnPath, formData.get("file"));
   const [document] = await db
     .select({
       id: documents.id,
@@ -756,7 +853,7 @@ export async function uploadAdminDocumentAction(formData: FormData) {
 
   assertDocumentType(returnPath, type, adminDocumentTypeValues);
 
-  const file = validateDocumentFile(returnPath, formData.get("file"));
+  const file = await validateDocumentFile(returnPath, formData.get("file"));
   let buyerCompanyId: string | null = null;
   let orderId: string | null = null;
   let sellerId: string | null = null;
@@ -895,7 +992,7 @@ export async function uploadAdminDocumentVersionAction(formData: FormData) {
     redirect(returnPath);
   }
 
-  const file = validateDocumentFile(returnPath, formData.get("file"));
+  const file = await validateDocumentFile(returnPath, formData.get("file"));
   const [document] = await db
     .select({
       id: documents.id,
@@ -962,8 +1059,10 @@ export async function uploadAdminDocumentVersionAction(formData: FormData) {
   });
 
   revalidatePath("/admin/documents");
+  revalidatePath("/account/company");
   revalidatePath("/account/documents");
   revalidatePath("/account/notifications");
+  revalidatePath("/checkout");
   revalidatePath(returnPath);
 
   if (document.buyerCompanyId) {
