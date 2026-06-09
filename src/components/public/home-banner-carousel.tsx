@@ -104,7 +104,7 @@ export function HomeBannerCarousel({
   const mobileImageUrl = activeBanner.mobileImageUrl ?? imageUrl;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-[#dff0ff] shadow-sm">
+    <div className="relative h-[420px] overflow-hidden rounded-2xl bg-[#dff0ff] shadow-sm">
       {imageUrl || mobileImageUrl ? (
         <picture>
           {mobileImageUrl ? (
@@ -119,7 +119,7 @@ export function HomeBannerCarousel({
       ) : null}
 
       <div
-        className={`relative min-h-[360px] px-8 py-10 md:min-h-[420px] md:px-12 md:py-14 ${
+        className={`relative flex h-full items-center px-8 py-10 md:px-12 md:py-14 ${
           imageUrl || mobileImageUrl ? "bg-white/70 backdrop-blur-[1px]" : ""
         }`}
       >
