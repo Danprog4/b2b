@@ -1,6 +1,6 @@
 "use client";
 
-import { ImageIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight, ImageIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { FileUploadField } from "@/components/ui/file-upload-field";
@@ -15,9 +15,13 @@ type BannerFormProps = {
   banner?: {
     id: string;
     title: string;
+    mobileTitle: string | null;
     headline: string | null;
+    mobileHeadline: string | null;
     subheadline: string | null;
+    mobileSubheadline: string | null;
     ctaText: string | null;
+    mobileCtaText: string | null;
     href: string | null;
     sortOrder: number;
     isActive: boolean;
@@ -42,6 +46,10 @@ const bannerTextLimits = {
   headline: 96,
   subheadline: 160,
   ctaText: 32,
+  mobileTitle: 56,
+  mobileHeadline: 72,
+  mobileSubheadline: 120,
+  mobileCtaText: 28,
   href: 320,
 };
 const demoBannerPreview = {
@@ -50,10 +58,6 @@ const demoBannerPreview = {
   subheadline:
     "Соберите закупку в корзине, получите счет Сити Маркета и ведите документы в личном кабинете.",
   ctaText: "Перейти в каталог",
-  imageUrl:
-    "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&w=1480&h=420&q=84",
-  mobileImageUrl:
-    "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&w=720&h=1120&q=84",
 };
 
 function dateTimeLocalValue(value: Date | string | null) {
@@ -81,8 +85,11 @@ function dateTimeLocalValue(value: Date | string | null) {
 
 function PreviewPlaceholder() {
   return (
-    <div className="absolute inset-0 flex items-center justify-center bg-slate-100 text-slate-300">
-      <ImageIcon size={34} />
+    <div className="absolute inset-0 bg-slate-100">
+      <div className="absolute right-8 top-8 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/70 text-slate-300 ring-1 ring-slate-200">
+        <ImageIcon size={30} />
+      </div>
+      <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-white/55 to-transparent" />
     </div>
   );
 }
@@ -122,8 +129,8 @@ function BannerPreview({
     <div
       className={
         isMobile
-          ? "relative mx-auto aspect-[9/14] w-full max-w-[260px] overflow-hidden rounded-[22px] bg-[#dff0ff] shadow-sm ring-1 ring-slate-200"
-          : "relative aspect-[1480/420] w-full overflow-hidden rounded-2xl bg-[#dff0ff] shadow-sm ring-1 ring-slate-200"
+          ? "relative mx-auto h-[420px] w-full max-w-[340px] overflow-hidden rounded-2xl bg-slate-100 shadow-sm ring-1 ring-slate-200"
+          : "relative h-[420px] w-full overflow-hidden rounded-2xl bg-slate-100 shadow-sm ring-1 ring-slate-200"
       }
     >
       {imageUrl ? (
@@ -131,50 +138,57 @@ function BannerPreview({
       ) : (
         <PreviewPlaceholder />
       )}
-      <div className="absolute inset-0 bg-white/45 backdrop-blur-[1px]" />
-      <div className={isMobile ? "relative p-5" : "relative max-w-[62%] p-8"}>
-        <h3
-          className={
-            isMobile
-              ? "line-clamp-4 text-2xl font-black leading-tight text-slate-950"
-              : "line-clamp-2 text-4xl font-black leading-tight text-slate-950"
-          }
-        >
-          {title || "Название баннера"}
-        </h3>
-        {headline ? (
-          <p
+      {imageUrl ? (
+        <div className="absolute inset-0 bg-white/70 backdrop-blur-[1px]" />
+      ) : null}
+      <div
+        className={
+          isMobile
+            ? "relative flex h-full items-center px-8 py-10"
+            : "relative flex h-full items-center px-8 py-10 md:px-20 md:py-14"
+        }
+      >
+        <div className={isMobile ? "w-full max-w-full" : "w-full max-w-[720px]"}>
+          <h3
             className={
               isMobile
-                ? "mt-3 line-clamp-3 text-base font-black leading-5 text-slate-900"
-                : "mt-4 line-clamp-2 text-xl font-black leading-7 text-slate-900"
+                ? "line-clamp-3 text-3xl font-black leading-tight text-slate-950"
+                : "line-clamp-3 text-5xl font-black leading-tight text-slate-950"
             }
           >
-            {headline}
-          </p>
-        ) : null}
-        {subheadline ? (
-          <p
-            className={
-              isMobile
-                ? "mt-3 line-clamp-4 text-sm leading-5 text-slate-600"
-                : "mt-4 line-clamp-2 text-base leading-7 text-slate-600"
-            }
-          >
-            {subheadline}
-          </p>
-        ) : null}
-        {ctaText ? (
-          <span
-            className={
-              isMobile
-                ? "mt-5 inline-flex rounded-lg bg-[#1157ff] px-4 py-2.5 text-sm font-bold text-white"
-                : "mt-6 inline-flex rounded-lg bg-[#1157ff] px-6 py-3 text-base font-bold text-white"
-            }
-          >
-            {ctaText}
+            {title || "Название баннера"}
+          </h3>
+          {headline ? (
+            <p className="mt-5 line-clamp-2 max-w-xl text-lg font-black leading-7 text-slate-900">
+              {headline}
+            </p>
+          ) : null}
+          {subheadline ? (
+            <p className="mt-5 line-clamp-2 max-w-xl text-base leading-7 text-slate-600">
+              {subheadline}
+            </p>
+          ) : null}
+          {ctaText ? (
+            <span className="mt-8 inline-flex rounded-lg bg-[#1157ff] px-6 py-3 text-base font-bold text-white shadow-sm">
+              {ctaText}
+            </span>
+          ) : null}
+        </div>
+      </div>
+      {!isMobile ? (
+        <>
+          <span className="absolute left-4 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-900 shadow-sm">
+            <ChevronLeft size={22} />
           </span>
-        ) : null}
+          <span className="absolute right-4 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-900 shadow-sm">
+            <ChevronRight size={22} />
+          </span>
+        </>
+      ) : null}
+      <div className="absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 gap-2 rounded-full bg-white/80 px-3 py-2 shadow-sm">
+        <span className="h-2.5 w-2.5 rounded-full bg-slate-300" />
+        <span className="h-2.5 w-7 rounded-full bg-[#1157ff]" />
+        <span className="h-2.5 w-2.5 rounded-full bg-slate-300" />
       </div>
     </div>
   );
@@ -195,9 +209,19 @@ export function BannerForm({
     ) ??
     bannerOrderSlots[0];
   const [title, setTitle] = useState(banner?.title ?? "");
+  const [mobileTitle, setMobileTitle] = useState(banner?.mobileTitle ?? "");
   const [headline, setHeadline] = useState(banner?.headline ?? "");
+  const [mobileHeadline, setMobileHeadline] = useState(
+    banner?.mobileHeadline ?? "",
+  );
   const [subheadline, setSubheadline] = useState(banner?.subheadline ?? "");
+  const [mobileSubheadline, setMobileSubheadline] = useState(
+    banner?.mobileSubheadline ?? "",
+  );
   const [ctaText, setCtaText] = useState(banner?.ctaText ?? "");
+  const [mobileCtaText, setMobileCtaText] = useState(
+    banner?.mobileCtaText ?? "",
+  );
   const [href, setHref] = useState(banner?.href ?? "");
   const [isHrefSuggestionsOpen, setIsHrefSuggestionsOpen] = useState(false);
   const [sortOrder, setSortOrder] = useState(String(initialSortOrder));
@@ -253,9 +277,12 @@ export function BannerForm({
   const previewHeadline = headline || demoBannerPreview.headline;
   const previewSubheadline = subheadline || demoBannerPreview.subheadline;
   const previewCtaText = ctaText || demoBannerPreview.ctaText;
-  const previewDesktopImageUrl = desktopPreviewUrl ?? demoBannerPreview.imageUrl;
-  const previewMobileImageUrl =
-    mobilePreviewUrl ?? desktopPreviewUrl ?? demoBannerPreview.mobileImageUrl;
+  const previewMobileTitle = mobileTitle || previewTitle;
+  const previewMobileHeadline = mobileHeadline || previewHeadline;
+  const previewMobileSubheadline = mobileSubheadline || previewSubheadline;
+  const previewMobileCtaText = mobileCtaText || previewCtaText;
+  const previewDesktopImageUrl = desktopPreviewUrl;
+  const previewMobileImageUrl = mobilePreviewUrl ?? desktopPreviewUrl;
   const showHrefSuggestions =
     isHrefSuggestionsOpen &&
     href.startsWith("/") &&
@@ -278,7 +305,7 @@ export function BannerForm({
           </div>
         </div>
 
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div className="grid gap-3">
             <p className="text-xs font-black uppercase tracking-wide text-slate-500">
               Desktop
@@ -298,12 +325,12 @@ export function BannerForm({
               Mobile
             </p>
             <BannerPreview
-              ctaText={previewCtaText}
-              headline={previewHeadline}
+              ctaText={previewMobileCtaText}
+              headline={previewMobileHeadline}
               imageUrl={previewMobileImageUrl}
               mode="mobile"
-              subheadline={previewSubheadline}
-              title={previewTitle}
+              subheadline={previewMobileSubheadline}
+              title={previewMobileTitle}
             />
           </div>
         </div>
@@ -358,6 +385,78 @@ export function BannerForm({
             onChange={(event) => setSubheadline(event.currentTarget.value)}
           />
         </label>
+
+        <section className="grid gap-4 rounded-lg bg-slate-50 p-4">
+          <div>
+            <h2 className="text-sm font-black uppercase tracking-wide text-slate-500">
+              Текст для mobile
+            </h2>
+            <p className="mt-1 text-sm font-semibold text-slate-500">
+              Если поле пустое, используется основной текст баннера.
+            </p>
+          </div>
+          <label className="grid gap-2 text-sm font-bold text-slate-700">
+            <span className="flex items-center justify-between gap-3">
+              Mobile-название
+              <TextCounter limit={bannerTextLimits.mobileTitle} value={mobileTitle} />
+            </span>
+            <input
+              className="h-11 rounded-lg border border-slate-200 px-3 font-normal text-slate-950"
+              maxLength={bannerTextLimits.mobileTitle}
+              name="mobileTitle"
+              value={mobileTitle}
+              onChange={(event) => setMobileTitle(event.currentTarget.value)}
+            />
+          </label>
+          <label className="grid gap-2 text-sm font-bold text-slate-700">
+            <span className="flex items-center justify-between gap-3">
+              Mobile-доп. заголовок
+              <TextCounter
+                limit={bannerTextLimits.mobileHeadline}
+                value={mobileHeadline}
+              />
+            </span>
+            <input
+              className="h-11 rounded-lg border border-slate-200 px-3 font-normal text-slate-950"
+              maxLength={bannerTextLimits.mobileHeadline}
+              name="mobileHeadline"
+              value={mobileHeadline}
+              onChange={(event) => setMobileHeadline(event.currentTarget.value)}
+            />
+          </label>
+          <label className="grid gap-2 text-sm font-bold text-slate-700">
+            <span className="flex items-center justify-between gap-3">
+              Mobile-подзаголовок
+              <TextCounter
+                limit={bannerTextLimits.mobileSubheadline}
+                value={mobileSubheadline}
+              />
+            </span>
+            <textarea
+              className="min-h-24 rounded-lg border border-slate-200 px-3 py-2 font-normal text-slate-950"
+              maxLength={bannerTextLimits.mobileSubheadline}
+              name="mobileSubheadline"
+              value={mobileSubheadline}
+              onChange={(event) => setMobileSubheadline(event.currentTarget.value)}
+            />
+          </label>
+          <label className="grid gap-2 text-sm font-bold text-slate-700">
+            <span className="flex items-center justify-between gap-3">
+              Mobile-CTA
+              <TextCounter
+                limit={bannerTextLimits.mobileCtaText}
+                value={mobileCtaText}
+              />
+            </span>
+            <input
+              className="h-11 rounded-lg border border-slate-200 px-3 font-normal text-slate-950"
+              maxLength={bannerTextLimits.mobileCtaText}
+              name="mobileCtaText"
+              value={mobileCtaText}
+              onChange={(event) => setMobileCtaText(event.currentTarget.value)}
+            />
+          </label>
+        </section>
 
         <div className="grid gap-4 md:grid-cols-3">
           <label className="grid gap-2 text-sm font-bold text-slate-700">

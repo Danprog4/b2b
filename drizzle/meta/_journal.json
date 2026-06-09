@@ -92,6 +92,13 @@
       "when": 1780900800000,
       "tag": "0012_city_market_contract_number_seq",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1781005200000,
+      "tag": "0013_add_banner_mobile_text",
+      "breakpoints": true
     }
   ]
 }

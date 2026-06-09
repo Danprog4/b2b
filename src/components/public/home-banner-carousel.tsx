@@ -7,9 +7,13 @@ import { useEffect, useState } from "react";
 type HomeBanner = {
   id: string;
   title: string;
+  mobileTitle: string | null;
   headline: string | null;
+  mobileHeadline: string | null;
   subheadline: string | null;
+  mobileSubheadline: string | null;
   ctaText: string | null;
+  mobileCtaText: string | null;
   href: string | null;
   imageUrl: string | null;
   mobileImageUrl: string | null;
@@ -61,6 +65,49 @@ function BannerAction({
   );
 }
 
+function BannerContent({
+  title,
+  headline,
+  subheadline,
+  ctaText,
+  href,
+  tabIndex,
+  className,
+}: {
+  title: string;
+  headline: string | null;
+  subheadline: string | null;
+  ctaText: string | null;
+  href: string | null;
+  tabIndex?: number;
+  className: string;
+}) {
+  return (
+    <div className={className}>
+      <h1 className="line-clamp-3 text-3xl font-black leading-tight text-slate-950 md:text-5xl">
+        {title}
+      </h1>
+      {headline ? (
+        <p className="mt-5 line-clamp-2 max-w-xl text-lg font-black leading-7 text-slate-900">
+          {headline}
+        </p>
+      ) : null}
+      {subheadline ? (
+        <p className="mt-5 line-clamp-2 max-w-xl text-base leading-7 text-slate-600">
+          {subheadline}
+        </p>
+      ) : null}
+      {ctaText ? (
+        <div className="mt-8 flex flex-wrap gap-3">
+          <BannerAction href={href} tabIndex={tabIndex}>
+            {ctaText}
+          </BannerAction>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function BannerSlide({
   banner,
   isActive,
@@ -72,14 +119,18 @@ function BannerSlide({
   const mobileImageUrl = banner.mobileImageUrl ?? imageUrl;
   const hasImage = Boolean(imageUrl || mobileImageUrl);
   const actionTabIndex = isActive ? undefined : -1;
+  const mobileTitle = banner.mobileTitle || banner.title;
+  const mobileHeadline = banner.mobileHeadline || banner.headline;
+  const mobileSubheadline = banner.mobileSubheadline || banner.subheadline;
+  const mobileCtaText = banner.mobileCtaText || banner.ctaText;
 
   return (
     <div
       aria-hidden={!isActive}
-      className={`absolute inset-0 transition-[opacity,transform] duration-700 ease-out motion-reduce:transition-none ${
+      className={`absolute inset-0 transition-opacity duration-700 ease-out motion-reduce:transition-none ${
         isActive
-          ? "z-10 translate-x-0 opacity-100"
-          : "z-0 pointer-events-none translate-x-4 opacity-0"
+          ? "z-10 opacity-100"
+          : "z-0 pointer-events-none opacity-0"
       }`}
     >
       {hasImage ? (
@@ -89,9 +140,7 @@ function BannerSlide({
           ) : null}
           <img
             alt={banner.title}
-            className={`absolute inset-0 h-full w-full object-cover transition-transform duration-[1400ms] ease-out motion-reduce:transition-none ${
-              isActive ? "scale-100" : "scale-105"
-            }`}
+            className="absolute inset-0 h-full w-full object-cover"
             src={imageUrl ?? mobileImageUrl ?? ""}
           />
         </picture>
@@ -103,30 +152,28 @@ function BannerSlide({
         }`}
       >
         <div
-          className={`w-full max-w-[720px] transition-[opacity,transform] delay-100 duration-700 ease-out motion-reduce:transition-none ${
-            isActive ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
+          className={`w-full transition-opacity delay-75 duration-500 ease-out motion-reduce:transition-none ${
+            isActive ? "opacity-100" : "opacity-0"
           }`}
         >
-          <h1 className="line-clamp-3 text-3xl font-black leading-tight text-slate-950 md:text-5xl">
-            {banner.title}
-          </h1>
-          {banner.headline ? (
-            <p className="mt-5 line-clamp-2 max-w-xl text-lg font-black leading-7 text-slate-900">
-              {banner.headline}
-            </p>
-          ) : null}
-          {banner.subheadline ? (
-            <p className="mt-5 line-clamp-2 max-w-xl text-base leading-7 text-slate-600">
-              {banner.subheadline}
-            </p>
-          ) : null}
-          {banner.ctaText ? (
-            <div className="mt-8 flex flex-wrap gap-3">
-              <BannerAction href={banner.href} tabIndex={actionTabIndex}>
-                {banner.ctaText}
-              </BannerAction>
-            </div>
-          ) : null}
+          <BannerContent
+            className="hidden max-w-[720px] md:block"
+            ctaText={banner.ctaText}
+            headline={banner.headline}
+            href={banner.href}
+            subheadline={banner.subheadline}
+            tabIndex={actionTabIndex}
+            title={banner.title}
+          />
+          <BannerContent
+            className="block max-w-full md:hidden"
+            ctaText={mobileCtaText}
+            headline={mobileHeadline}
+            href={banner.href}
+            subheadline={mobileSubheadline}
+            tabIndex={actionTabIndex}
+            title={mobileTitle}
+          />
         </div>
       </div>
     </div>

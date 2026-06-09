@@ -13,9 +13,13 @@ export async function getActiveHomeBanners() {
     .select({
       id: banners.id,
       title: banners.title,
+      mobileTitle: banners.mobileTitle,
       headline: banners.headline,
+      mobileHeadline: banners.mobileHeadline,
       subheadline: banners.subheadline,
+      mobileSubheadline: banners.mobileSubheadline,
       ctaText: banners.ctaText,
+      mobileCtaText: banners.mobileCtaText,
       href: banners.href,
       sortOrder: banners.sortOrder,
       desktopImageFileId: desktopFiles.id,
@@ -41,9 +45,13 @@ export async function getActiveHomeBanners() {
   return rows.map((row) => ({
     id: row.id,
     title: row.title,
+    mobileTitle: row.mobileTitle,
     headline: row.headline,
+    mobileHeadline: row.mobileHeadline,
     subheadline: row.subheadline,
+    mobileSubheadline: row.mobileSubheadline,
     ctaText: row.ctaText,
+    mobileCtaText: row.mobileCtaText,
     href: row.href,
     imageUrl: row.desktopImageIsActive
       ? getPublicFileUrl({

@@ -22,6 +22,10 @@ const bannerTextLimits = {
   headline: 96,
   subheadline: 160,
   ctaText: 32,
+  mobileTitle: 56,
+  mobileHeadline: 72,
+  mobileSubheadline: 120,
+  mobileCtaText: 28,
   href: 320,
 };
 
@@ -161,9 +165,13 @@ function assertTextLength({
 
 function getBannerValues(formData: FormData, bannerId: string | null) {
   const title = getString(formData, "title");
+  const mobileTitle = getString(formData, "mobileTitle");
   const headline = getString(formData, "headline");
+  const mobileHeadline = getString(formData, "mobileHeadline");
   const subheadline = getString(formData, "subheadline");
+  const mobileSubheadline = getString(formData, "mobileSubheadline");
   const ctaText = getString(formData, "ctaText");
+  const mobileCtaText = getString(formData, "mobileCtaText");
   const href = getString(formData, "href");
   const sortOrder = Number(getString(formData, "sortOrder") || "0");
 
@@ -186,9 +194,21 @@ function getBannerValues(formData: FormData, bannerId: string | null) {
   });
   assertTextLength({
     bannerId,
+    label: "Mobile-название",
+    limit: bannerTextLimits.mobileTitle,
+    value: mobileTitle,
+  });
+  assertTextLength({
+    bannerId,
     label: "Дополнительный заголовок",
     limit: bannerTextLimits.headline,
     value: headline,
+  });
+  assertTextLength({
+    bannerId,
+    label: "Mobile-дополнительный заголовок",
+    limit: bannerTextLimits.mobileHeadline,
+    value: mobileHeadline,
   });
   assertTextLength({
     bannerId,
@@ -198,9 +218,21 @@ function getBannerValues(formData: FormData, bannerId: string | null) {
   });
   assertTextLength({
     bannerId,
+    label: "Mobile-подзаголовок",
+    limit: bannerTextLimits.mobileSubheadline,
+    value: mobileSubheadline,
+  });
+  assertTextLength({
+    bannerId,
     label: "CTA",
     limit: bannerTextLimits.ctaText,
     value: ctaText,
+  });
+  assertTextLength({
+    bannerId,
+    label: "Mobile-CTA",
+    limit: bannerTextLimits.mobileCtaText,
+    value: mobileCtaText,
   });
   assertTextLength({
     bannerId,
@@ -211,9 +243,13 @@ function getBannerValues(formData: FormData, bannerId: string | null) {
 
   return {
     title,
+    mobileTitle: mobileTitle || null,
     headline: headline || null,
+    mobileHeadline: mobileHeadline || null,
     subheadline: subheadline || null,
+    mobileSubheadline: mobileSubheadline || null,
     ctaText: ctaText || null,
+    mobileCtaText: mobileCtaText || null,
     href: href || null,
     sortOrder: Number.isFinite(sortOrder) ? sortOrder : 0,
     isActive: formData.get("isActive") === "on",
