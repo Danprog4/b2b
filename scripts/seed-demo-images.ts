@@ -5,6 +5,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
 import {
+  banners,
   categories,
   files,
   productImages,
@@ -23,12 +24,25 @@ type ImageAsset = {
   storagePrefix: string;
 };
 
+type BannerAsset = {
+  sortOrder: number;
+  title: string;
+  headline: string;
+  subheadline: string;
+  ctaText: string;
+  href: string;
+  desktopUrl: string;
+  mobileUrl: string;
+};
+
 const connectionString =
   process.env.DATABASE_URL ??
   "postgres://postgres:postgres@localhost:5432/city_market";
 const shouldReplaceExisting = process.env.REPLACE_SEED_IMAGES === "YES";
 
 const imageParams = "auto=format&fit=crop&w=1200&h=900&q=82";
+const bannerDesktopParams = "auto=format&fit=crop&w=1480&h=420&q=84";
+const bannerMobileParams = "auto=format&fit=crop&w=720&h=1120&q=84";
 
 const assets: ImageAsset[] = [
   {
@@ -182,7 +196,7 @@ const assets: ImageAsset[] = [
     type: "product",
     slug: "ris-dlinnozernyy-meshok-25-kg",
     title: "Рис длиннозерный, мешок 25 кг",
-    url: `https://images.unsplash.com/photo-1614735241165-6756e1df61ab?${imageParams}`,
+    url: `https://images.unsplash.com/photo-1644377949116-c4a6b529241c?${imageParams}`,
     storagePrefix: "seed-assets/products",
   },
   {
@@ -198,6 +212,42 @@ const assets: ImageAsset[] = [
     title: "Кабель UTP Cat.6, бухта 305 м",
     url: `https://images.unsplash.com/photo-1518770660439-4636190af475?${imageParams}`,
     storagePrefix: "seed-assets/products",
+  },
+];
+
+const bannerAssets: BannerAsset[] = [
+  {
+    sortOrder: 1,
+    title: "Стройматериалы для объектов без лишних согласований",
+    headline: "Цемент, металлопрокат и складские позиции от проверенных продавцов",
+    subheadline:
+      "Соберите закупку в корзине, получите счет Сити Маркета и ведите документы в личном кабинете.",
+    ctaText: "Перейти в каталог",
+    href: "/catalog",
+    desktopUrl: `https://images.unsplash.com/photo-1589939705384-5185137a7f0f?${bannerDesktopParams}`,
+    mobileUrl: `https://images.unsplash.com/photo-1589939705384-5185137a7f0f?${bannerMobileParams}`,
+  },
+  {
+    sortOrder: 2,
+    title: "Закупки для склада и производства",
+    headline: "Оборудование, фурнитура и расходники в одном заказе",
+    subheadline:
+      "Сравнивайте предложения продавцов, выбирайте актуальную цену и оформляйте поставку от юридического лица.",
+    ctaText: "Смотреть оборудование",
+    href: "/catalog/oborudovanie",
+    desktopUrl: `https://images.unsplash.com/photo-1587293852726-70cdb56c2866?${bannerDesktopParams}`,
+    mobileUrl: `https://images.unsplash.com/photo-1587293852726-70cdb56c2866?${bannerMobileParams}`,
+  },
+  {
+    sortOrder: 3,
+    title: "Регулярные поставки для бизнеса",
+    headline: "Продукты, химия, электроника и запчасти для ежедневных задач",
+    subheadline:
+      "Каталог подходит для повторных закупок, а менеджер помогает согласовать доставку и условия отгрузки.",
+    ctaText: "Выбрать товары",
+    href: "/catalog",
+    desktopUrl: `https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?${bannerDesktopParams}`,
+    mobileUrl: `https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?${bannerMobileParams}`,
   },
 ];
 
@@ -232,26 +282,58 @@ async function downloadImage(asset: ImageAsset) {
   };
 }
 
-async function getOrCreateFile(asset: ImageAsset) {
-  const storageKey = getStorageKey(asset);
+async function getOrCreateRemoteFile({
+  storageKey,
+  originalName,
+  title,
+  url,
+}: {
+  storageKey: string;
+  originalName: string;
+  title: string;
+  url: string;
+}) {
   const [existingFile] = await db
     .select({ id: files.id })
     .from(files)
     .where(eq(files.storageKey, storageKey))
     .limit(1);
 
-  if (existingFile) {
+  if (existingFile && !shouldReplaceExisting) {
     return existingFile.id;
   }
 
-  const { bytes, mimeType } = await downloadImage(asset);
+  const { bytes, mimeType } = await downloadImage({
+    type: "product",
+    slug: storageKey,
+    title,
+    url,
+    storagePrefix: "",
+  });
   const { sizeBytes } = await writeStorageFile(storageKey, bytes, {
     contentType: mimeType,
   });
+
+  if (existingFile) {
+    await db
+      .update(files)
+      .set({
+        originalName,
+        mimeType,
+        sizeBytes,
+        access: "public",
+        isActive: true,
+        updatedAt: new Date(),
+      })
+      .where(eq(files.id, existingFile.id));
+
+    return existingFile.id;
+  }
+
   const [storedFile] = await db
     .insert(files)
     .values({
-      originalName: getOriginalName(asset),
+      originalName,
       storageKey,
       mimeType,
       sizeBytes,
@@ -260,6 +342,15 @@ async function getOrCreateFile(asset: ImageAsset) {
     .returning({ id: files.id });
 
   return storedFile.id;
+}
+
+async function getOrCreateFile(asset: ImageAsset) {
+  return getOrCreateRemoteFile({
+    storageKey: getStorageKey(asset),
+    originalName: getOriginalName(asset),
+    title: asset.title,
+    url: asset.url,
+  });
 }
 
 async function applyCategoryImage(asset: ImageAsset) {
@@ -379,6 +470,51 @@ async function applyImage(asset: ImageAsset) {
   return applyProductImage(asset);
 }
 
+async function applyBanner(bannerAsset: BannerAsset): Promise<"updated"> {
+  const desktopImageFileId = await getOrCreateRemoteFile({
+    storageKey: `seed-assets/banners/banner-${bannerAsset.sortOrder}-desktop.jpg`,
+    originalName: `banner-${bannerAsset.sortOrder}-desktop.jpg`,
+    title: `${bannerAsset.title} desktop`,
+    url: bannerAsset.desktopUrl,
+  });
+  const mobileImageFileId = await getOrCreateRemoteFile({
+    storageKey: `seed-assets/banners/banner-${bannerAsset.sortOrder}-mobile.jpg`,
+    originalName: `banner-${bannerAsset.sortOrder}-mobile.jpg`,
+    title: `${bannerAsset.title} mobile`,
+    url: bannerAsset.mobileUrl,
+  });
+  const values = {
+    title: bannerAsset.title,
+    headline: bannerAsset.headline,
+    subheadline: bannerAsset.subheadline,
+    ctaText: bannerAsset.ctaText,
+    href: bannerAsset.href,
+    sortOrder: bannerAsset.sortOrder,
+    desktopImageFileId,
+    mobileImageFileId,
+    isActive: true,
+    startsAt: null,
+    endsAt: null,
+    updatedAt: new Date(),
+  };
+  const [existingBanner] = await db
+    .select({ id: banners.id })
+    .from(banners)
+    .where(eq(banners.sortOrder, bannerAsset.sortOrder))
+    .limit(1);
+
+  if (existingBanner) {
+    await db
+      .update(banners)
+      .set(values)
+      .where(eq(banners.id, existingBanner.id));
+    return "updated";
+  }
+
+  await db.insert(banners).values(values);
+  return "updated";
+}
+
 async function main() {
   const counters = {
     updated: 0,
@@ -390,6 +526,12 @@ async function main() {
     const status = await applyImage(asset);
     counters[status] += 1;
     console.log(`${status}: ${asset.type} ${asset.slug}`);
+  }
+
+  for (const bannerAsset of bannerAssets) {
+    const status = await applyBanner(bannerAsset);
+    counters[status] += 1;
+    console.log(`${status}: banner ${bannerAsset.sortOrder}`);
   }
 
   console.log(

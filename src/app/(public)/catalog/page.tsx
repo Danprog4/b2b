@@ -327,7 +327,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
           </aside>
 
           {products.length > 0 ? (
-            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <section className="grid gap-x-4 gap-y-2 md:grid-cols-2 xl:grid-cols-4">
               {products.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
