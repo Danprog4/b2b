@@ -7,7 +7,7 @@ import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 
 import { db } from "@/db";
-import { cartItems, carts, products, sellerOffers } from "@/db/schema";
+import { cartItems, carts, categories, products, sellerOffers } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/session";
 import { CART_SESSION_COOKIE, findCartItem } from "@/lib/cart/queries";
 
@@ -65,6 +65,7 @@ async function getSelectedOffer(productId: string, sellerOfferId?: string) {
   const filters = [
     eq(products.id, productId),
     eq(products.isActive, true),
+    eq(categories.isActive, true),
     eq(sellerOffers.productId, products.id),
     eq(sellerOffers.status, "published" as const),
   ];
@@ -84,6 +85,7 @@ async function getSelectedOffer(productId: string, sellerOfferId?: string) {
       createdAt: sellerOffers.createdAt,
     })
     .from(products)
+    .innerJoin(categories, eq(categories.id, products.categoryId))
     .innerJoin(sellerOffers, eq(sellerOffers.productId, products.id))
     .where(and(...filters));
 
@@ -209,7 +211,7 @@ function sanitizeQuantity(value: string) {
     return 1;
   }
 
-  return Math.min(parsed, 9999);
+  return Math.round(Math.min(parsed, 9999) * 1000) / 1000;
 }
 
 export async function addToCartAction(formData: FormData) {
@@ -232,7 +234,7 @@ export async function addProductToBuyerCart(
 ) {
   return addProductToCurrentCart(
     productId,
-    Math.max(1, Math.min(quantity, 9999)),
+    Math.round(Math.max(1, Math.min(quantity, 9999)) * 1000) / 1000,
     sellerOfferId ?? undefined,
   );
 }

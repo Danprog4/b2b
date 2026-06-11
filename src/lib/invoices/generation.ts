@@ -6,14 +6,13 @@ import {
   buyerCompanies,
   documents,
   documentVersions,
-  emailOutbox,
   files,
   invoices,
   orderItems,
   orders,
   systemEvents,
-  users,
 } from "@/db/schema";
+import { queueBuyerCompanyEmails } from "@/lib/email/queue";
 import { writeStorageFile } from "@/lib/files/storage";
 import { generateInvoicePdf } from "@/lib/invoices/pdf";
 import { getNextInvoiceNumber } from "@/lib/numbering/sequences";
@@ -100,11 +99,9 @@ export async function generateOrderInvoice(
       buyerKpp: buyerCompanies.kpp,
       buyerOgrn: buyerCompanies.ogrn,
       buyerAddress: buyerCompanies.legalAddress,
-      buyerEmail: users.email,
     })
     .from(orders)
     .innerJoin(buyerCompanies, eq(orders.buyerCompanyId, buyerCompanies.id))
-    .innerJoin(users, eq(orders.userId, users.id))
     .where(eq(orders.id, orderId))
     .limit(1);
 
@@ -273,15 +270,13 @@ export async function generateOrderInvoice(
           : `Счет по заказу ${order.number} доступен в личном кабинете.`,
       });
 
-      await tx.insert(emailOutbox).values({
-        toEmail: order.buyerEmail,
+      await queueBuyerCompanyEmails(tx, order.buyerCompanyId, {
         subject: isReplacement
           ? `Новый счет на оплату ${invoice.number} по заказу ${order.number}`
           : `Счет на оплату ${invoice.number} по заказу ${order.number}`,
         body: isReplacement
           ? `Здравствуйте. По заказу ${order.number} сформирован новый счет ${invoice.number}. Он доступен в личном кабинете Сити Маркет.`
           : `Здравствуйте. Счет ${invoice.number} по заказу ${order.number} сформирован и доступен в личном кабинете Сити Маркет.`,
-        status: "queued",
         orderId: order.id,
         invoiceId: invoice.id,
         attachmentFileId: file.id,

@@ -113,6 +113,7 @@ export async function getCurrentCart(): Promise<CartView> {
       quantity: cartItems.quantity,
       unit: products.unit,
       isProductActive: products.isActive,
+      isCategoryActive: categories.isActive,
       offerStatus: sellerOffers.status,
     })
     .from(cartItems)
@@ -140,7 +141,8 @@ export async function getCurrentCart(): Promise<CartView> {
       lineTotal,
       vatAmount: calculateVatAmount(lineTotal, vatRate),
       priceChanged: price !== snapshot,
-      isActive: row.isProductActive && row.offerStatus === "published",
+      isActive:
+        row.isProductActive && row.isCategoryActive && row.offerStatus === "published",
     };
   });
 

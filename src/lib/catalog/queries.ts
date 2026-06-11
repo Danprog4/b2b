@@ -34,6 +34,24 @@ export type ProductListItem = {
   mainImageUrl: string | null;
 };
 
+export type CatalogProductsResult = {
+  items: ProductListItem[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
+export type ProductDetailsItem = Omit<
+  ProductListItem,
+  "sellerOfferId" | "priceWithVat" | "vatRate"
+> & {
+  sellerOfferId: string | null;
+  priceWithVat: string | null;
+  vatRate: string | null;
+  unavailable: boolean;
+};
+
 function withMainImageUrl<
   T extends {
     mainImageFileId: string | null;
@@ -152,6 +170,13 @@ function getOfferPublishedTime(row: Pick<ProductOfferRow, "offerCreatedAt" | "of
   return (row.offerPublishedAt ?? row.offerCreatedAt).getTime();
 }
 
+function escapeLikePattern(value: string) {
+  return value
+    .replace(/\\/g, "\\\\")
+    .replace(/%/g, "\\%")
+    .replace(/_/g, "\\_");
+}
+
 function isBetterStorefrontOffer(candidate: ProductOfferRow, current: ProductOfferRow) {
   const priceDelta =
     Number(candidate.offerPriceWithVat) - Number(current.offerPriceWithVat);
@@ -196,7 +221,9 @@ export async function getCatalogProducts({
   minPrice,
   maxPrice,
   sort = "new",
-  limit = 60,
+  page = 1,
+  pageSize = 24,
+  limit,
 }: {
   q?: string;
   categorySlug?: string;
@@ -204,10 +231,13 @@ export async function getCatalogProducts({
   minPrice?: number;
   maxPrice?: number;
   sort?: CatalogSort;
+  page?: number;
+  pageSize?: number;
   limit?: number;
-} = {}): Promise<ProductListItem[]> {
-  const filters = [eq(products.isActive, true)];
+} = {}): Promise<CatalogProductsResult> {
+  const filters = [eq(products.isActive, true), eq(categories.isActive, true)];
   const normalizedQuery = q?.trim();
+  const normalizedPageSize = Math.max(1, Math.min(limit ?? pageSize, 100));
 
   if (categorySlug) {
     const [category] = await db
@@ -217,7 +247,13 @@ export async function getCatalogProducts({
       .limit(1);
 
     if (!category) {
-      return [];
+      return {
+        items: [],
+        totalCount: 0,
+        page: 1,
+        pageSize: normalizedPageSize,
+        totalPages: 1,
+      };
     }
 
     filters.push(eq(products.categoryId, category.id));
@@ -238,7 +274,13 @@ export async function getCatalogProducts({
       .limit(1);
 
     if (!subcategory) {
-      return [];
+      return {
+        items: [],
+        totalCount: 0,
+        page: 1,
+        pageSize: normalizedPageSize,
+        totalPages: 1,
+      };
     }
 
     filters.push(eq(products.subcategoryId, subcategory.id));
@@ -249,7 +291,7 @@ export async function getCatalogProducts({
   }
 
   if (normalizedQuery && normalizedQuery.length >= 2) {
-    const pattern = `%${normalizedQuery}%`;
+    const pattern = `%${escapeLikePattern(normalizedQuery)}%`;
     filters.push(ilike(products.name, pattern));
   }
 
@@ -314,11 +356,25 @@ export async function getCatalogProducts({
     return 0;
   });
 
-  return items.slice(0, limit);
+  const totalCount = items.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / normalizedPageSize));
+  const normalizedPage =
+    Number.isInteger(page) && page >= 1 && page <= totalPages ? page : 1;
+  const start = (normalizedPage - 1) * normalizedPageSize;
+
+  return {
+    items: items.slice(start, start + normalizedPageSize),
+    totalCount,
+    page: normalizedPage,
+    pageSize: normalizedPageSize,
+    totalPages,
+  };
 }
 
-export async function getProductBySlug(slug: string) {
-  const productRows = await db
+export async function getProductBySlug(
+  slug: string,
+): Promise<ProductDetailsItem | null> {
+  const [product] = await db
     .select({
       id: products.id,
       sku: products.sku,
@@ -336,11 +392,6 @@ export async function getProductBySlug(slug: string) {
       subcategoryName: subcategories.name,
       subcategorySlug: subcategories.slug,
       priorityOfferId: products.priorityOfferId,
-      sellerOfferId: sellerOffers.id,
-      offerPriceWithVat: sellerOffers.priceWithVat,
-      offerVatRate: sellerOffers.vatRate,
-      offerPublishedAt: sellerOffers.moderatedAt,
-      offerCreatedAt: sellerOffers.createdAt,
       isActive: products.isActive,
       createdAt: products.createdAt,
       mainImageFileId: files.id,
@@ -349,18 +400,52 @@ export async function getProductBySlug(slug: string) {
     })
     .from(products)
     .innerJoin(categories, eq(products.categoryId, categories.id))
-    .innerJoin(sellerOffers, eq(sellerOffers.productId, products.id))
     .leftJoin(subcategories, eq(products.subcategoryId, subcategories.id))
     .leftJoin(files, eq(files.id, products.mainImageFileId))
     .where(
       and(
         eq(products.slug, slug),
         eq(products.isActive, true),
-        eq(sellerOffers.status, "published"),
+        eq(categories.isActive, true),
       ),
+    )
+    .limit(1);
+
+  if (!product) {
+    return null;
+  }
+
+  const offerRows = await db
+    .select({
+      sellerOfferId: sellerOffers.id,
+      offerPriceWithVat: sellerOffers.priceWithVat,
+      offerVatRate: sellerOffers.vatRate,
+      offerPublishedAt: sellerOffers.moderatedAt,
+      offerCreatedAt: sellerOffers.createdAt,
+    })
+    .from(sellerOffers)
+    .where(
+      and(eq(sellerOffers.productId, product.id), eq(sellerOffers.status, "published")),
     );
 
-  return productRows.length > 0 ? toProductListItems(productRows)[0] : null;
+  if (offerRows.length === 0) {
+    return {
+      ...withMainImageUrl(product),
+      sellerOfferId: null,
+      priceWithVat: null,
+      vatRate: null,
+      unavailable: true,
+    };
+  }
+
+  const [item] = toProductListItems(
+    offerRows.map((offer) => ({
+      ...product,
+      ...offer,
+    })),
+  );
+
+  return item ? { ...item, unavailable: false } : null;
 }
 
 export async function getProductGalleryImages(productId: string) {

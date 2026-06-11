@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -14,6 +14,11 @@ import {
   sellers,
 } from "@/db/schema";
 import { requireUser } from "@/lib/auth/session";
+import {
+  getAppPath,
+  queueBuyerCompanyEmails,
+  queueSellerEmails,
+} from "@/lib/email/queue";
 import { generateOrderInvoice } from "@/lib/invoices/generation";
 import {
   insertBuyerCompanyNotifications,
@@ -48,7 +53,12 @@ function calculateVatAmount(amountWithVat: number, vatRate: number) {
 
 function getQuantity(formData: FormData) {
   const parsed = Number(getString(formData, "quantity").replace(",", "."));
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+
+  if (!Number.isFinite(parsed) || parsed <= 0 || parsed > 9999) {
+    return null;
+  }
+
+  return Math.round(parsed * 1000) / 1000;
 }
 
 async function regenerateInvoiceAfterOrderEdit(orderId: string, adminId: string) {
@@ -101,14 +111,22 @@ export async function updateOrderStatusAction(formData: FormData) {
     redirect(`/admin/orders/${order.id}?statusError=1`);
   }
 
+  let statusConflict = false;
+
   await db.transaction(async (tx) => {
-    await tx
+    const [updatedOrder] = await tx
       .update(orders)
       .set({
         status,
         updatedAt: new Date(),
       })
-      .where(eq(orders.id, order.id));
+      .where(and(eq(orders.id, order.id), eq(orders.status, order.status)))
+      .returning({ id: orders.id });
+
+    if (!updatedOrder) {
+      statusConflict = true;
+      return;
+    }
 
     if (order.status !== status) {
       const sellerRows = await tx
@@ -130,12 +148,34 @@ export async function updateOrderStatusAction(formData: FormData) {
         body: `Новый статус: ${getOrderStatusLabel(status)}.`,
       });
 
+      await queueBuyerCompanyEmails(tx, order.buyerCompanyId, {
+        subject: `Статус заказа ${order.number} изменен`,
+        body: [
+          "Здравствуйте.",
+          `Статус заказа ${order.number} изменен на «${getOrderStatusLabel(status)}».`,
+          "",
+          `Открыть заказ: ${getAppPath(`/account/orders/${order.id}`)}`,
+        ].join("\n"),
+        orderId: order.id,
+      });
+
       for (const sellerId of sellerIds) {
         await insertSellerNotifications(tx, {
           sellerId,
           type: "order_status_changed",
           title: `Статус заказа ${order.number} изменен`,
           body: `Новый статус: ${getOrderStatusLabel(status)}.`,
+        });
+
+        await queueSellerEmails(tx, sellerId, {
+          subject: `Статус заказа ${order.number} изменен`,
+          body: [
+            "Здравствуйте.",
+            `Статус заказа ${order.number} изменен на «${getOrderStatusLabel(status)}».`,
+            "",
+            `Открыть заказ: ${getAppPath(`/seller/orders/${order.id}`)}`,
+          ].join("\n"),
+          orderId: order.id,
         });
       }
 
@@ -151,6 +191,10 @@ export async function updateOrderStatusAction(formData: FormData) {
       });
     }
   });
+
+  if (statusConflict) {
+    redirect(`/admin/orders/${order.id}?statusError=1`);
+  }
 
   revalidatePath("/admin/orders");
   revalidatePath(`/admin/orders/${order.id}`);
@@ -562,30 +606,58 @@ export async function changeOrderItemOfferAction(formData: FormData) {
       redirect(`/admin/orders/${order.id}`);
     }
 
-    const quantity = Number(item.quantity);
+    const [targetItem] = await tx
+      .select({
+        id: orderItems.id,
+        quantity: orderItems.quantity,
+      })
+      .from(orderItems)
+      .where(
+        and(
+          eq(orderItems.orderId, order.id),
+          eq(orderItems.sellerOfferId, offer.sellerOfferId),
+          ne(orderItems.id, item.id),
+        ),
+      )
+      .limit(1);
+
+    const quantity = targetItem
+      ? Number(targetItem.quantity) + Number(item.quantity)
+      : Number(item.quantity);
     const priceWithVat = Number(offer.priceWithVat);
     const vatRate = Number(offer.vatRate ?? 22);
     const lineTotal = toMoney(quantity * priceWithVat);
     const vatAmount = calculateVatAmount(lineTotal, vatRate);
     const commissionRate = Number(offer.commissionRate ?? 5);
+    const itemValues = {
+      productId: offer.productId,
+      sellerOfferId: offer.sellerOfferId,
+      sellerId: offer.sellerId,
+      productNameSnapshot: offer.productName,
+      skuSnapshot: offer.sku,
+      unitSnapshot: offer.unit,
+      quantity: String(quantity),
+      priceWithVat: formatMoney(priceWithVat),
+      vatRate: formatMoney(vatRate),
+      vatAmount: formatMoney(vatAmount),
+      lineTotal: formatMoney(lineTotal),
+      commissionAmount: formatMoney(lineTotal * (commissionRate / 100)),
+      updatedAt: new Date(),
+    };
 
-    await tx
-      .update(orderItems)
-      .set({
-        productId: offer.productId,
-        sellerOfferId: offer.sellerOfferId,
-        sellerId: offer.sellerId,
-        productNameSnapshot: offer.productName,
-        skuSnapshot: offer.sku,
-        unitSnapshot: offer.unit,
-        priceWithVat: formatMoney(priceWithVat),
-        vatRate: formatMoney(vatRate),
-        vatAmount: formatMoney(vatAmount),
-        lineTotal: formatMoney(lineTotal),
-        commissionAmount: formatMoney(lineTotal * (commissionRate / 100)),
-        updatedAt: new Date(),
-      })
-      .where(eq(orderItems.id, item.id));
+    if (targetItem) {
+      await tx
+        .update(orderItems)
+        .set(itemValues)
+        .where(eq(orderItems.id, targetItem.id));
+
+      await tx.delete(orderItems).where(eq(orderItems.id, item.id));
+    } else {
+      await tx
+        .update(orderItems)
+        .set(itemValues)
+        .where(eq(orderItems.id, item.id));
+    }
 
     const totals = await tx
       .select({
@@ -618,7 +690,10 @@ export async function changeOrderItemOfferAction(formData: FormData) {
       entityType: "order",
       entityId: order.id,
       metadata: {
-        itemId: item.id,
+        itemId: targetItem?.id ?? item.id,
+        sourceItemId: item.id,
+        targetItemId: targetItem?.id ?? null,
+        merged: Boolean(targetItem),
         fromSellerOfferId: item.sellerOfferId,
         toSellerOfferId: offer.sellerOfferId,
       },

@@ -46,12 +46,13 @@ const advantages = [
 ];
 
 export default async function Home() {
-  const [categories, latestProducts, banners, currentUser] = await Promise.all([
+  const [categories, latestProductsResult, banners, currentUser] = await Promise.all([
     getActiveCategories(),
     getCatalogProducts({ sort: "new", limit: 4 }),
     getActiveHomeBanners(),
     getCurrentUser(),
   ]);
+  const latestProducts = latestProductsResult.items;
 
   return (
     <main className="min-h-screen bg-[#f4f6fb] text-slate-900">

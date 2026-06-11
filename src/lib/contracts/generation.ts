@@ -12,6 +12,7 @@ import {
 } from "@/db/schema";
 import { getCompanyMissingFields } from "@/lib/account/company-validation";
 import { generateBuyerContractPdf } from "@/lib/contracts/pdf";
+import { getAppPath, queueBuyerCompanyEmails } from "@/lib/email/queue";
 import { writeStorageFile } from "@/lib/files/storage";
 import { getNextBuyerContractNumber } from "@/lib/numbering/sequences";
 import { insertBuyerCompanyNotifications } from "@/lib/notifications/helpers";
@@ -175,6 +176,17 @@ export async function generateBuyerCompanyContract(
         title: "Договор не сформирован",
         body: errorMessage,
       });
+
+      await queueBuyerCompanyEmails(tx, company.id, {
+        subject: "Договор Сити Маркет требует обновления реквизитов",
+        body: [
+          "Здравствуйте.",
+          "Договор компании не удалось сформировать, потому что в реквизитах не хватает данных.",
+          errorMessage,
+          "",
+          `Обновить реквизиты можно в личном кабинете: ${getAppPath("/account/company")}`,
+        ].join("\n"),
+      });
     });
 
     return { ok: false as const, error: errorMessage };
@@ -311,6 +323,17 @@ export async function generateBuyerCompanyContract(
         type: "contract_generated",
         title: `Договор ${contract.number} сформирован`,
         body: "Договор компании доступен в личном кабинете.",
+      });
+
+      await queueBuyerCompanyEmails(tx, company.id, {
+        subject: `Договор ${contract.number} сформирован`,
+        body: [
+          "Здравствуйте.",
+          `Договор ${contract.number} сформирован и доступен в личном кабинете Сити Маркет.`,
+          "",
+          `Открыть договор: ${getAppPath("/account/contract")}`,
+        ].join("\n"),
+        attachmentFileId: file.id,
       });
     });
 

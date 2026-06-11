@@ -150,6 +150,24 @@ export async function sendTelegramTopicMessage(input: {
   });
 }
 
+export async function sendTelegramOperatorMessage(text: string) {
+  const config = getTelegramConfig();
+
+  if (!config) {
+    throw new Error("Telegram is not configured.");
+  }
+
+  return telegramJsonRequest<TelegramMessage>(
+    "sendMessage",
+    {
+      chat_id: config.operatorChatId,
+      text,
+      disable_web_page_preview: true,
+    },
+    config.token,
+  );
+}
+
 export async function sendTelegramTopicDocument(input: {
   messageThreadId: number;
   bytes: Uint8Array;

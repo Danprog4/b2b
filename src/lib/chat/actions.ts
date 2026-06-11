@@ -9,6 +9,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { auditEvents, chats, files, messages, notifications } from "@/db/schema";
 import { requireUser } from "@/lib/auth/session";
+import { getAppPath, queueBuyerCompanyEmails } from "@/lib/email/queue";
 import { writeStorageFile } from "@/lib/files/storage";
 import {
   insertAdminNotifications,
@@ -235,6 +236,18 @@ export async function sendAdminChatMessageAction(formData: FormData) {
       type: "chat_message_answered",
       title: "Ответ оператора в чате",
       body: text,
+    });
+
+    await queueBuyerCompanyEmails(tx, chat.buyerCompanyId, {
+      subject: "Ответ оператора Сити Маркет",
+      body: [
+        "Здравствуйте.",
+        "Оператор ответил в чате Сити Маркет.",
+        "",
+        text,
+        "",
+        `Открыть чат: ${getAppPath("/account/chat")}`,
+      ].join("\n"),
     });
 
     await tx

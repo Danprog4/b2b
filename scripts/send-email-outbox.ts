@@ -10,6 +10,7 @@ try {
       ? `Email outbox skipped: ${result.reason}`
       : `Email outbox processed: picked=${result.picked}, sent=${result.sent}, failed=${result.failed}`,
   );
+  process.exit(0);
 } catch (error) {
   console.error(
     `Email outbox failed: ${error instanceof Error ? error.message : "Unknown error"}`,

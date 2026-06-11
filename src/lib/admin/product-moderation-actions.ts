@@ -11,6 +11,7 @@ import {
   sellerOffers,
   sellerProductChangeRequests,
 } from "@/db/schema";
+import { recalculateAutomaticProductPriority } from "@/lib/admin/product-priority";
 import { requireUser } from "@/lib/auth/session";
 import { insertSellerNotifications } from "@/lib/notifications/helpers";
 
@@ -125,7 +126,10 @@ export async function approveProductModerationRequestAction(formData: FormData) 
     }
 
     const [productBeforeModeration] = await tx
-      .select({ priorityOfferId: products.priorityOfferId })
+      .select({
+        priorityOfferId: products.priorityOfferId,
+        priorityIsManual: products.priorityIsManual,
+      })
       .from(products)
       .where(eq(products.id, productId))
       .limit(1);
@@ -175,7 +179,8 @@ export async function approveProductModerationRequestAction(formData: FormData) 
           unit: payload.unit,
           mainImageFileId: payload.mainImageFileId ?? undefined,
           isActive: true,
-          priorityOfferId: request.sellerOfferId,
+          priorityOfferId:
+            request.type === "create" ? request.sellerOfferId : undefined,
           updatedAt: new Date(),
         })
         .where(eq(products.id, productId));
@@ -190,16 +195,11 @@ export async function approveProductModerationRequestAction(formData: FormData) 
 
     await tx
       .update(sellerOffers)
-      .set({ isPriority: false, updatedAt: new Date() })
-      .where(eq(sellerOffers.productId, productId));
-
-    await tx
-      .update(sellerOffers)
       .set({
         priceWithVat: payload.priceWithVat,
         vatRate: payload.vatRate,
         status: "published",
-        isPriority: request.type !== "offer_create",
+        isPriority: request.type === "create" ? true : undefined,
         moderationComment: comment || null,
         moderatedAt: new Date(),
         moderatedById: admin.id,
@@ -207,7 +207,7 @@ export async function approveProductModerationRequestAction(formData: FormData) 
       })
       .where(eq(sellerOffers.id, sellerOfferId));
 
-    if (request.type === "offer_create") {
+    if (request.type === "offer_create" && !productBeforeModeration?.priorityIsManual) {
       const publishedOffers = await tx
         .select({
           id: sellerOffers.id,
@@ -239,6 +239,7 @@ export async function approveProductModerationRequestAction(formData: FormData) 
             : best,
         null,
       );
+
       selectedPublishedOffer =
         currentPriorityOffer &&
         newPublishedOffer &&
@@ -247,25 +248,19 @@ export async function approveProductModerationRequestAction(formData: FormData) 
           : currentPriorityOffer ?? minPublishedOffer;
 
       if (selectedPublishedOffer) {
-        await tx
-          .update(sellerOffers)
-          .set({ isPriority: false, updatedAt: new Date() })
-          .where(eq(sellerOffers.productId, productId));
-
-        await tx
-          .update(sellerOffers)
-          .set({ isPriority: true, updatedAt: new Date() })
-          .where(eq(sellerOffers.id, selectedPublishedOffer.id));
-
-        await tx
-          .update(products)
-          .set({
-            priorityOfferId: selectedPublishedOffer.id,
-            updatedAt: new Date(),
-          })
-          .where(eq(products.id, productId));
+        await recalculateAutomaticProductPriority(tx, productId);
       }
-    } else {
+    } else if (request.type === "create") {
+      await tx
+        .update(sellerOffers)
+        .set({ isPriority: false, updatedAt: new Date() })
+        .where(eq(sellerOffers.productId, productId));
+
+      await tx
+        .update(sellerOffers)
+        .set({ isPriority: true, updatedAt: new Date() })
+        .where(eq(sellerOffers.id, sellerOfferId));
+
       selectedPublishedOffer = {
         id: sellerOfferId,
         sellerId: request.sellerId,
@@ -273,6 +268,8 @@ export async function approveProductModerationRequestAction(formData: FormData) 
         publishedAt: new Date(),
         createdAt: new Date(),
       };
+    } else if (request.type === "update") {
+      selectedPublishedOffer = currentPriorityOffer;
     }
 
     await insertSellerNotifications(tx, {

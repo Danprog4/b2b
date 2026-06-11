@@ -127,16 +127,23 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 Товар недоступен
               </div>
             ) : null}
+            {product.unavailable ? (
+              <div className="mb-4 rounded-lg bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
+                Товар временно недоступен
+              </div>
+            ) : null}
             <p className="text-sm font-bold text-slate-500">{product.sku}</p>
             <h1 className="mt-2 text-3xl font-black leading-tight text-slate-950 lg:text-5xl">
               {product.name}
             </h1>
             <div className="mt-6 text-4xl font-black text-slate-950">
-              {formatCurrency(product.priceWithVat)}
+              {product.priceWithVat ? formatCurrency(product.priceWithVat) : "—"}
             </div>
-            <p className="mt-2 text-sm font-semibold text-slate-500">
-              Цена указана с НДС {product.vatRate ?? "22.00"}%
-            </p>
+            {product.priceWithVat ? (
+              <p className="mt-2 text-sm font-semibold text-slate-500">
+                Цена указана с НДС {product.vatRate ?? "22.00"}%
+              </p>
+            ) : null}
 
             <div className="mt-8 grid gap-3 rounded-xl bg-slate-50 p-4 text-sm">
               <div className="flex justify-between gap-4">
@@ -166,8 +173,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
             <div className="mt-8 flex flex-wrap gap-3">
               <AddToCartButton
                 productId={product.id}
-                sellerOfferId={product.sellerOfferId}
-                disabled={!product.isActive}
+                sellerOfferId={product.sellerOfferId ?? undefined}
+                disabled={!product.isActive || product.unavailable}
                 showQuantityInput
               />
               <Link

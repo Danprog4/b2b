@@ -2,7 +2,7 @@
 
 import { randomUUID } from "node:crypto";
 
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -24,9 +24,11 @@ import { insertBuyerCompanyNotifications } from "@/lib/notifications/helpers";
 import {
   buyerCompanyDocumentTypes,
   documentTypes,
+  getDocumentTypeLabel,
   orderDocumentTypes,
   sellerDocumentTypes,
 } from "@/lib/documents/types";
+import { getAppPath, queueBuyerCompanyEmails } from "@/lib/email/queue";
 
 const allowedExtensions = new Set([
   "pdf",
@@ -367,7 +369,7 @@ export async function uploadOrderDocumentAction(formData: FormData) {
   );
 
   await db.transaction(async (tx) => {
-    const [document] = await tx
+    const [documentRow] = await tx
       .insert(documents)
       .values({
         type,
@@ -382,7 +384,7 @@ export async function uploadOrderDocumentAction(formData: FormData) {
       .returning({ id: documents.id });
 
     await tx.insert(documentVersions).values({
-      documentId: document.id,
+      documentId: documentRow.id,
       fileId: storedFile.id,
       version: 1,
       comment: comment || null,
@@ -393,7 +395,7 @@ export async function uploadOrderDocumentAction(formData: FormData) {
       actorId: user.id,
       action: "document.upload",
       entityType: "document",
-      entityId: document.id,
+      entityId: documentRow.id,
       metadata: {
         target: "order",
         orderId: order.id,
@@ -408,6 +410,19 @@ export async function uploadOrderDocumentAction(formData: FormData) {
         type: "document_uploaded",
         title: `Новый документ по заказу ${order.number}`,
         body: title,
+      });
+
+      await queueBuyerCompanyEmails(tx, order.buyerCompanyId, {
+        subject: `Новый документ по заказу ${order.number}: ${title}`,
+        body: [
+          "Здравствуйте.",
+          `По заказу ${order.number} загружен документ: ${title}.`,
+          `Тип документа: ${getDocumentTypeLabel(type)}.`,
+          "",
+          `Документ доступен в личном кабинете: ${getAppPath(`/account/orders/${order.id}`)}`,
+        ].join("\n"),
+        orderId: order.id,
+        attachmentFileId: storedFile.id,
       });
     }
   });
@@ -492,6 +507,18 @@ export async function uploadOrderDocumentVersionAction(formData: FormData) {
         type: "document_updated",
         title: `Документ по заказу ${document.orderNumber} обновлен`,
         body: document.title,
+      });
+
+      await queueBuyerCompanyEmails(tx, document.buyerCompanyId, {
+        subject: `Документ по заказу ${document.orderNumber} обновлен: ${document.title}`,
+        body: [
+          "Здравствуйте.",
+          `По заказу ${document.orderNumber} обновлен документ: ${document.title}.`,
+          "",
+          `Актуальная версия доступна в личном кабинете: ${getAppPath(`/account/orders/${orderId}`)}`,
+        ].join("\n"),
+        orderId,
+        attachmentFileId: storedFile.id,
       });
     }
   });
@@ -1130,6 +1157,33 @@ export async function hideDocumentAction(formData: FormData) {
   }
 
   await db.transaction(async (tx) => {
+    const [documentRow] = await tx
+      .select({
+        id: documents.id,
+        type: documents.type,
+        title: documents.title,
+        buyerCompanyId: documents.buyerCompanyId,
+        orderId: documents.orderId,
+        sellerId: documents.sellerId,
+        currentVersion: documents.currentVersion,
+        fileName: files.originalName,
+      })
+      .from(documents)
+      .leftJoin(
+        documentVersions,
+        and(
+          eq(documentVersions.documentId, documents.id),
+          eq(documentVersions.version, documents.currentVersion),
+        ),
+      )
+      .leftJoin(files, eq(files.id, documentVersions.fileId))
+      .where(eq(documents.id, documentId))
+      .limit(1);
+
+    if (!documentRow) {
+      redirectWithDocumentError(returnPath, "Документ не найден.");
+    }
+
     await tx
       .update(documents)
       .set({
@@ -1143,6 +1197,15 @@ export async function hideDocumentAction(formData: FormData) {
       action: "document.hide",
       entityType: "document",
       entityId: documentId,
+      metadata: {
+        type: documentRow.type,
+        title: documentRow.title,
+        buyerCompanyId: documentRow.buyerCompanyId,
+        orderId: documentRow.orderId,
+        sellerId: documentRow.sellerId,
+        currentVersion: documentRow.currentVersion,
+        fileName: documentRow.fileName,
+      },
     });
   });
 

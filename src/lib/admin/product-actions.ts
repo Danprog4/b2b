@@ -17,6 +17,11 @@ import { requireUser } from "@/lib/auth/session";
 import { writeStorageFile } from "@/lib/files/storage";
 import { getNextProductSku } from "@/lib/numbering/sequences";
 import { insertSellerNotifications } from "@/lib/notifications/helpers";
+import {
+  recalculateAutomaticProductPriority,
+  setManualProductPriorityOffer,
+  syncStoredProductPriorityOffer,
+} from "@/lib/admin/product-priority";
 
 const allowedImageMimeTypes = new Set([
   "image/jpeg",
@@ -409,7 +414,6 @@ export async function updateProductAction(formData: FormData) {
         priceWithVat: values.priceWithVat,
         vatRate: values.vatRate,
         status: "published",
-        isPriority: true,
         submittedAt: new Date(),
         moderatedAt: new Date(),
         moderatedById: admin.id,
@@ -420,7 +424,6 @@ export async function updateProductAction(formData: FormData) {
           priceWithVat: values.priceWithVat,
           vatRate: values.vatRate,
           status: "published",
-          isPriority: true,
           moderatedAt: new Date(),
           moderatedById: admin.id,
           updatedAt: new Date(),
@@ -428,21 +431,17 @@ export async function updateProductAction(formData: FormData) {
       })
       .returning({ id: sellerOffers.id });
 
-    await tx
-      .update(sellerOffers)
-      .set({
-        isPriority: false,
-        updatedAt: new Date(),
-      })
-      .where(and(eq(sellerOffers.productId, productId), ne(sellerOffers.id, offer.id)));
+    const [productPriorityState] = await tx
+      .select({ priorityIsManual: products.priorityIsManual })
+      .from(products)
+      .where(eq(products.id, productId))
+      .limit(1);
 
-    await tx
-      .update(products)
-      .set({
-        priorityOfferId: offer.id,
-        updatedAt: new Date(),
-      })
-      .where(eq(products.id, productId));
+    if (productPriorityState?.priorityIsManual) {
+      await syncStoredProductPriorityOffer(tx, productId);
+    } else {
+      await recalculateAutomaticProductPriority(tx, productId);
+    }
 
     await tx.insert(auditEvents).values({
       actorId: admin.id,
@@ -596,6 +595,7 @@ export async function upsertProductOfferAction(formData: FormData) {
       slug: products.slug,
       name: products.name,
       priorityOfferId: products.priorityOfferId,
+      priorityIsManual: products.priorityIsManual,
     })
     .from(products)
     .where(eq(products.id, productId))
@@ -625,7 +625,7 @@ export async function upsertProductOfferAction(formData: FormData) {
         priceWithVat,
         vatRate,
         status: status as "draft" | "on_moderation" | "published" | "rejected" | "hidden",
-        isPriority,
+        isPriority: false,
         submittedAt: new Date(),
         moderatedAt: status === "published" || status === "rejected" ? new Date() : null,
         moderatedById: status === "published" || status === "rejected" ? admin.id : null,
@@ -636,7 +636,6 @@ export async function upsertProductOfferAction(formData: FormData) {
           priceWithVat,
           vatRate,
           status: status as "draft" | "on_moderation" | "published" | "rejected" | "hidden",
-          isPriority,
           moderatedAt: status === "published" || status === "rejected" ? new Date() : null,
           moderatedById: status === "published" || status === "rejected" ? admin.id : null,
           updatedAt: new Date(),
@@ -645,15 +644,7 @@ export async function upsertProductOfferAction(formData: FormData) {
       .returning({ id: sellerOffers.id });
 
     if (isPriority) {
-      await tx
-        .update(sellerOffers)
-        .set({ isPriority: false, updatedAt: new Date() })
-        .where(and(eq(sellerOffers.productId, productId), ne(sellerOffers.id, offer.id)));
-
-      await tx
-        .update(products)
-        .set({ priorityOfferId: offer.id, updatedAt: new Date() })
-        .where(eq(products.id, productId));
+      await setManualProductPriorityOffer(tx, productId, offer.id);
 
       if (
         currentPriorityOffer &&
@@ -667,6 +658,10 @@ export async function upsertProductOfferAction(formData: FormData) {
           body: `${product.name}: ваше предложение больше не активно на витрине. Обновите цену, если хотите вернуть товар в продажу.`,
         });
       }
+    } else if (!product.priorityIsManual) {
+      await recalculateAutomaticProductPriority(tx, productId);
+    } else {
+      await syncStoredProductPriorityOffer(tx, productId);
     }
 
     await tx.insert(auditEvents).values({
@@ -741,20 +736,7 @@ export async function setPriorityProductOfferAction(formData: FormData) {
           .limit(1)
       : [];
 
-    await tx
-      .update(sellerOffers)
-      .set({ isPriority: false, updatedAt: new Date() })
-      .where(eq(sellerOffers.productId, productId));
-
-    await tx
-      .update(sellerOffers)
-      .set({ isPriority: true, updatedAt: new Date() })
-      .where(eq(sellerOffers.id, offerId));
-
-    await tx
-      .update(products)
-      .set({ priorityOfferId: offerId, updatedAt: new Date() })
-      .where(eq(products.id, productId));
+    await setManualProductPriorityOffer(tx, productId, offerId);
 
     if (
       currentPriorityOffer &&
@@ -784,4 +766,55 @@ export async function setPriorityProductOfferAction(formData: FormData) {
   revalidatePath(`/admin/products/${productId}`);
 
   redirect(`/admin/products/${productId}?offerSaved=1`);
+}
+
+export async function resetProductPriorityOfferAction(formData: FormData) {
+  const admin = await requireUser(["admin"]);
+  const productId = getString(formData, "productId");
+
+  if (!productId) {
+    redirect("/admin/products");
+  }
+
+  const [product] = await db
+    .select({
+      id: products.id,
+      slug: products.slug,
+      priorityOfferId: products.priorityOfferId,
+    })
+    .from(products)
+    .where(eq(products.id, productId))
+    .limit(1);
+
+  if (!product) {
+    redirect("/admin/products");
+  }
+
+  const selectedOffer = await db.transaction(async (tx) => {
+    const offer = await recalculateAutomaticProductPriority(tx, productId);
+
+    await tx.insert(auditEvents).values({
+      actorId: admin.id,
+      action: "product_offer.priority_reset",
+      entityType: "product",
+      entityId: productId,
+      metadata: {
+        previousPriorityOfferId: product.priorityOfferId,
+        selectedPriorityOfferId: offer?.id ?? null,
+      },
+    });
+
+    return offer;
+  });
+
+  revalidatePath("/");
+  revalidatePath("/catalog");
+  revalidatePath(`/product/${product.slug}`);
+  revalidatePath(`/admin/products/${productId}`);
+
+  redirect(
+    `/admin/products/${productId}?offerSaved=1${
+      selectedOffer ? "" : "&offerWarning=no-published-offers"
+    }`,
+  );
 }

@@ -156,7 +156,7 @@ export function AddToCartButton({
             <input
               className="h-12 w-24 rounded-lg border border-slate-200 px-3 text-center font-bold"
               min="1"
-              step="1"
+              step="0.001"
               type="number"
               value={selectedQuantity}
               disabled={disabled}

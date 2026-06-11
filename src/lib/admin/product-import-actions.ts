@@ -19,6 +19,7 @@ import {
   subcategories,
   systemEvents,
 } from "@/db/schema";
+import { recalculateAutomaticProductPriority } from "@/lib/admin/product-priority";
 import { requireUser } from "@/lib/auth/session";
 import { writeStorageFile } from "@/lib/files/storage";
 import { getNextProductSku } from "@/lib/numbering/sequences";
@@ -497,19 +498,16 @@ async function applyResolvedRow(row: ResolvedImportRow, adminId: string) {
       .returning({ id: sellerOffers.id });
 
     const [product] = await db
-      .select({ priorityOfferId: products.priorityOfferId })
+      .select({
+        priorityOfferId: products.priorityOfferId,
+        priorityIsManual: products.priorityIsManual,
+      })
       .from(products)
       .where(eq(products.id, row.existingProductId))
       .limit(1);
 
-    if (!product?.priorityOfferId) {
-      await db
-        .update(products)
-        .set({
-          priorityOfferId: offer.id,
-          updatedAt: new Date(),
-        })
-        .where(eq(products.id, row.existingProductId));
+    if (!product?.priorityIsManual) {
+      await recalculateAutomaticProductPriority(db, row.existingProductId);
     }
 
     await db.insert(auditEvents).values({

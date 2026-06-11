@@ -105,6 +105,7 @@ export default async function AdminCommissionsPage({
         productName: orderItems.productNameSnapshot,
         sku: orderItems.skuSnapshot,
         lineTotal: orderItems.lineTotal,
+        storedCommissionAmount: orderItems.commissionAmount,
       })
       .from(orderItems)
       .innerJoin(orders, eq(orders.id, orderItems.orderId))
@@ -136,11 +137,15 @@ export default async function AdminCommissionsPage({
         : "planned"
       : "unpaid";
     const amount = Number(row.lineTotal);
+    const storedCommissionAmount = Number(row.storedCommissionAmount);
 
     return {
       ...row,
       payoutStatus: rowPayoutStatus,
-      commissionAmount: Math.round(amount * 0.05 * 100) / 100,
+      commissionAmount:
+        Number.isFinite(storedCommissionAmount) && storedCommissionAmount > 0
+          ? storedCommissionAmount
+          : Math.round(amount * 0.05 * 100) / 100,
     };
   });
   const filteredRows = payoutStatusOptions.includes(

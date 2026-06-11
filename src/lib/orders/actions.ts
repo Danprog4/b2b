@@ -1,6 +1,6 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -9,17 +9,24 @@ import {
   auditEvents,
   buyerCompanies,
   cartItems,
+  categories,
   invoices,
   orders,
   orderItems,
   products,
   sellerOffers,
   sellers,
+  systemEvents,
 } from "@/db/schema";
 import { getCompanyMissingFields } from "@/lib/account/company-validation";
 import { requireUser } from "@/lib/auth/session";
 import { addProductToBuyerCart } from "@/lib/cart/actions";
 import { getCurrentCart } from "@/lib/cart/queries";
+import {
+  getAppPath,
+  queueBuyerCompanyEmails,
+  queueSellerEmails,
+} from "@/lib/email/queue";
 import { generateOrderInvoice } from "@/lib/invoices/generation";
 import {
   getNextInvoiceNumber,
@@ -30,6 +37,10 @@ import {
   insertBuyerCompanyNotifications,
   insertSellerNotifications,
 } from "@/lib/notifications/helpers";
+import {
+  isTelegramConfigured,
+  sendTelegramOperatorMessage,
+} from "@/lib/telegram/api";
 
 function getString(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -50,6 +61,48 @@ function calculateVatAmount(amountWithVat: number, vatRate: number) {
   }
 
   return toMoney(amountWithVat * (vatRate / (100 + vatRate)));
+}
+
+async function notifyOperatorAboutNewOrder(input: {
+  orderNumber: string;
+  companyName: string;
+  companyInn: string;
+  totalAmount: string;
+}) {
+  if (!isTelegramConfigured()) {
+    await db.insert(systemEvents).values({
+      type: "telegram",
+      severity: "warning",
+      message: `Telegram-уведомление о заказе ${input.orderNumber} не отправлено: бот не настроен.`,
+      metadata: {
+        orderNumber: input.orderNumber,
+        companyInn: input.companyInn,
+      },
+    });
+    return;
+  }
+
+  try {
+    await sendTelegramOperatorMessage(
+      [
+        `Новый заказ ${input.orderNumber}`,
+        `Компания: ${input.companyName}`,
+        `ИНН: ${input.companyInn}`,
+        `Сумма: ${input.totalAmount} ₽`,
+      ].join("\n"),
+    );
+  } catch (error) {
+    await db.insert(systemEvents).values({
+      type: "telegram",
+      severity: "error",
+      message: `Не удалось отправить Telegram-уведомление о заказе ${input.orderNumber}.`,
+      metadata: {
+        orderNumber: input.orderNumber,
+        companyInn: input.companyInn,
+        error: error instanceof Error ? error.message : "Unknown error",
+      },
+    });
+  }
 }
 
 export async function createOrderAction(formData: FormData) {
@@ -74,6 +127,7 @@ export async function createOrderAction(formData: FormData) {
 
   const comment = getString(formData, "comment");
   let createdOrderId = "";
+  let createdOrderTotal = "";
   const orderNumber = await getNextOrderNumber();
   const invoiceNumber = await getNextInvoiceNumber();
   let cartUnavailable = false;
@@ -123,17 +177,22 @@ export async function createOrderAction(formData: FormData) {
         priceWithVat: sellerOffers.priceWithVat,
         vatRate: sellerOffers.vatRate,
         isActive: products.isActive,
+        isCategoryActive: categories.isActive,
         offerStatus: sellerOffers.status,
       })
       .from(cartItems)
       .innerJoin(products, eq(cartItems.productId, products.id))
+      .innerJoin(categories, eq(products.categoryId, categories.id))
       .innerJoin(sellerOffers, eq(cartItems.sellerOfferId, sellerOffers.id))
       .innerJoin(sellers, eq(sellerOffers.sellerId, sellers.id))
       .where(eq(cartItems.cartId, cartId));
 
     if (
       rows.length === 0 ||
-      rows.some((row) => !row.isActive || row.offerStatus !== "published")
+      rows.some(
+        (row) =>
+          !row.isActive || !row.isCategoryActive || row.offerStatus !== "published",
+      )
     ) {
       cartUnavailable = true;
       return;
@@ -214,6 +273,13 @@ export async function createOrderAction(formData: FormData) {
       });
     }
 
+    await insertAdminNotifications(tx, {
+      type: "new_order",
+      title: `Новый заказ ${orderNumber}`,
+      body: `${company.name}, сумма ${formatMoney(totalAmount)} ₽`,
+      buyerCompanyId,
+    });
+
     await tx.insert(auditEvents).values({
       actorId: user.id,
       action: "order.create",
@@ -228,11 +294,19 @@ export async function createOrderAction(formData: FormData) {
     await tx.delete(cartItems).where(eq(cartItems.cartId, cartId));
 
     createdOrderId = order.id;
+    createdOrderTotal = formatMoney(totalAmount);
   });
 
   if (cartUnavailable || !createdOrderId) {
     redirect("/cart?error=product_unavailable");
   }
+
+  await notifyOperatorAboutNewOrder({
+    orderNumber,
+    companyName: company.name,
+    companyInn: company.inn,
+    totalAmount: createdOrderTotal,
+  });
 
   await generateOrderInvoice(createdOrderId, user.id, { source: "checkout" });
 
@@ -340,14 +414,22 @@ export async function cancelAcceptedOrderAction(formData: FormData) {
     redirect(`/account/orders/${order.id}?cancelError=status`);
   }
 
+  let statusConflict = false;
+
   await db.transaction(async (tx) => {
-    await tx
+    const [updatedOrder] = await tx
       .update(orders)
       .set({
         status: "cancelled",
         updatedAt: new Date(),
       })
-      .where(eq(orders.id, order.id));
+      .where(and(eq(orders.id, order.id), eq(orders.status, "accepted")))
+      .returning({ id: orders.id });
+
+    if (!updatedOrder) {
+      statusConflict = true;
+      return;
+    }
 
     const sellerRows = await tx
       .select({ sellerId: orderItems.sellerId })
@@ -368,6 +450,17 @@ export async function cancelAcceptedOrderAction(formData: FormData) {
       body: "Заказ отменен покупателем.",
     });
 
+    await queueBuyerCompanyEmails(tx, order.buyerCompanyId, {
+      subject: `Заказ ${order.number} отменен`,
+      body: [
+        "Здравствуйте.",
+        `Заказ ${order.number} отменен.`,
+        "",
+        `Открыть заказ: ${getAppPath(`/account/orders/${order.id}`)}`,
+      ].join("\n"),
+      orderId: order.id,
+    });
+
     await insertAdminNotifications(tx, {
       type: "order_cancelled_by_buyer",
       title: `Покупатель отменил заказ ${order.number}`,
@@ -381,6 +474,17 @@ export async function cancelAcceptedOrderAction(formData: FormData) {
         type: "order_cancelled",
         title: `Заказ ${order.number} отменен`,
         body: "Покупатель отменил заказ до оплаты.",
+      });
+
+      await queueSellerEmails(tx, sellerId, {
+        subject: `Заказ ${order.number} отменен`,
+        body: [
+          "Здравствуйте.",
+          `Покупатель отменил заказ ${order.number} до оплаты.`,
+          "",
+          `Открыть заказ: ${getAppPath(`/seller/orders/${order.id}`)}`,
+        ].join("\n"),
+        orderId: order.id,
       });
     }
 
@@ -396,6 +500,10 @@ export async function cancelAcceptedOrderAction(formData: FormData) {
       },
     });
   });
+
+  if (statusConflict) {
+    redirect(`/account/orders/${order.id}?cancelError=status`);
+  }
 
   revalidatePath("/account");
   revalidatePath("/account/orders");

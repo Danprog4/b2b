@@ -280,6 +280,7 @@ export const products = pgTable(
     isPopular: boolean("is_popular").default(false).notNull(),
     isActive: boolean("is_active").default(true).notNull(),
     priorityOfferId: uuid("priority_offer_id"),
+    priorityIsManual: boolean("priority_is_manual").default(false).notNull(),
     ...timestamps,
   },
   (table) => [
