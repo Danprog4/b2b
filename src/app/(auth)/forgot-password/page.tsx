@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { SubmitButton } from "@/components/ui/submit-button";
+import { ToastMessages } from "@/components/ui/toast-message";
 import { requestPasswordResetAction } from "@/lib/auth/password-reset-actions";
 
 type ForgotPasswordPageProps = {
@@ -33,18 +34,27 @@ export default async function ForgotPasswordPage({
           для смены пароля.
         </p>
 
-        {sent ? (
-          <div className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
-            Если аккаунт с таким email существует, ссылка для восстановления
-            поставлена в очередь отправки.
-          </div>
-        ) : null}
-
-        {error ? (
-          <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-            {errorMessages[error] ?? "Не удалось начать восстановление."}
-          </div>
-        ) : null}
+        <ToastMessages
+          items={[
+            ...(sent
+              ? [
+                  {
+                    message:
+                      "Если аккаунт с таким email существует, ссылка для восстановления поставлена в очередь отправки.",
+                  },
+                ]
+              : []),
+            ...(error
+              ? [
+                  {
+                    message:
+                      errorMessages[error] ?? "Не удалось начать восстановление.",
+                    tone: "error" as const,
+                  },
+                ]
+              : []),
+          ]}
+        />
 
         <form action={requestPasswordResetAction} className="mt-6 grid gap-4">
           <label className="grid gap-2 text-sm font-bold text-slate-700">

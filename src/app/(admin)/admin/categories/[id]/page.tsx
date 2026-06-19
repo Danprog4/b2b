@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { ToastMessages } from "@/components/ui/toast-message";
 import { db } from "@/db";
 import { categories, files } from "@/db/schema";
 import { updateCategoryAction } from "@/lib/admin/category-actions";
@@ -65,16 +66,20 @@ export default async function AdminEditCategoryPage({
           ← Категории
         </Link>
 
-        {saved || created ? (
-          <div className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
-            {created ? "Категория создана." : "Категория сохранена."}
-          </div>
-        ) : null}
-        {error ? (
-          <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
-            {error}
-          </div>
-        ) : null}
+        <ToastMessages
+          items={[
+            ...(saved || created
+              ? [
+                  {
+                    message: created
+                      ? "Категория создана."
+                      : "Категория сохранена.",
+                  },
+                ]
+              : []),
+            ...(error ? [{ message: error, tone: "error" as const }] : []),
+          ]}
+        />
 
         <section className="mt-5 rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
           <h1 className="text-3xl font-black text-slate-950">{category.name}</h1>

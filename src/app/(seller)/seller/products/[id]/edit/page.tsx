@@ -6,12 +6,14 @@ import { db } from "@/db";
 import {
   categories,
   files,
+  productImages,
   products,
   sellerOffers,
   sellerProductChangeRequests,
   subcategories,
 } from "@/db/schema";
 import { requireUser } from "@/lib/auth/session";
+import { ToastMessage } from "@/components/ui/toast-message";
 import { getPublicFileUrl } from "@/lib/files/urls";
 import { requestSellerProductUpdateAction } from "@/lib/seller/product-actions";
 import { SellerProductForm } from "../../product-form";
@@ -20,6 +22,26 @@ type EditSellerProductPageProps = {
   params: Promise<{ id: string }>;
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
+
+function getPayloadRecord(payload: unknown) {
+  return payload && typeof payload === "object"
+    ? (payload as Record<string, unknown>)
+    : null;
+}
+
+function hasPayloadKey(payload: unknown, key: string) {
+  return Boolean(getPayloadRecord(payload) && key in getPayloadRecord(payload)!);
+}
+
+function getPayloadString(payload: unknown, key: string) {
+  const value = getPayloadRecord(payload)?.[key];
+  return typeof value === "string" ? value : "";
+}
+
+function getPayloadNullableString(payload: unknown, key: string) {
+  const value = getPayloadString(payload, key).trim();
+  return value || null;
+}
 
 export default async function EditSellerProductPage({
   params,
@@ -46,6 +68,7 @@ export default async function EditSellerProductPage({
       unit: products.unit,
       priceWithVat: sellerOffers.priceWithVat,
       vatRate: sellerOffers.vatRate,
+      offerStatus: sellerOffers.status,
       mainImageFileId: files.id,
       mainImageStorageKey: files.storageKey,
       mainImageIsActive: files.isActive,
@@ -66,7 +89,12 @@ export default async function EditSellerProductPage({
     notFound();
   }
 
-  const [categoryOptions, subcategoryOptions, latestChangeRequest] =
+  const [
+    categoryOptions,
+    subcategoryOptions,
+    latestChangeRequest,
+    currentGalleryImages,
+  ] =
     await Promise.all([
       db
         .select({ id: categories.id, name: categories.name })
@@ -90,6 +118,7 @@ export default async function EditSellerProductPage({
       db
         .select({
           status: sellerProductChangeRequests.status,
+          payload: sellerProductChangeRequests.payload,
           moderationComment: sellerProductChangeRequests.moderationComment,
         })
         .from(sellerProductChangeRequests)
@@ -102,7 +131,68 @@ export default async function EditSellerProductPage({
         .orderBy(desc(sellerProductChangeRequests.submittedAt))
         .limit(1)
         .then(([row]) => row ?? null),
+      db
+        .select({
+          id: productImages.id,
+          fileId: files.id,
+          storageKey: files.storageKey,
+          fileName: files.originalName,
+        })
+        .from(productImages)
+        .innerJoin(files, eq(files.id, productImages.fileId))
+        .where(and(eq(productImages.productId, product.id), eq(files.isActive, true)))
+        .orderBy(asc(productImages.sortOrder), asc(productImages.createdAt)),
     ]);
+  const rejectedPayload =
+    latestChangeRequest?.status === "rejected" ? latestChangeRequest.payload : null;
+  const rejectedMainImageFileId = getPayloadString(
+    rejectedPayload,
+    "mainImageFileId",
+  );
+  const [rejectedMainImageFile] = rejectedMainImageFileId
+    ? await db
+        .select({
+          id: files.id,
+          storageKey: files.storageKey,
+          isActive: files.isActive,
+        })
+        .from(files)
+        .where(eq(files.id, rejectedMainImageFileId))
+        .limit(1)
+    : [];
+  const currentMainImageUrl = product.mainImageIsActive
+    ? getPublicFileUrl({
+        id: product.mainImageFileId,
+        storageKey: product.mainImageStorageKey,
+      })
+    : null;
+  const rejectedMainImageUrl = rejectedMainImageFile?.isActive
+    ? getPublicFileUrl({
+        id: rejectedMainImageFile.id,
+        storageKey: rejectedMainImageFile.storageKey,
+      })
+    : null;
+  const formProduct = rejectedPayload
+    ? {
+        ...product,
+        name: getPayloadString(rejectedPayload, "name") || product.name,
+        categoryId:
+          getPayloadString(rejectedPayload, "categoryId") || product.categoryId,
+        subcategoryId: hasPayloadKey(rejectedPayload, "subcategoryId")
+          ? getPayloadNullableString(rejectedPayload, "subcategoryId")
+          : product.subcategoryId,
+        description: hasPayloadKey(rejectedPayload, "description")
+          ? getPayloadNullableString(rejectedPayload, "description")
+          : product.description,
+        priceWithVat:
+          getPayloadString(rejectedPayload, "priceWithVat") || product.priceWithVat,
+        vatRate: getPayloadString(rejectedPayload, "vatRate") || product.vatRate,
+        size: hasPayloadKey(rejectedPayload, "size")
+          ? getPayloadNullableString(rejectedPayload, "size")
+          : product.size,
+        unit: getPayloadString(rejectedPayload, "unit") || product.unit,
+      }
+    : product;
 
   return (
     <main className="min-h-screen bg-[#f4f6fb] px-6 py-8 text-slate-900">
@@ -144,9 +234,7 @@ export default async function EditSellerProductPage({
           </h1>
 
           {error ? (
-            <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
-              {error}
-            </div>
+            <ToastMessage message={error} tone="error" />
           ) : null}
 
           <div className="mt-6">
@@ -154,13 +242,18 @@ export default async function EditSellerProductPage({
               action={requestSellerProductUpdateAction}
               categories={categoryOptions}
               product={{
-                ...product,
-                mainImageUrl: product.mainImageIsActive
-                  ? getPublicFileUrl({
-                      id: product.mainImageFileId,
-                      storageKey: product.mainImageStorageKey,
-                    })
-                  : null,
+                ...formProduct,
+                isPublished: product.offerStatus === "published",
+                mainImageUrl: rejectedMainImageUrl ?? currentMainImageUrl,
+                galleryImages: currentGalleryImages.map((image) => ({
+                  id: image.id,
+                  fileId: image.fileId,
+                  fileName: image.fileName,
+                  url: getPublicFileUrl({
+                    id: image.fileId,
+                    storageKey: image.storageKey,
+                  }),
+                })),
               }}
               subcategories={subcategoryOptions}
               submitText="Отправить изменения"

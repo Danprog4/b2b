@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { SubmitButton } from "@/components/ui/submit-button";
+import { ToastMessages } from "@/components/ui/toast-message";
 import { loginAction } from "@/lib/auth/actions";
 
 type LoginPageProps = {
@@ -31,25 +32,35 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           Войдите как покупатель, продавец или администратор.
         </p>
 
-        {error ? (
-          <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-            {errorMessages[error] ?? "Не удалось выполнить вход."}
-          </div>
-        ) : null}
-
-        {pending === "company" ? (
-          <div className="mt-5 rounded-lg bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
-            {resubmitted
-              ? "Повторная заявка на присоединение к компании создана. Доступ появится после подтверждения администратором."
-              : "Заявка на присоединение к компании создана. Доступ появится после подтверждения администратором."}
-          </div>
-        ) : null}
-
-        {reset ? (
-          <div className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
-            Пароль изменен. Теперь можно войти с новым паролем.
-          </div>
-        ) : null}
+        <ToastMessages
+          items={[
+            ...(error
+              ? [
+                  {
+                    message: errorMessages[error] ?? "Не удалось выполнить вход.",
+                    tone: "error" as const,
+                  },
+                ]
+              : []),
+            ...(pending === "company"
+              ? [
+                  {
+                    message: resubmitted
+                      ? "Повторная заявка на присоединение к компании создана. Доступ появится после подтверждения администратором."
+                      : "Заявка на присоединение к компании создана. Доступ появится после подтверждения администратором.",
+                    tone: "warning" as const,
+                  },
+                ]
+              : []),
+            ...(reset
+              ? [
+                  {
+                    message: "Пароль изменен. Теперь можно войти с новым паролем.",
+                  },
+                ]
+              : []),
+          ]}
+        />
 
         <form action={loginAction} className="mt-6 grid gap-4">
           <input name="next" type="hidden" value={next} />

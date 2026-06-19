@@ -293,53 +293,64 @@ export function HomeBannerCarousel({
     );
   }
 
-  return (
-    <div className="relative h-[400px] overflow-hidden rounded-[28px] bg-[#dff0ff] shadow-sm ring-1 ring-slate-200/70 md:h-[460px]">
-      {banners.map((banner, index) => (
-        <BannerSlide
-          banner={banner}
-          isActive={index === activeIndex}
-          key={banner.id}
-        />
-      ))}
+  const dots = banners.map((banner, index) => (
+    <button
+      aria-label={`Открыть баннер ${index + 1}`}
+      className={`h-2.5 rounded-full transition-all ${
+        index === activeIndex
+          ? "w-7 bg-white md:bg-white"
+          : "w-2.5 bg-white/50 hover:bg-white/70 md:bg-white/50"
+      }`}
+      key={banner.id}
+      type="button"
+      onClick={() => setActiveIndex(index)}
+    />
+  ));
 
+  return (
+    <>
+      <div className="relative h-[400px] overflow-hidden rounded-[28px] bg-[#dff0ff] shadow-sm ring-1 ring-slate-200/70 md:h-[460px]">
+        {banners.map((banner, index) => (
+          <BannerSlide
+            banner={banner}
+            isActive={index === activeIndex}
+            key={banner.id}
+          />
+        ))}
+
+        {banners.length > 1 ? (
+          <>
+            <button
+              aria-label="Предыдущий баннер"
+              className="absolute left-5 top-1/2 z-20 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-slate-900 shadow-lg ring-1 ring-white/60 backdrop-blur transition hover:scale-105 hover:bg-white md:flex"
+              type="button"
+              onClick={() =>
+                setActiveIndex((index) => (index - 1 + banners.length) % banners.length)
+              }
+            >
+              <ChevronLeft size={22} />
+            </button>
+            <button
+              aria-label="Следующий баннер"
+              className="absolute right-5 top-1/2 z-20 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-slate-900 shadow-lg ring-1 ring-white/60 backdrop-blur transition hover:scale-105 hover:bg-white md:flex"
+              type="button"
+              onClick={() => setActiveIndex((index) => (index + 1) % banners.length)}
+            >
+              <ChevronRight size={22} />
+            </button>
+            <div className="absolute bottom-5 left-1/2 z-20 hidden -translate-x-1/2 gap-2 rounded-full bg-slate-950/30 px-3 py-2 shadow-sm ring-1 ring-white/20 backdrop-blur md:flex">
+              {dots}
+            </div>
+          </>
+        ) : null}
+      </div>
       {banners.length > 1 ? (
-        <>
-          <button
-            aria-label="Предыдущий баннер"
-            className="absolute left-5 top-1/2 z-20 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-slate-900 shadow-lg ring-1 ring-white/60 backdrop-blur transition hover:scale-105 hover:bg-white md:flex"
-            type="button"
-            onClick={() =>
-              setActiveIndex((index) => (index - 1 + banners.length) % banners.length)
-            }
-          >
-            <ChevronLeft size={22} />
-          </button>
-          <button
-            aria-label="Следующий баннер"
-            className="absolute right-5 top-1/2 z-20 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-slate-900 shadow-lg ring-1 ring-white/60 backdrop-blur transition hover:scale-105 hover:bg-white md:flex"
-            type="button"
-            onClick={() => setActiveIndex((index) => (index + 1) % banners.length)}
-          >
-            <ChevronRight size={22} />
-          </button>
-          <div className="absolute bottom-5 left-1/2 z-20 flex -translate-x-1/2 gap-2 rounded-full bg-slate-950/30 px-3 py-2 shadow-sm ring-1 ring-white/20 backdrop-blur">
-            {banners.map((banner, index) => (
-              <button
-                aria-label={`Открыть баннер ${index + 1}`}
-                className={`h-2.5 rounded-full transition-all ${
-                  index === activeIndex
-                    ? "w-7 bg-white"
-                    : "w-2.5 bg-white/50 hover:bg-white/70"
-                }`}
-                key={banner.id}
-                type="button"
-                onClick={() => setActiveIndex(index)}
-              />
-            ))}
+        <div className="mt-4 flex justify-center md:hidden">
+          <div className="flex gap-2 rounded-full bg-slate-900/30 px-3 py-2 shadow-sm">
+            {dots}
           </div>
-        </>
+        </div>
       ) : null}
-    </div>
+    </>
   );
 }

@@ -211,7 +211,7 @@ function sanitizeQuantity(value: string) {
     return 1;
   }
 
-  return Math.round(Math.min(parsed, 9999) * 1000) / 1000;
+  return Math.max(1, Math.round(Math.min(parsed, 9999)));
 }
 
 export async function addToCartAction(formData: FormData) {
@@ -234,7 +234,7 @@ export async function addProductToBuyerCart(
 ) {
   return addProductToCurrentCart(
     productId,
-    Math.round(Math.max(1, Math.min(quantity, 9999)) * 1000) / 1000,
+    Math.max(1, Math.round(Math.min(quantity, 9999))),
     sellerOfferId ?? undefined,
   );
 }

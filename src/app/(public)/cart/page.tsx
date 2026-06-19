@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { CartLineControls } from "@/components/cart/cart-line-controls";
 import { OrderLineCard } from "@/components/orders/order-line-card";
+import { ToastMessages } from "@/components/ui/toast-message";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getCurrentCart } from "@/lib/cart/queries";
 import { formatCurrency } from "@/lib/utils";
@@ -89,22 +90,34 @@ export default async function CartPage({ searchParams }: CartPageProps) {
           </span>
         </div>
 
-        {error ? (
-          <div className="mt-5 rounded-lg bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
-            {errorMessages[error] ?? "Не удалось выполнить действие."}
-          </div>
-        ) : null}
-
-        {repeatedCount > 0 ? (
-          <div className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
-            {reorderFrom
-              ? `Заказ ${reorderFrom} отменен. В корзину добавлено позиций: ${repeatedCount}`
-              : `В корзину добавлено позиций из заказа: ${repeatedCount}`}
-            {skippedCount > 0
-              ? `. Пропущено недоступных позиций: ${skippedCount}.`
-              : "."}
-          </div>
-        ) : null}
+        <ToastMessages
+          items={[
+            ...(error
+              ? [
+                  {
+                    message:
+                      errorMessages[error] ?? "Не удалось выполнить действие.",
+                    tone: "warning" as const,
+                  },
+                ]
+              : []),
+            ...(repeatedCount > 0
+              ? [
+                  {
+                    message: `${
+                      reorderFrom
+                        ? `Заказ ${reorderFrom} отменен. В корзину добавлено позиций: ${repeatedCount}`
+                        : `В корзину добавлено позиций из заказа: ${repeatedCount}`
+                    }${
+                      skippedCount > 0
+                        ? `. Пропущено недоступных позиций: ${skippedCount}.`
+                        : "."
+                    }`,
+                  },
+                ]
+              : []),
+          ]}
+        />
 
         {cart.lines.length === 0 ? (
           <section className="mt-8 flex min-h-[460px] items-center justify-center rounded-xl bg-white p-10 text-center shadow-sm ring-1 ring-slate-100">

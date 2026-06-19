@@ -1,9 +1,9 @@
 "use client";
 
-import { ImageIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
-import { FileUploadField } from "@/components/ui/file-upload-field";
+import { ProductImageFields } from "@/components/products/product-image-fields";
+import type { ProductGalleryImage } from "@/components/products/product-image-fields";
 import { ProductSubmitButton } from "./product-submit-button";
 
 type Option = {
@@ -13,18 +13,7 @@ type Option = {
 
 type ProductFormProps = {
   action: (formData: FormData) => void | Promise<void>;
-  product?: {
-    id: string;
-    name: string;
-    categoryId: string;
-    subcategoryId: string | null;
-    priceWithVat: string;
-    vatRate: string | null;
-    size: string | null;
-    unit: string;
-    description: string | null;
-    mainImageUrl?: string | null;
-  };
+  product?: ProductFormProduct;
   categories: Option[];
   subcategories: Array<Option & { categoryName: string }>;
   submitText: string;
@@ -34,7 +23,72 @@ type ProductFormProps = {
   } | null;
 };
 
+type ProductFormProduct = {
+  id: string;
+  name: string;
+  categoryId: string;
+  subcategoryId: string | null;
+  priceWithVat: string;
+  vatRate: string | null;
+  size: string | null;
+  unit: string;
+  description: string | null;
+  mainImageUrl?: string | null;
+  galleryImages?: ProductGalleryImage[];
+  isPublished?: boolean;
+};
+
 const productUnitOptions = ["шт", "кг", "т", "м", "м2", "м3", "л", "упак"] as const;
+
+function getFormString(formData: FormData, key: string) {
+  const value = formData.get(key);
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeMoney(value: string) {
+  const parsed = Number(value.replace(",", "."));
+  return Number.isFinite(parsed) ? parsed.toFixed(2) : value.trim();
+}
+
+function hasUploadedFile(formData: FormData, key: string) {
+  return formData
+    .getAll(key)
+    .some(
+      (value): value is File =>
+        value instanceof File && value.size > 0 && Boolean(value.name),
+    );
+}
+
+function hasProductChanges(form: HTMLFormElement, product: ProductFormProduct) {
+  const formData = new FormData(form);
+  const initialGalleryImageIds =
+    product.galleryImages?.map((image) => image.fileId ?? image.id) ?? [];
+  const submittedGalleryImageIds = formData
+    .getAll("existingGalleryImageFileIds")
+    .filter((value): value is string => typeof value === "string");
+
+  if (hasUploadedFile(formData, "mainImage") || hasUploadedFile(formData, "galleryImages")) {
+    return true;
+  }
+
+  if (
+    formData.get("galleryImagesState") === "1" &&
+    submittedGalleryImageIds.join("\0") !== initialGalleryImageIds.join("\0")
+  ) {
+    return true;
+  }
+
+  return (
+    getFormString(formData, "name") !== product.name.trim() ||
+    getFormString(formData, "categoryId") !== product.categoryId ||
+    getFormString(formData, "subcategoryId") !== (product.subcategoryId ?? "") ||
+    normalizeMoney(getFormString(formData, "priceWithVat")) !==
+      normalizeMoney(product.priceWithVat) ||
+    getFormString(formData, "size") !== (product.size ?? "") ||
+    getFormString(formData, "unit") !== product.unit ||
+    getFormString(formData, "description") !== (product.description ?? "")
+  );
+}
 
 export function SellerProductForm({
   action,
@@ -44,19 +98,35 @@ export function SellerProductForm({
   submitText,
   moderationAlert,
 }: ProductFormProps) {
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const imageUrl = previewUrl ?? product?.mainImageUrl ?? null;
+  const formRef = useRef<HTMLFormElement>(null);
+  const [isDirty, setIsDirty] = useState(false);
+  const isSubmitDisabled = Boolean(product && !isDirty);
 
-  useEffect(() => {
-    return () => {
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl);
-      }
-    };
-  }, [previewUrl]);
+  const refreshDirtyState = useCallback(() => {
+    if (!product || !formRef.current) {
+      return;
+    }
+
+    const nextIsDirty = hasProductChanges(formRef.current, product);
+    setIsDirty((currentIsDirty) =>
+      currentIsDirty === nextIsDirty ? currentIsDirty : nextIsDirty,
+    );
+  }, [product]);
 
   return (
-    <form action={action} className="grid gap-5">
+    <form
+      action={action}
+      className="grid gap-5"
+      ref={formRef}
+      onChange={refreshDirtyState}
+      onInput={refreshDirtyState}
+      onSubmit={(event) => {
+        if (product && !hasProductChanges(event.currentTarget, product)) {
+          event.preventDefault();
+          setIsDirty(false);
+        }
+      }}
+    >
       {product ? <input name="productId" type="hidden" value={product.id} /> : null}
 
       {moderationAlert ? (
@@ -171,42 +241,15 @@ export function SellerProductForm({
         />
       </label>
 
-      <section className="grid gap-4 rounded-xl bg-slate-50 p-4">
-        <div className="grid gap-4 md:grid-cols-[180px_1fr]">
-          <div className="overflow-hidden rounded-lg bg-white ring-1 ring-slate-200">
-            {imageUrl ? (
-              <img
-                alt={product?.name ?? "Фото товара"}
-                className="h-40 w-full object-cover"
-                src={imageUrl}
-              />
-            ) : (
-              <div className="flex h-40 items-center justify-center bg-slate-100 text-slate-300">
-                <ImageIcon size={36} />
-              </div>
-            )}
-          </div>
-          <div className="grid content-start gap-3">
-            <FileUploadField
-              accept="image/jpeg,image/png,image/webp"
-              buttonText={product?.mainImageUrl ? "Заменить фото" : "Загрузить фото"}
-              name="mainImage"
-              onFilesChange={(files) => {
-                setPreviewUrl((currentUrl) => {
-                  if (currentUrl) {
-                    URL.revokeObjectURL(currentUrl);
-                  }
+      <ProductImageFields
+        existingGalleryImageName="existingGalleryImageFileIds"
+        galleryImages={product?.galleryImages}
+        mainImageUrl={product?.mainImageUrl}
+        productName={product?.name}
+        onImageChange={refreshDirtyState}
+      />
 
-                  const [file] = files;
-                  return file ? URL.createObjectURL(file) : null;
-                });
-              }}
-            />
-          </div>
-        </div>
-      </section>
-
-      {product ? (
+      {product?.isPublished ? (
         <div className="rounded-lg bg-amber-50 px-4 py-3 text-sm font-semibold leading-6 text-amber-800">
           После отправки текущая опубликованная версия останется в каталоге.
           Новые данные применятся только после модерации администратора.
@@ -215,10 +258,11 @@ export function SellerProductForm({
 
       <ProductSubmitButton
         confirmMessage={
-          product
+          product?.isPublished
             ? "Отправить изменения на модерацию? Текущая опубликованная версия останется в продаже до решения администратора."
             : undefined
         }
+        disabled={isSubmitDisabled}
       >
         {submitText}
       </ProductSubmitButton>

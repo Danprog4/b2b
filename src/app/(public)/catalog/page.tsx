@@ -1,9 +1,11 @@
-import { Search } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import {
+  CatalogCategoryAside,
+  CatalogControls,
+} from "@/components/catalog/catalog-controls";
 import { ProductCard } from "@/components/catalog/product-card";
-import { SubmitButton } from "@/components/ui/submit-button";
 import {
   type CatalogSort,
   getActiveCategories,
@@ -142,24 +144,12 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
     q || minPriceValue || maxPriceValue || sort !== "new",
   );
   const hasActiveCategoryFilters = Boolean(categorySlug || subcategorySlug);
-  const resetTopFiltersHref = catalogHref({
-    category: categorySlug,
-    subcategory: subcategorySlug,
-  });
   const resetCategoryFiltersHref = catalogHref({
     q,
     sort: sort === "new" ? undefined : sort,
     minPrice: minPriceValue,
     maxPrice: maxPriceValue,
   });
-  const filterStateKey = [
-    categorySlug ?? "",
-    subcategorySlug ?? "",
-    q,
-    minPriceValue,
-    maxPriceValue,
-    sort,
-  ].join(":");
   const paginationHref = (pageNumber: number) =>
     catalogHref({
       category: categorySlug,
@@ -192,168 +182,34 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
           </span>
         </div>
 
-        <form
-          key={filterStateKey}
-          className="mt-6 grid gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-100 lg:grid-cols-[1fr_180px_180px_220px_auto_auto]"
-        >
-          {categorySlug ? (
-            <input name="category" type="hidden" value={categorySlug} />
-          ) : null}
-          {subcategorySlug ? (
-            <input name="subcategory" type="hidden" value={subcategorySlug} />
-          ) : null}
-          <label className="relative block">
-            <Search
-              className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
-              size={20}
-            />
-            <input
-              className="h-12 w-full rounded-lg border border-slate-200 pl-11 pr-4"
-              name="q"
-              placeholder="Искать товары"
-              type="search"
-              defaultValue={q}
-            />
-          </label>
-          <input
-            className="h-12 rounded-lg border border-slate-200 px-4"
-            inputMode="decimal"
-            min="0"
-            name="minPrice"
-            placeholder="Цена от"
-            type="number"
-            defaultValue={minPriceValue}
-          />
-          <input
-            className="h-12 rounded-lg border border-slate-200 px-4"
-            inputMode="decimal"
-            min="0"
-            name="maxPrice"
-            placeholder="Цена до"
-            type="number"
-            defaultValue={maxPriceValue}
-          />
-          <select
-            className="h-12 rounded-lg border border-slate-200 px-4"
-            name="sort"
-            defaultValue={sort}
-          >
-            <option value="new">По новизне</option>
-            <option value="price_asc">Сначала дешевле</option>
-            <option value="price_desc">Сначала дороже</option>
-          </select>
-          <SubmitButton
-            className="h-12 rounded-lg bg-[#1157ff] px-6 font-bold text-white transition hover:bg-[#0b49e0]"
-            pendingText="Применяем"
-          >
-            Применить
-          </SubmitButton>
-          {hasActiveTopFilters ? (
-            <Link
-              className="inline-flex h-12 items-center justify-center rounded-lg bg-slate-100 px-5 text-sm font-black text-slate-700 transition hover:bg-slate-200"
-              href={resetTopFiltersHref}
-            >
-              Сбросить
-            </Link>
-          ) : null}
-        </form>
+        <CatalogControls
+          categories={categories}
+          categorySlug={categorySlug}
+          hasActiveCategoryFilters={hasActiveCategoryFilters}
+          hasActiveTopFilters={hasActiveTopFilters}
+          maxPriceValue={maxPriceValue}
+          minPriceValue={minPriceValue}
+          q={q}
+          resetCategoryFiltersHref={resetCategoryFiltersHref}
+          sort={sort}
+          subcategories={subcategories}
+          subcategorySlug={subcategorySlug}
+        />
 
         <div className="mt-5 grid gap-5 lg:grid-cols-[260px_1fr]">
-          <aside className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-100 lg:self-start">
-            <h2 className="text-sm font-black uppercase tracking-wide text-slate-500">
-              Категории
-            </h2>
-            <nav className="mt-4 grid gap-1">
-              <Link
-                className={`w-[calc(100%-20px)] rounded-lg px-3 py-2 text-sm font-bold ${
-                  !categorySlug && !subcategorySlug
-                    ? "bg-[#eaf1ff] text-[#1157ff]"
-                    : "text-slate-700 hover:bg-slate-50"
-                }`}
-                href={catalogHref({
-                  q,
-                  sort,
-                  minPrice: minPriceValue,
-                  maxPrice: maxPriceValue,
-                })}
-              >
-                Все товары
-              </Link>
-              {categories.map((category) => {
-                const href = catalogHref({
-                  category: category.slug,
-                  q,
-                  sort,
-                  minPrice: minPriceValue,
-                  maxPrice: maxPriceValue,
-                });
-
-                return (
-                  <Link
-                    key={category.id}
-                    className={`block w-[calc(100%-20px)] rounded-lg px-3 py-2 text-sm font-bold ${
-                      category.slug === categorySlug
-                        ? "bg-[#eaf1ff] text-[#1157ff]"
-                        : "text-slate-700 hover:bg-slate-50"
-                    }`}
-                    href={href}
-                  >
-                    <span className="block truncate">{category.name}</span>
-                  </Link>
-                );
-              })}
-            </nav>
-
-            {subcategories.length > 0 ? (
-              <div className="mt-6 border-t border-slate-100 pt-5">
-                <h2 className="text-sm font-black uppercase tracking-wide text-slate-500">
-                  Подкатегории
-                </h2>
-                <nav className="mt-4 grid gap-1">
-                  {subcategories.map((subcategory) => {
-                    const href = catalogHref({
-                      category: subcategory.categorySlug,
-                      subcategory: subcategory.slug,
-                      q,
-                      sort,
-                      minPrice: minPriceValue,
-                      maxPrice: maxPriceValue,
-                    });
-
-                    return (
-                      <Link
-                        key={subcategory.id}
-                        className={`block w-[calc(100%-20px)] rounded-lg px-3 py-2 text-sm font-bold ${
-                          subcategory.slug === subcategorySlug
-                            ? "bg-[#eaf1ff] text-[#1157ff]"
-                            : "text-slate-700 hover:bg-slate-50"
-                        }`}
-                        href={href}
-                      >
-                        <span className="min-w-0">
-                          {!categorySlug ? (
-                            <span className="block truncate text-xs font-semibold text-slate-400">
-                              {subcategory.categoryName}
-                            </span>
-                          ) : null}
-                          <span className="block truncate">{subcategory.name}</span>
-                        </span>
-                      </Link>
-                    );
-                  })}
-                </nav>
-              </div>
-            ) : null}
-
-            {hasActiveCategoryFilters ? (
-              <Link
-                className="mt-6 inline-flex w-full justify-center rounded-lg bg-slate-100 px-4 py-3 text-sm font-black text-slate-700 hover:bg-slate-200"
-                href={resetCategoryFiltersHref}
-              >
-                Сбросить категории
-              </Link>
-            ) : null}
-          </aside>
+          <CatalogCategoryAside
+            categories={categories}
+            categorySlug={categorySlug}
+            hasActiveCategoryFilters={hasActiveCategoryFilters}
+            hasActiveTopFilters={hasActiveTopFilters}
+            maxPriceValue={maxPriceValue}
+            minPriceValue={minPriceValue}
+            q={q}
+            resetCategoryFiltersHref={resetCategoryFiltersHref}
+            sort={sort}
+            subcategories={subcategories}
+            subcategorySlug={subcategorySlug}
+          />
 
           {products.length > 0 ? (
             <div className="self-start">

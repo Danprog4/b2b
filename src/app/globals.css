@@ -38,6 +38,18 @@ select {
   }
 }
 
+@keyframes zoomIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 .scroll-reveal {
   animation: city-market-fade-up 520ms ease-out both;
 }

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { BannerForm } from "@/app/(admin)/admin/banners/banner-form";
+import { ToastMessages } from "@/components/ui/toast-message";
 import { db } from "@/db";
 import { banners, files } from "@/db/schema";
 import { getBannerLinkSuggestions } from "@/lib/admin/banner-link-suggestions";
@@ -95,16 +96,12 @@ export default async function EditBannerPage({
           {banner.title}
         </h1>
 
-        {error ? (
-          <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
-            {error}
-          </div>
-        ) : null}
-        {saved || created ? (
-          <div className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
-            Баннер сохранен.
-          </div>
-        ) : null}
+        <ToastMessages
+          items={[
+            ...(error ? [{ message: error, tone: "error" as const }] : []),
+            ...(saved || created ? [{ message: "Баннер сохранен." }] : []),
+          ]}
+        />
 
         <div className="mt-6">
           <BannerForm

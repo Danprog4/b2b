@@ -1,6 +1,7 @@
 import { asc } from "drizzle-orm";
 import Link from "next/link";
 
+import { ToastMessage } from "@/components/ui/toast-message";
 import { db } from "@/db";
 import { categories } from "@/db/schema";
 import { createSubcategoryAction } from "@/lib/admin/category-actions";
@@ -46,11 +47,14 @@ export default async function AdminNewSubcategoryPage({
             Новая подкатегория
           </h1>
           {error ? (
-            <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
-              {error === "required"
-                ? "Выберите родительскую категорию и заполните название."
-                : error}
-            </div>
+            <ToastMessage
+              message={
+                error === "required"
+                  ? "Выберите родительскую категорию и заполните название."
+                  : error
+              }
+              tone="error"
+            />
           ) : null}
           <div className="mt-6">
             <SubcategoryForm

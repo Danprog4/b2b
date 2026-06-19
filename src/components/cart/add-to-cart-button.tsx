@@ -54,12 +54,13 @@ export function AddToCartButton({
   }, [isToastVisible]);
 
   function add(quantityToAdd: number) {
+    const safeQuantity = Math.max(1, Math.round(quantityToAdd));
     const formData = new FormData();
     formData.set("productId", productId);
     if (sellerOfferId) {
       formData.set("sellerOfferId", sellerOfferId);
     }
-    formData.set("quantity", String(quantityToAdd));
+    formData.set("quantity", String(safeQuantity));
     setPendingAction("add");
 
     startTransition(async () => {
@@ -85,7 +86,7 @@ export function AddToCartButton({
       return;
     }
 
-    const safeQuantity = Math.max(1, nextQuantity);
+    const safeQuantity = Math.max(1, Math.round(nextQuantity));
     const formData = new FormData();
     formData.set("itemId", cartLine.itemId);
     formData.set("quantity", String(safeQuantity));
@@ -153,18 +154,33 @@ export function AddToCartButton({
       ) : (
         <div className={showQuantityInput ? "flex gap-3" : undefined}>
           {showQuantityInput ? (
-            <input
-              className="h-12 w-24 rounded-lg border border-slate-200 px-3 text-center font-bold"
-              min="1"
-              step="0.001"
-              type="number"
-              value={selectedQuantity}
-              disabled={disabled}
-              onChange={(event) => {
-                const nextValue = Number(event.target.value);
-                setSelectedQuantity(Number.isFinite(nextValue) ? nextValue : 1);
-              }}
-            />
+            <div className="inline-flex h-12 items-center rounded-lg border border-slate-200 bg-white">
+              <button
+                aria-label="Уменьшить количество"
+                className="flex h-12 w-12 items-center justify-center rounded-l-lg text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={disabled || selectedQuantity <= 1}
+                type="button"
+                onClick={() =>
+                  setSelectedQuantity((current) => Math.max(1, Math.round(current) - 1))
+                }
+              >
+                <Minus size={18} />
+              </button>
+              <span className="min-w-12 select-none text-center font-black tabular-nums">
+                {Math.max(1, Math.round(selectedQuantity))}
+              </span>
+              <button
+                aria-label="Увеличить количество"
+                className="flex h-12 w-12 items-center justify-center rounded-r-lg text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={disabled}
+                type="button"
+                onClick={() =>
+                  setSelectedQuantity((current) => Math.max(1, Math.round(current) + 1))
+                }
+              >
+                <Plus size={18} />
+              </button>
+            </div>
           ) : null}
           <button
             className={cn(

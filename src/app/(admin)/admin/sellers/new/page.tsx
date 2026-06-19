@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { ToastMessage } from "@/components/ui/toast-message";
 import { createSellerAction } from "@/lib/admin/seller-actions";
 import { requireUser } from "@/lib/auth/session";
 import { SellerForm } from "../seller-form";
@@ -61,9 +62,7 @@ export default async function AdminNewSellerPage({
           </p>
 
           {error ? (
-            <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
-              {error}
-            </div>
+            <ToastMessage message={error} tone="error" />
           ) : null}
 
           <div className="mt-6">

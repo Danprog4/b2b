@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { OrderLineCard } from "@/components/orders/order-line-card";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { ToastMessage } from "@/components/ui/toast-message";
 import { db } from "@/db";
 import { buyerCompanies } from "@/db/schema";
 import { getCompanyDocumentReadiness } from "@/lib/account/company-documents";
@@ -88,9 +89,10 @@ export default async function CheckoutPage({ searchParams }: CheckoutPageProps) 
         </p>
 
         {error ? (
-          <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
-            {errorMessages[error] ?? "Не удалось оформить заказ."}
-          </div>
+          <ToastMessage
+            message={errorMessages[error] ?? "Не удалось оформить заказ."}
+            tone="error"
+          />
         ) : null}
 
         {cart.lines.length === 0 ? (

@@ -1,6 +1,7 @@
 import { Download, FileText } from "lucide-react";
 import Link from "next/link";
 
+import { ToastMessage } from "@/components/ui/toast-message";
 import { getCurrentBuyerCompanyContractState } from "@/lib/contracts/queries";
 import { formatFileSize } from "@/lib/documents/types";
 import { formatDateTime } from "@/lib/utils";
@@ -132,9 +133,10 @@ export default async function AccountContractPage() {
           </div>
 
           {generationError && !contract ? (
-            <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold leading-6 text-red-700">
-              Договор не удалось сформировать: {generationError}
-            </div>
+            <ToastMessage
+              message={`Договор не удалось сформировать: ${generationError}`}
+              tone="error"
+            />
           ) : null}
 
           {contract?.errorMessage ? (

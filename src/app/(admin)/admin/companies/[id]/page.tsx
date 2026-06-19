@@ -3,6 +3,7 @@ import { Building2, Download, FileText, UserRound } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { ToastMessages } from "@/components/ui/toast-message";
 import { db } from "@/db";
 import {
   buyerCompanies,
@@ -288,30 +289,22 @@ export default async function AdminCompanyPage({
           </span>
         </div>
 
-        {saved ? (
-          <div className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
-            Компания сохранена.
-          </div>
-        ) : null}
-
-        {contractGenerated ? (
-          <div className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
-            Договор сформирован.
-          </div>
-        ) : null}
-
-        {contractError ? (
-          <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
-            Договор не удалось сформировать. Подробность сохранена в статусе
-            договора и системных событиях.
-          </div>
-        ) : null}
-
-        {error ? (
-          <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
-            {error}
-          </div>
-        ) : null}
+        <ToastMessages
+          items={[
+            ...(saved ? [{ message: "Компания сохранена." }] : []),
+            ...(contractGenerated ? [{ message: "Договор сформирован." }] : []),
+            ...(contractError
+              ? [
+                  {
+                    message:
+                      "Договор не удалось сформировать. Подробность сохранена в статусе договора и системных событиях.",
+                    tone: "error" as const,
+                  },
+                ]
+              : []),
+            ...(error ? [{ message: error, tone: "error" as const }] : []),
+          ]}
+        />
 
         <div className="mt-5 grid items-start gap-5 xl:grid-cols-[1fr_380px]">
           <section className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">

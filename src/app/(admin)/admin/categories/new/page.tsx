@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { ToastMessage } from "@/components/ui/toast-message";
 import { CategoryForm } from "../category-form";
 import { createCategoryAction } from "@/lib/admin/category-actions";
 import { requireUser } from "@/lib/auth/session";
@@ -39,9 +40,10 @@ export default async function AdminNewCategoryPage({
             Новая категория
           </h1>
           {error ? (
-            <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
-              {error === "required" ? "Заполните название категории." : error}
-            </div>
+            <ToastMessage
+              message={error === "required" ? "Заполните название категории." : error}
+              tone="error"
+            />
           ) : null}
           <div className="mt-6">
             <CategoryForm action={createCategoryAction} submitText="Создать" />

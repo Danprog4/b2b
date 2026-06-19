@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { categories, sellers, subcategories } from "@/db/schema";
 import { createProductAction } from "@/lib/admin/product-actions";
 import { requireUser } from "@/lib/auth/session";
+import { ToastMessage } from "@/components/ui/toast-message";
 import { ProductForm } from "../product-form";
 
 type NewProductPageProps = {
@@ -67,9 +68,10 @@ export default async function AdminNewProductPage({
           </p>
 
           {error ? (
-            <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
-              Заполните название, категорию, цену и единицу измерения.
-            </div>
+            <ToastMessage
+              message="Заполните название, категорию, цену и единицу измерения."
+              tone="error"
+            />
           ) : null}
 
           <div className="mt-6">

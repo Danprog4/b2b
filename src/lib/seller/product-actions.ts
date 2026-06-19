@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, ne } from "drizzle-orm";
+import { and, asc, eq, ne } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { randomUUID } from "node:crypto";
@@ -9,6 +9,7 @@ import { db } from "@/db";
 import {
   auditEvents,
   files,
+  productImages,
   products,
   sellerOffers,
   sellerProductChangeRequests,
@@ -35,6 +36,7 @@ type SellerProductPayload = {
   size: string | null;
   unit: string;
   mainImageFileId?: string | null;
+  galleryImageFileIds?: string[];
 };
 
 function getString(formData: FormData, key: string) {
@@ -58,6 +60,10 @@ function normalizeFileName(value: string) {
 
 function isUploadedFile(value: FormDataEntryValue | null): value is File {
   return value instanceof File && value.size > 0 && Boolean(value.name);
+}
+
+function getUploadedFiles(formData: FormData, key: string) {
+  return formData.getAll(key).filter(isUploadedFile).slice(0, 10);
 }
 
 function redirectWithProductError(path: string, message: string): never {
@@ -103,6 +109,34 @@ async function persistProductImageFile({
     .returning({ id: files.id });
 
   return storedFile.id;
+}
+
+async function persistSellerGalleryFiles({
+  formData,
+  productId,
+  uploadedById,
+  returnPath,
+}: {
+  formData: FormData;
+  productId: string;
+  uploadedById: string;
+  returnPath: string;
+}) {
+  const galleryFiles = getUploadedFiles(formData, "galleryImages");
+  galleryFiles.forEach((file) => validateProductImage(returnPath, file));
+
+  const fileIds: string[] = [];
+  for (const file of galleryFiles) {
+    fileIds.push(
+      await persistProductImageFile({
+        file,
+        productId,
+        uploadedById,
+      }),
+    );
+  }
+
+  return fileIds;
 }
 
 const translit: Record<string, string> = {
@@ -217,10 +251,12 @@ export async function createSellerProductAction(formData: FormData) {
   const sellerId = user.sellerId;
   const payload = getSellerProductPayload(formData);
   const mainImage = formData.get("mainImage");
+  const galleryFiles = getUploadedFiles(formData, "galleryImages");
 
   if (isUploadedFile(mainImage)) {
     validateProductImage("/seller/products/new", mainImage);
   }
+  galleryFiles.forEach((file) => validateProductImage("/seller/products/new", file));
 
   const sku = await getNextProductSku();
   const slug = await getUniqueSlug(payload.name);
@@ -290,23 +326,52 @@ export async function createSellerProductAction(formData: FormData) {
     return [{ productId: product.id, requestId: request.id }];
   });
 
-  if (isUploadedFile(mainImage)) {
-    const fileId = await persistProductImageFile({
-      file: mainImage,
-      productId: created.productId,
-      uploadedById: user.id,
-    });
+  const uploadedMainImageFileId = isUploadedFile(mainImage)
+    ? await persistProductImageFile({
+        file: mainImage,
+        productId: created.productId,
+        uploadedById: user.id,
+      })
+    : null;
+  const galleryImageFileIds =
+    galleryFiles.length > 0
+      ? await persistSellerGalleryFiles({
+          formData,
+          productId: created.productId,
+          uploadedById: user.id,
+          returnPath: "/seller/products/new",
+        })
+      : [];
 
+  if (uploadedMainImageFileId || galleryImageFileIds.length > 0) {
     await db.transaction(async (tx) => {
-      await tx
-        .update(products)
-        .set({ mainImageFileId: fileId, updatedAt: new Date() })
-        .where(eq(products.id, created.productId));
+      if (uploadedMainImageFileId) {
+        await tx
+          .update(products)
+          .set({ mainImageFileId: uploadedMainImageFileId, updatedAt: new Date() })
+          .where(eq(products.id, created.productId));
+      }
+
+      if (galleryImageFileIds.length > 0) {
+        await tx.insert(productImages).values(
+          galleryImageFileIds.map((fileId, index) => ({
+            productId: created.productId,
+            fileId,
+            sortOrder: index + 1,
+          })),
+        );
+      }
 
       await tx
         .update(sellerProductChangeRequests)
         .set({
-          payload: { ...payload, mainImageFileId: fileId },
+          payload: {
+            ...payload,
+            ...(uploadedMainImageFileId
+              ? { mainImageFileId: uploadedMainImageFileId }
+              : {}),
+            ...(galleryImageFileIds.length > 0 ? { galleryImageFileIds } : {}),
+          },
           updatedAt: new Date(),
         })
         .where(eq(sellerProductChangeRequests.id, created.requestId));
@@ -314,151 +379,6 @@ export async function createSellerProductAction(formData: FormData) {
   }
 
   revalidatePath("/seller");
-  revalidatePath("/admin");
-  revalidatePath("/admin/products/moderation");
-  revalidatePath("/admin/notifications");
-
-  redirect("/seller?productSubmitted=1");
-}
-
-export async function requestExistingProductOfferAction(formData: FormData) {
-  const user = await requireUser(["seller"]);
-  const productId = getString(formData, "productId");
-  const priceWithVat = normalizeMoney(getString(formData, "priceWithVat"));
-  const vatRate = "22.00";
-  const returnPath = "/seller/products/existing";
-
-  if (!user.sellerId || !productId || Number(priceWithVat) <= 0) {
-    redirectWithProductError(returnPath, "Заполните цену предложения.");
-  }
-
-  const sellerId = user.sellerId;
-  const [product] = await db
-    .select({
-      id: products.id,
-      name: products.name,
-      categoryId: products.categoryId,
-      subcategoryId: products.subcategoryId,
-      description: products.description,
-      size: products.size,
-      unit: products.unit,
-      mainImageFileId: products.mainImageFileId,
-      isActive: products.isActive,
-    })
-    .from(products)
-    .where(eq(products.id, productId))
-    .limit(1);
-
-  if (!product || !product.isActive) {
-    redirectWithProductError(returnPath, "Товар не найден или недоступен.");
-  }
-
-  const [existingOffer] = await db
-    .select({ id: sellerOffers.id, status: sellerOffers.status })
-    .from(sellerOffers)
-    .where(
-      and(
-        eq(sellerOffers.productId, product.id),
-        eq(sellerOffers.sellerId, sellerId),
-      ),
-    )
-    .limit(1);
-
-  if (existingOffer && existingOffer.status !== "rejected") {
-    redirectWithProductError(
-      returnPath,
-      "У вас уже есть предложение по этому товару.",
-    );
-  }
-
-  const [existingPendingRequest] = await db
-    .select({ id: sellerProductChangeRequests.id })
-    .from(sellerProductChangeRequests)
-    .where(
-      and(
-        eq(sellerProductChangeRequests.productId, product.id),
-        eq(sellerProductChangeRequests.sellerId, sellerId),
-        eq(sellerProductChangeRequests.status, "on_moderation"),
-      ),
-    )
-    .limit(1);
-
-  if (existingPendingRequest) {
-    redirectWithProductError(
-      returnPath,
-      "По этому товару уже есть заявка на модерации.",
-    );
-  }
-
-  const payload: SellerProductPayload = {
-    name: product.name,
-    categoryId: product.categoryId,
-    subcategoryId: product.subcategoryId,
-    description: product.description,
-    priceWithVat,
-    vatRate,
-    size: product.size,
-    unit: product.unit,
-    mainImageFileId: product.mainImageFileId,
-  };
-
-  await db.transaction(async (tx) => {
-    const [offer] = await tx
-      .insert(sellerOffers)
-      .values({
-        productId: product.id,
-        sellerId,
-        priceWithVat,
-        vatRate,
-        status: "on_moderation",
-        submittedAt: new Date(),
-      })
-      .onConflictDoUpdate({
-        target: [sellerOffers.productId, sellerOffers.sellerId],
-        set: {
-          priceWithVat,
-          vatRate,
-          status: "on_moderation",
-          moderationComment: null,
-          submittedAt: new Date(),
-          updatedAt: new Date(),
-        },
-      })
-      .returning({ id: sellerOffers.id });
-
-    const [request] = await tx
-      .insert(sellerProductChangeRequests)
-      .values({
-        productId: product.id,
-        sellerOfferId: offer.id,
-        sellerId,
-        type: "offer_create",
-        status: "on_moderation",
-        payload,
-      })
-      .returning({ id: sellerProductChangeRequests.id });
-
-    await insertAdminNotifications(tx, {
-      type: "product_offer_moderation_requested",
-      title: "Предложение продавца отправлено на модерацию",
-      body: product.name,
-      sellerId,
-    });
-
-    await tx.insert(auditEvents).values({
-      actorId: user.id,
-      action: "seller_product.offer_create_request",
-      entityType: "seller_product_change_request",
-      entityId: request.id,
-      metadata: {
-        productId: product.id,
-        offerId: offer.id,
-      },
-    });
-  });
-
-  revalidatePath("/seller");
-  revalidatePath("/seller/products/existing");
   revalidatePath("/admin");
   revalidatePath("/admin/products/moderation");
   revalidatePath("/admin/notifications");
@@ -478,14 +398,17 @@ export async function requestSellerProductUpdateAction(formData: FormData) {
   const returnPath = `/seller/products/${productId}/edit`;
   const payload = getSellerProductPayload(formData, returnPath);
   const mainImage = formData.get("mainImage");
+  const galleryFiles = getUploadedFiles(formData, "galleryImages");
 
   if (isUploadedFile(mainImage)) {
     validateProductImage(returnPath, mainImage);
   }
+  galleryFiles.forEach((file) => validateProductImage(returnPath, file));
 
   const [row] = await db
     .select({
       productId: products.id,
+      mainImageFileId: products.mainImageFileId,
       offerId: sellerOffers.id,
     })
     .from(products)
@@ -522,7 +445,29 @@ export async function requestSellerProductUpdateAction(formData: FormData) {
     );
   }
 
-  const nextPayload: SellerProductPayload = { ...payload };
+  const existingGalleryImageFileIds = await db
+    .select({ fileId: productImages.fileId })
+    .from(productImages)
+    .where(eq(productImages.productId, productId))
+    .orderBy(asc(productImages.sortOrder), asc(productImages.createdAt));
+  const existingGalleryFileIds = existingGalleryImageFileIds.map(
+    (image) => image.fileId,
+  );
+  const allowedExistingGalleryFileIds = new Set(existingGalleryFileIds);
+  const keptExistingGalleryFileIds =
+    formData.get("galleryImagesState") === "1"
+      ? formData
+          .getAll("existingGalleryImageFileIds")
+          .filter(
+            (value): value is string =>
+              typeof value === "string" && allowedExistingGalleryFileIds.has(value),
+          )
+      : existingGalleryFileIds;
+
+  const nextPayload: SellerProductPayload = {
+    ...payload,
+    mainImageFileId: row.mainImageFileId,
+  };
   if (isUploadedFile(mainImage)) {
     nextPayload.mainImageFileId = await persistProductImageFile({
       file: mainImage,
@@ -530,6 +475,18 @@ export async function requestSellerProductUpdateAction(formData: FormData) {
       uploadedById: user.id,
     });
   }
+  const uploadedGalleryImageFileIds = await persistSellerGalleryFiles({
+    formData,
+    productId,
+    uploadedById: user.id,
+    returnPath,
+  });
+  nextPayload.galleryImageFileIds = Array.from(
+    new Set([
+      ...keptExistingGalleryFileIds,
+      ...uploadedGalleryImageFileIds,
+    ]),
+  ).slice(0, 10);
 
   await db.transaction(async (tx) => {
     const [request] = await tx
@@ -543,6 +500,24 @@ export async function requestSellerProductUpdateAction(formData: FormData) {
         payload: nextPayload,
       })
       .returning({ id: sellerProductChangeRequests.id });
+
+    const [offer] = await tx
+      .select({ status: sellerOffers.status })
+      .from(sellerOffers)
+      .where(eq(sellerOffers.id, row.offerId))
+      .limit(1);
+
+    if (offer?.status !== "published") {
+      await tx
+        .update(sellerOffers)
+        .set({
+          status: "on_moderation",
+          submittedAt: new Date(),
+          moderationComment: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(sellerOffers.id, row.offerId));
+    }
 
     await insertAdminNotifications(tx, {
       type: "product_update_moderation_requested",

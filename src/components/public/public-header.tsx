@@ -14,16 +14,11 @@ import { db } from "@/db";
 import { notifications } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getCurrentCart } from "@/lib/cart/queries";
-import { getActiveCategories } from "@/lib/catalog/queries";
 import { APP_NAME } from "@/lib/constants";
 import { HeaderCartLink } from "./header-cart-link";
 
 export async function PublicHeader() {
-  const [categories, user, cart] = await Promise.all([
-    getActiveCategories(),
-    getCurrentUser(),
-    getCurrentCart(),
-  ]);
+  const [user, cart] = await Promise.all([getCurrentUser(), getCurrentCart()]);
   const isAuthenticated = user?.status === "active";
   const isAdmin = isAuthenticated && user?.role === "admin";
   const profileHref =
@@ -122,20 +117,6 @@ export async function PublicHeader() {
           ) : null}
         </nav>
       </div>
-
-      {categories.length > 0 ? (
-        <div className="mx-auto hidden max-w-[1480px] items-center gap-6 overflow-hidden px-5 pb-4 text-sm font-medium text-slate-500 md:flex">
-          {categories.slice(0, 6).map((category) => (
-            <Link
-              key={category.id}
-              href={`/catalog/${category.slug}`}
-              className="shrink-0 hover:text-[#1157ff]"
-            >
-              {category.name}
-            </Link>
-          ))}
-        </div>
-      ) : null}
     </header>
   );
 }

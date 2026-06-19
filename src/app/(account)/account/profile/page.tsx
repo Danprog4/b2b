@@ -2,6 +2,7 @@ import Link from "next/link";
 import { eq } from "drizzle-orm";
 
 import { SubmitButton } from "@/components/ui/submit-button";
+import { ToastMessages } from "@/components/ui/toast-message";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import {
@@ -82,17 +83,31 @@ export default async function AccountProfilePage({
             контактного лица в заявках и заказах.
           </p>
 
-          {saved ? (
-            <div className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
-              Профиль сохранен.
-            </div>
-          ) : null}
-
-          {error ? (
-            <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
-              {errorMessages[error] ?? "Не удалось сохранить профиль."}
-            </div>
-          ) : null}
+          <ToastMessages
+            items={[
+              ...(saved ? [{ message: "Профиль сохранен." }] : []),
+              ...(error
+                ? [
+                    {
+                      message:
+                        errorMessages[error] ?? "Не удалось сохранить профиль.",
+                      tone: "error" as const,
+                    },
+                  ]
+                : []),
+              ...(passwordChanged ? [{ message: "Пароль изменен." }] : []),
+              ...(passwordError
+                ? [
+                    {
+                      message:
+                        passwordErrorMessages[passwordError] ??
+                        "Не удалось изменить пароль.",
+                      tone: "error" as const,
+                    },
+                  ]
+                : []),
+            ]}
+          />
 
           <form action={updateBuyerProfileAction} className="mt-6 grid gap-5">
             <label className="grid gap-2 text-sm font-bold text-slate-700">
@@ -143,19 +158,6 @@ export default async function AccountProfilePage({
             Для безопасности укажите текущий пароль и новый пароль не короче 8
             символов.
           </p>
-
-          {passwordChanged ? (
-            <div className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
-              Пароль изменен.
-            </div>
-          ) : null}
-
-          {passwordError ? (
-            <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
-              {passwordErrorMessages[passwordError] ??
-                "Не удалось изменить пароль."}
-            </div>
-          ) : null}
 
           <form action={changeBuyerPasswordAction} className="mt-6 grid gap-5">
             <label className="grid gap-2 text-sm font-bold text-slate-700">

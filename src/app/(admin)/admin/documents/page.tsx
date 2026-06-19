@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { FileUploadField } from "@/components/ui/file-upload-field";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { ToastMessages } from "@/components/ui/toast-message";
 import {
   hideDocumentAction,
   updateDocumentVisibilityAction,
@@ -66,23 +67,15 @@ export default async function AdminDocumentsPage({
           </h1>
         </div>
 
-        {documentUploaded ? (
-          <div className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
-            Документ сохранен.
-          </div>
-        ) : null}
-
-        {documentUpdated ? (
-          <div className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
-            Документ обновлен.
-          </div>
-        ) : null}
-
-        {documentError ? (
-          <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-800">
-            {documentError}
-          </div>
-        ) : null}
+        <ToastMessages
+          items={[
+            ...(documentUploaded ? [{ message: "Документ сохранен." }] : []),
+            ...(documentUpdated ? [{ message: "Документ обновлен." }] : []),
+            ...(documentError
+              ? [{ message: documentError, tone: "error" as const }]
+              : []),
+          ]}
+        />
 
         <section className="mt-5 rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
           <h2 className="text-xl font-black text-slate-950">

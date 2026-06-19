@@ -1,11 +1,13 @@
-import { asc, eq } from "drizzle-orm";
-import { Check, Clock3, X } from "lucide-react";
+import { asc, eq, inArray } from "drizzle-orm";
+import { Check, Clock3, ImageIcon, X } from "lucide-react";
 import Link from "next/link";
 
 import { SubmitButton } from "@/components/ui/submit-button";
+import { ToastMessages } from "@/components/ui/toast-message";
 import { db } from "@/db";
 import {
   categories,
+  files,
   products,
   sellerOffers,
   sellerProductChangeRequests,
@@ -16,6 +18,7 @@ import {
   approveProductModerationRequestAction,
   rejectProductModerationRequestAction,
 } from "@/lib/admin/product-moderation-actions";
+import { getPublicFileUrl } from "@/lib/files/urls";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
 type ProductModerationPageProps = {
@@ -25,6 +28,13 @@ type ProductModerationPageProps = {
 function getPayloadString(payload: Record<string, unknown>, key: string) {
   const value = payload[key];
   return typeof value === "string" ? value : "";
+}
+
+function getPayloadStringArray(payload: Record<string, unknown>, key: string) {
+  const value = payload[key];
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string" && Boolean(item))
+    : [];
 }
 
 function getRequestTypeLabel(type: string) {
@@ -82,6 +92,63 @@ export default async function ProductModerationPage({
     .leftJoin(subcategories, eq(subcategories.id, products.subcategoryId))
     .where(eq(sellerProductChangeRequests.status, "on_moderation"))
     .orderBy(asc(sellerProductChangeRequests.submittedAt));
+  const moderationFileIds = Array.from(
+    new Set(
+      requests.flatMap((request) => [
+        getPayloadString(request.payload, "mainImageFileId"),
+        ...getPayloadStringArray(request.payload, "galleryImageFileIds"),
+      ]).filter(Boolean),
+    ),
+  );
+  const moderationCategoryIds = Array.from(
+    new Set(
+      requests
+        .map((request) => getPayloadString(request.payload, "categoryId"))
+        .filter(Boolean),
+    ),
+  );
+  const moderationSubcategoryIds = Array.from(
+    new Set(
+      requests
+        .map((request) => getPayloadString(request.payload, "subcategoryId"))
+        .filter(Boolean),
+    ),
+  );
+  const [moderationFiles, moderationCategories, moderationSubcategories] =
+    await Promise.all([
+      moderationFileIds.length > 0
+        ? db
+            .select({
+              id: files.id,
+              storageKey: files.storageKey,
+              originalName: files.originalName,
+            })
+            .from(files)
+            .where(inArray(files.id, moderationFileIds))
+        : [],
+      moderationCategoryIds.length > 0
+        ? db
+            .select({ id: categories.id, name: categories.name })
+            .from(categories)
+            .where(inArray(categories.id, moderationCategoryIds))
+        : [],
+      moderationSubcategoryIds.length > 0
+        ? db
+            .select({ id: subcategories.id, name: subcategories.name })
+            .from(subcategories)
+            .where(inArray(subcategories.id, moderationSubcategoryIds))
+        : [],
+    ]);
+  const fileById = new Map(moderationFiles.map((file) => [file.id, file]));
+  const categoryById = new Map(
+    moderationCategories.map((category) => [category.id, category.name]),
+  );
+  const subcategoryById = new Map(
+    moderationSubcategories.map((subcategory) => [
+      subcategory.id,
+      subcategory.name,
+    ]),
+  );
 
   return (
     <main className="min-h-screen bg-slate-100 px-6 py-8 text-slate-900">
@@ -110,17 +177,19 @@ export default async function ProductModerationPage({
           </span>
         </div>
 
-        {moderated ? (
-          <div className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
-            Заявка обработана.
-          </div>
-        ) : null}
-
-        {error ? (
-          <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
-            Заявка не найдена или данные неполные.
-          </div>
-        ) : null}
+        <ToastMessages
+          items={[
+            ...(moderated ? [{ message: "Заявка обработана." }] : []),
+            ...(error
+              ? [
+                  {
+                    message: "Заявка не найдена или данные неполные.",
+                    tone: "error" as const,
+                  },
+                ]
+              : []),
+          ]}
+        />
 
         <section className="mt-6 grid gap-4">
           {requests.length === 0 ? (
@@ -133,9 +202,47 @@ export default async function ProductModerationPage({
             const name = getPayloadString(request.payload, "name");
             const priceWithVat = getPayloadString(request.payload, "priceWithVat");
             const vatRate = getPayloadString(request.payload, "vatRate") || "22.00";
+            const categoryId = getPayloadString(request.payload, "categoryId");
+            const subcategoryId = getPayloadString(request.payload, "subcategoryId");
             const unit = getPayloadString(request.payload, "unit");
             const size = getPayloadString(request.payload, "size");
             const description = getPayloadString(request.payload, "description");
+            const categoryName = categoryId
+              ? categoryById.get(categoryId) ?? request.categoryName
+              : request.categoryName;
+            const subcategoryName = subcategoryId
+              ? subcategoryById.get(subcategoryId) ?? request.subcategoryName
+              : null;
+            const mainImageFileId = getPayloadString(
+              request.payload,
+              "mainImageFileId",
+            );
+            const galleryImageFileIds = getPayloadStringArray(
+              request.payload,
+              "galleryImageFileIds",
+            );
+            const requestImages = [mainImageFileId, ...galleryImageFileIds]
+              .map((fileId) => (fileId ? fileById.get(fileId) : null))
+              .filter(
+                (file): file is (typeof moderationFiles)[number] => Boolean(file),
+              )
+              .map((file) => {
+                const url = getPublicFileUrl({
+                  id: file.id,
+                  storageKey: file.storageKey,
+                });
+
+                return url
+                  ? {
+                      id: file.id,
+                      fileName: file.originalName,
+                      url,
+                    }
+                  : null;
+              })
+              .filter((image): image is NonNullable<typeof image> =>
+                Boolean(image),
+              );
             const isUpdate = request.type === "update";
             const isOfferCreate = request.type === "offer_create";
             const currentIsPublished = request.currentOfferStatus === "published";
@@ -177,13 +284,13 @@ export default async function ProductModerationPage({
                   <div className="rounded-lg bg-slate-50 p-3">
                     <dt className="font-bold text-slate-500">Категория</dt>
                     <dd className="mt-1 font-black text-slate-950">
-                      {request.categoryName ?? "Будет применена из заявки"}
+                      {categoryName ?? "Будет применена из заявки"}
                     </dd>
                   </div>
                   <div className="rounded-lg bg-slate-50 p-3">
                     <dt className="font-bold text-slate-500">Подкатегория</dt>
                     <dd className="mt-1 font-black text-slate-950">
-                      {request.subcategoryName ?? "Без подкатегории"}
+                      {subcategoryName ?? "Без подкатегории"}
                     </dd>
                   </div>
                   <div className="rounded-lg bg-slate-50 p-3">
@@ -204,13 +311,53 @@ export default async function ProductModerationPage({
                   </p>
                 ) : null}
 
+                <div className="mt-4 grid gap-3">
+                  <p className="text-sm font-black text-slate-950">Фото товара</p>
+                  {requestImages.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+                      {requestImages.map((image, index) => (
+                        <a
+                          className="group overflow-hidden rounded-lg bg-slate-100 ring-1 ring-slate-200"
+                          href={image.url}
+                          key={`${image.id}-${index}`}
+                          target="_blank"
+                        >
+                          <img
+                            alt={image.fileName}
+                            className="aspect-square w-full object-cover transition group-hover:scale-[1.03]"
+                            src={image.url}
+                          />
+                        </a>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex h-28 items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50 text-slate-400">
+                      <ImageIcon size={28} />
+                    </div>
+                  )}
+                </div>
+
                 {isUpdate || isOfferCreate ? (
                   <div className="mt-5 grid gap-3 lg:grid-cols-2">
-                    <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-4">
-                      <p className="text-xs font-black uppercase text-emerald-700">
+                    <div
+                      className={`rounded-lg border p-4 ${
+                        currentIsPublished || isOfferCreate
+                          ? "border-emerald-100 bg-emerald-50"
+                          : "border-slate-200 bg-slate-50"
+                      }`}
+                    >
+                      <p
+                        className={`text-xs font-black uppercase ${
+                          currentIsPublished || isOfferCreate
+                            ? "text-emerald-700"
+                            : "text-slate-500"
+                        }`}
+                      >
                         {isOfferCreate
                           ? "Текущий товар"
-                          : "Сейчас на витрине"}
+                          : currentIsPublished
+                            ? "Сейчас на витрине"
+                            : "Текущая версия"}
                       </p>
                       <h3 className="mt-2 font-black text-slate-950">
                         {request.productName ?? "Без названия"}
@@ -221,12 +368,18 @@ export default async function ProductModerationPage({
                         {request.currentUnit}
                         {request.currentSize ? ` · ${request.currentSize}` : ""}
                       </p>
-                      <p className="mt-3 text-xs font-bold text-emerald-700">
+                      <p
+                        className={`mt-3 text-xs font-bold ${
+                          currentIsPublished || isOfferCreate
+                            ? "text-emerald-700"
+                            : "text-slate-600"
+                        }`}
+                      >
                         {isOfferCreate
                           ? "Будет добавлено новое предложение продавца к этой карточке."
                           : currentIsPublished
                             ? "Старая версия продаётся до одобрения изменений."
-                            : "Текущая версия не опубликована."}
+                            : "Товар еще не опубликован, поэтому новая версия не заменяет витринную карточку."}
                       </p>
                     </div>
                     <div className="rounded-lg border border-amber-100 bg-amber-50 p-4">
@@ -244,7 +397,9 @@ export default async function ProductModerationPage({
                         {size ? ` · ${size}` : ""}
                       </p>
                       <p className="mt-3 text-xs font-bold text-amber-700">
-                        Отклонение заявки не меняет текущую продажную версию.
+                        {isUpdate && !currentIsPublished
+                          ? "Отклонение вернет товар в статус отклонен без публикации."
+                          : "Отклонение заявки не меняет текущую продажную версию."}
                       </p>
                     </div>
                   </div>

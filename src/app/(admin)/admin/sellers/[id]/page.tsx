@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 
 import { FileUploadField } from "@/components/ui/file-upload-field";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { ToastMessages } from "@/components/ui/toast-message";
 import { db } from "@/db";
 import {
   buyerCompanies,
@@ -256,29 +257,43 @@ export default async function AdminSellerPage({
           </span>
         </div>
 
-        {created || saved ? (
-          <div className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
-            {created ? "Продавец создан." : "Продавец сохранен."}
-          </div>
-        ) : null}
-
-        {error ? (
-          <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
-            {error}
-          </div>
-        ) : null}
-
-        {paymentSaved || paymentDeleted ? (
-          <div className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
-            {paymentDeleted ? "Выплата удалена." : "Выплата сохранена."}
-          </div>
-        ) : null}
-
-        {paymentError ? (
-          <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
-            Проверьте период и суммы выплаты.
-          </div>
-        ) : null}
+        <ToastMessages
+          items={[
+            ...(created || saved
+              ? [{ message: created ? "Продавец создан." : "Продавец сохранен." }]
+              : []),
+            ...(error ? [{ message: error, tone: "error" as const }] : []),
+            ...(paymentSaved || paymentDeleted
+              ? [
+                  {
+                    message: paymentDeleted
+                      ? "Выплата удалена."
+                      : "Выплата сохранена.",
+                  },
+                ]
+              : []),
+            ...(paymentError
+              ? [
+                  {
+                    message: "Проверьте период и суммы выплаты.",
+                    tone: "error" as const,
+                  },
+                ]
+              : []),
+            ...(documentUploaded || documentUpdated
+              ? [
+                  {
+                    message: documentUploaded
+                      ? "Документ сохранен."
+                      : "Документ обновлен.",
+                  },
+                ]
+              : []),
+            ...(documentError
+              ? [{ message: documentError, tone: "error" as const }]
+              : []),
+          ]}
+        />
 
         <div className="mt-5 grid items-start gap-5 xl:grid-cols-[1fr_360px]">
           <section className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
@@ -613,18 +628,6 @@ export default async function AdminSellerPage({
               Все документы
             </Link>
           </div>
-
-          {documentUploaded || documentUpdated ? (
-            <div className="mt-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
-              {documentUploaded ? "Документ сохранен." : "Документ обновлен."}
-            </div>
-          ) : null}
-
-          {documentError ? (
-            <div className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
-              {documentError}
-            </div>
-          ) : null}
 
           <form
             action={uploadAdminDocumentAction}

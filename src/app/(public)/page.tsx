@@ -2,7 +2,6 @@ import {
   Building2,
   ClipboardCheck,
   FileText,
-  ImageIcon,
   ShieldCheck,
 } from "lucide-react";
 import type { Metadata } from "next";
@@ -11,7 +10,7 @@ import Link from "next/link";
 import { ProductCard } from "@/components/catalog/product-card";
 import { HomeBannerCarousel } from "@/components/public/home-banner-carousel";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getActiveCategories, getCatalogProducts } from "@/lib/catalog/queries";
+import { getCatalogProducts } from "@/lib/catalog/queries";
 import { getActiveHomeBanners } from "@/lib/content/queries";
 
 export const dynamic = "force-dynamic";
@@ -46,8 +45,7 @@ const advantages = [
 ];
 
 export default async function Home() {
-  const [categories, latestProductsResult, banners, currentUser] = await Promise.all([
-    getActiveCategories(),
+  const [latestProductsResult, banners, currentUser] = await Promise.all([
     getCatalogProducts({ sort: "new", limit: 4 }),
     getActiveHomeBanners(),
     getCurrentUser(),
@@ -56,7 +54,7 @@ export default async function Home() {
 
   return (
     <main className="min-h-screen bg-[#f4f6fb] text-slate-900">
-      <section className="scroll-reveal mx-auto max-w-[1920px] px-5 py-5">
+      <section className="scroll-reveal mx-auto max-w-[1920px] px-5 pb-0 pt-5 md:py-5">
         <HomeBannerCarousel
           banners={banners}
           isAuthenticated={Boolean(currentUser)}
@@ -64,7 +62,7 @@ export default async function Home() {
       </section>
 
       <section>
-        <div className="mx-auto grid max-w-[1480px] gap-4 px-5 py-6 md:grid-cols-2 xl:grid-cols-4">
+        <div className="mx-auto grid max-w-[1480px] gap-4 px-5 pb-6 pt-4 md:grid-cols-2 md:py-6 xl:grid-cols-4">
           {advantages.map((advantage) => {
             const Icon = advantage.icon;
 
@@ -83,33 +81,6 @@ export default async function Home() {
               </div>
             );
           })}
-        </div>
-      </section>
-
-      <section className="scroll-reveal mx-auto max-w-[1480px] px-5 pb-8">
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-8">
-          {categories.map((category) => (
-            <Link
-              key={category.id}
-              href={`/catalog/${category.slug}`}
-              className="group flex min-h-32 flex-col justify-between overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-100 transition hover:-translate-y-0.5 hover:ring-[#1157ff]"
-            >
-              <span className="flex h-20 items-center justify-center overflow-hidden bg-slate-100 text-slate-300">
-                {category.imageUrl ? (
-                  <img
-                    alt={category.name}
-                    className="h-full w-full object-cover transition group-hover:scale-105"
-                    src={category.imageUrl}
-                  />
-                ) : (
-                  <ImageIcon size={26} />
-                )}
-              </span>
-              <span className="px-4 py-3 text-sm font-bold leading-5 text-slate-900">
-                {category.name}
-              </span>
-            </Link>
-          ))}
         </div>
       </section>
 

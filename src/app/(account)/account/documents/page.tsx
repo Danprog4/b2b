@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { FileUploadField } from "@/components/ui/file-upload-field";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { ToastMessages } from "@/components/ui/toast-message";
 import {
   getCompanyDocumentReadiness,
   requiredCompanyDocumentTypes,
@@ -72,17 +73,14 @@ export default async function AccountDocumentsPage({
           </h1>
         </div>
 
-        {documentUploaded ? (
-          <div className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
-            Документ загружен.
-          </div>
-        ) : null}
-
-        {documentError ? (
-          <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-800">
-            {documentError}
-          </div>
-        ) : null}
+        <ToastMessages
+          items={[
+            ...(documentUploaded ? [{ message: "Документ загружен." }] : []),
+            ...(documentError
+              ? [{ message: documentError, tone: "error" as const }]
+              : []),
+          ]}
+        />
 
         <section className="mt-5 rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
           <h2 className="text-xl font-black text-slate-950">

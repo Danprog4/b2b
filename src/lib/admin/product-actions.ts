@@ -71,7 +71,7 @@ function validateProductImage(file: File, productId: string | null) {
 function getProductImageUploads(formData: FormData) {
   return {
     mainImage: formData.get("mainImage"),
-    galleryFiles: formData.getAll("galleryImages").filter(isUploadedFile).slice(0, 12),
+    galleryFiles: formData.getAll("galleryImages").filter(isUploadedFile).slice(0, 10),
   };
 }
 
@@ -136,9 +136,14 @@ async function insertGalleryImages({
     .from(productImages)
     .where(eq(productImages.productId, productId));
   const startOrder = existingCounter?.count ?? 0;
+  const filesToInsert = galleryFiles.slice(0, Math.max(0, 10 - startOrder));
+
+  if (filesToInsert.length === 0) {
+    return;
+  }
 
   const insertedFiles = [];
-  for (const file of galleryFiles) {
+  for (const file of filesToInsert) {
     insertedFiles.push(
       await persistProductImageFile({
         file,
@@ -521,10 +526,12 @@ export async function clearProductMainImageAction(formData: FormData) {
   redirect(`/admin/products/${productId}?saved=1`);
 }
 
-export async function removeProductGalleryImageAction(formData: FormData) {
+export async function removeProductGalleryImageAction(
+  productImageId: string,
+  formData: FormData,
+) {
   const admin = await requireUser(["admin"]);
   const productId = getString(formData, "productId");
-  const productImageId = getString(formData, "productImageId");
 
   if (!productId || !productImageId) {
     redirect("/admin/products");

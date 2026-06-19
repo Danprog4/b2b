@@ -14,6 +14,7 @@ import { notFound } from "next/navigation";
 import { OrderLineCard } from "@/components/orders/order-line-card";
 import { FileUploadField } from "@/components/ui/file-upload-field";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { ToastMessages } from "@/components/ui/toast-message";
 import { db } from "@/db";
 import {
   buyerCompanies,
@@ -244,48 +245,51 @@ export default async function AdminOrderPage({
           ← Все заказы
         </Link>
 
-        {documentUploaded ? (
-          <div className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
-            Документ сохранен.
-          </div>
-        ) : null}
-
-        {documentError ? (
-          <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-800">
-            {documentError}
-          </div>
-        ) : null}
-
-        {invoiceRegenerated ? (
-          <div className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
-            Счет повторно сформирован.
-          </div>
-        ) : null}
-
-        {invoiceError ? (
-          <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-800">
-            Не удалось сформировать счет. Детали ошибки показаны в технических
-            состояниях.
-          </div>
-        ) : null}
-
-        {orderEdited ? (
-          <div className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
-            Состав заказа обновлен. Актуальный счет сформирован заново.
-          </div>
-        ) : null}
-
-        {statusError ? (
-          <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-800">
-            Этот переход статуса недоступен для текущего заказа.
-          </div>
-        ) : null}
-
-        {orderEditError ? (
-          <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-800">
-            {getOrderEditErrorLabel(orderEditError)}
-          </div>
-        ) : null}
+        <ToastMessages
+          items={[
+            ...(documentUploaded ? [{ message: "Документ сохранен." }] : []),
+            ...(documentError
+              ? [{ message: documentError, tone: "error" as const }]
+              : []),
+            ...(invoiceRegenerated
+              ? [{ message: "Счет повторно сформирован." }]
+              : []),
+            ...(invoiceError
+              ? [
+                  {
+                    message:
+                      "Не удалось сформировать счет. Детали ошибки показаны в технических состояниях.",
+                    tone: "error" as const,
+                  },
+                ]
+              : []),
+            ...(orderEdited
+              ? [
+                  {
+                    message:
+                      "Состав заказа обновлен. Актуальный счет сформирован заново.",
+                  },
+                ]
+              : []),
+            ...(statusError
+              ? [
+                  {
+                    message:
+                      "Этот переход статуса недоступен для текущего заказа.",
+                    tone: "error" as const,
+                  },
+                ]
+              : []),
+            ...(orderEditError
+              ? [
+                  {
+                    message: getOrderEditErrorLabel(orderEditError),
+                    tone: "error" as const,
+                  },
+                ]
+              : []),
+          ]}
+        />
 
         <section className="mt-5 rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
           <div className="flex flex-wrap items-start justify-between gap-4">

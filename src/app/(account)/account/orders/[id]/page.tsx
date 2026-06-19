@@ -22,6 +22,7 @@ import { cancelAcceptedOrderAction, repeatOrderAction } from "@/lib/orders/actio
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { OrderLineCard } from "@/components/orders/order-line-card";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { ToastMessages } from "@/components/ui/toast-message";
 import { markCurrentBuyerOrderViewed } from "@/lib/orders/view-actions";
 import { EditOrderButton } from "./edit-order-button";
 
@@ -77,29 +78,35 @@ export default async function AccountOrderPage({
           ← Все заказы
         </Link>
 
-        {created ? (
-          <div className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
-            Заказ создан, счет сформирован и заказ ожидает оплаты.
-          </div>
-        ) : null}
-
-        {editError ? (
-          <div className="mt-5 rounded-lg bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
-            Этот заказ нельзя переоформить: он уже выдан или отменен.
-          </div>
-        ) : null}
-
-        {cancelled ? (
-          <div className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
-            Заказ отменен.
-          </div>
-        ) : null}
-
-        {cancelError ? (
-          <div className="mt-5 rounded-lg bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
-            Отменить можно только заказ в статусе «Принят».
-          </div>
-        ) : null}
+        <ToastMessages
+          items={[
+            ...(created
+              ? [
+                  {
+                    message: "Заказ создан, счет сформирован и заказ ожидает оплаты.",
+                  },
+                ]
+              : []),
+            ...(editError
+              ? [
+                  {
+                    message:
+                      "Этот заказ нельзя переоформить: он уже выдан или отменен.",
+                    tone: "warning" as const,
+                  },
+                ]
+              : []),
+            ...(cancelled ? [{ message: "Заказ отменен." }] : []),
+            ...(cancelError
+              ? [
+                  {
+                    message: "Отменить можно только заказ в статусе «Принят».",
+                    tone: "warning" as const,
+                  },
+                ]
+              : []),
+          ]}
+        />
 
         <section className="mt-5 rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
           <div className="flex flex-wrap items-start justify-between gap-4">

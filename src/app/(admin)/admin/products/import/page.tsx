@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { FileUploadField } from "@/components/ui/file-upload-field";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { ToastMessages } from "@/components/ui/toast-message";
 import { db } from "@/db";
 import { files, importJobRows, importJobs, users } from "@/db/schema";
 import { ImportColumnsHelp } from "./import-columns-help";
@@ -202,30 +203,33 @@ export default async function AdminProductImportPage({
           </Link>
         </div>
 
-        {error ? (
-          <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
-            {errorMessages[error] ?? "Не удалось импортировать файл."}
-          </div>
-        ) : null}
+        <ToastMessages
+          items={[
+            ...(error
+              ? [
+                  {
+                    message:
+                      errorMessages[error] ?? "Не удалось импортировать файл.",
+                    tone: "error" as const,
+                  },
+                ]
+              : []),
+            ...(selectedJob && selectedJob.status === "imported"
+              ? [
+                  {
+                    message: `Импорт завершен: создано ${selectedJob.createdRows}, обновлено ${selectedJob.updatedRows}, ошибок ${selectedJob.errorRows}.`,
+                  },
+                ]
+              : []),
+            ...(imported ? [{ message: "Каталог обновлен." }] : []),
+          ]}
+        />
 
         {selectedJob && selectedJob.status === "validated" ? (
           <div className="mt-5 rounded-lg bg-blue-50 px-4 py-3 text-sm font-bold text-blue-800">
             Файл проверен: будет создано {selectedJob.createdRows}, обновлено{" "}
             {selectedJob.updatedRows}, ошибок {selectedJob.errorRows}. Проверьте
             строки ниже и подтвердите импорт.
-          </div>
-        ) : null}
-
-        {selectedJob && selectedJob.status === "imported" ? (
-          <div className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
-            Импорт завершен: создано {selectedJob.createdRows}, обновлено{" "}
-            {selectedJob.updatedRows}, ошибок {selectedJob.errorRows}.
-          </div>
-        ) : null}
-
-        {imported ? (
-          <div className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
-            Каталог обновлен.
           </div>
         ) : null}
 

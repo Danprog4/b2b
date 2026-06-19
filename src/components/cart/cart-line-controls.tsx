@@ -28,7 +28,7 @@ export function CartLineControls({
     nextQuantity: number,
     action: "decrement" | "increment" | "commit",
   ) {
-    const safeQuantity = Math.max(1, Math.min(9999, nextQuantity));
+    const safeQuantity = Math.max(1, Math.min(9999, Math.round(nextQuantity)));
     const formData = new FormData();
     formData.set("itemId", itemId);
     formData.set("quantity", String(safeQuantity));
@@ -45,7 +45,7 @@ export function CartLineControls({
   }
 
   function commitInputValue(value = inputValue) {
-    const parsed = Number(value.replace(",", "."));
+    const parsed = Number.parseInt(value.replace(",", "."), 10);
     updateQuantity(Number.isFinite(parsed) ? parsed : currentQuantity, "commit");
   }
 

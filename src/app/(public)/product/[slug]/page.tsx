@@ -1,9 +1,9 @@
-import { ShoppingCart } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AddToCartButton } from "@/components/cart/add-to-cart-button";
+import { ProductImageGallery } from "@/components/catalog/product-image-gallery";
 import {
   getProductBySlug,
   getProductGalleryImages,
@@ -86,39 +86,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
         <section className="grid gap-6 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100 lg:grid-cols-[520px_1fr]">
           <div className="grid content-start gap-3">
-            <div className="flex aspect-square items-center justify-center overflow-hidden rounded-xl bg-slate-100">
-              {product.mainImageUrl ? (
-                <img
-                  alt={product.name}
-                  className="h-full w-full object-cover"
-                  src={product.mainImageUrl}
-                />
-              ) : (
-                <ShoppingCart className="text-slate-300" size={72} />
-              )}
-            </div>
-            {galleryImages.length > 0 ? (
-              <div className="grid grid-cols-4 gap-3">
-                {galleryImages.map((image) => (
-                  <a
-                    className="flex aspect-square items-center justify-center overflow-hidden rounded-lg bg-slate-100 ring-1 ring-slate-200 transition hover:ring-[#1157ff]"
-                    href={image.url ?? "#"}
-                    key={image.id}
-                    target="_blank"
-                  >
-                    {image.url ? (
-                      <img
-                        alt={image.fileName}
-                        className="h-full w-full object-cover"
-                        src={image.url}
-                      />
-                    ) : (
-                      <ShoppingCart className="text-slate-300" size={26} />
-                    )}
-                  </a>
-                ))}
-              </div>
-            ) : null}
+            <ProductImageGallery
+              images={galleryImages}
+              mainImageUrl={product.mainImageUrl}
+              productName={product.name}
+            />
           </div>
 
           <div>
@@ -145,24 +117,24 @@ export default async function ProductPage({ params }: ProductPageProps) {
               </p>
             ) : null}
 
-            <div className="mt-8 grid gap-3 rounded-xl bg-slate-50 p-4 text-sm">
-              <div className="flex justify-between gap-4">
+            <div className="mt-8 grid max-w-xl gap-3 rounded-xl bg-slate-50 p-4 text-sm">
+              <div className="grid grid-cols-[minmax(140px,180px)_minmax(0,1fr)] gap-4">
                 <span className="text-slate-500">Категория</span>
-                <span className="font-bold">{product.categoryName}</span>
+                <span className="min-w-0 font-bold">{product.categoryName}</span>
               </div>
-              <div className="flex justify-between gap-4">
+              <div className="grid grid-cols-[minmax(140px,180px)_minmax(0,1fr)] gap-4">
                 <span className="text-slate-500">Подкатегория</span>
-                <span className="font-bold">
+                <span className="min-w-0 font-bold">
                   {product.subcategoryName ?? "Не указана"}
                 </span>
               </div>
-              <div className="flex justify-between gap-4">
+              <div className="grid grid-cols-[minmax(140px,180px)_minmax(0,1fr)] gap-4">
                 <span className="text-slate-500">Размер</span>
-                <span className="font-bold">{product.size ?? "Не указан"}</span>
+                <span className="min-w-0 font-bold">{product.size ?? "Не указан"}</span>
               </div>
-              <div className="flex justify-between gap-4">
+              <div className="grid grid-cols-[minmax(140px,180px)_minmax(0,1fr)] gap-4">
                 <span className="text-slate-500">Единица измерения</span>
-                <span className="font-bold">{product.unit}</span>
+                <span className="min-w-0 font-bold">{product.unit}</span>
               </div>
             </div>
 

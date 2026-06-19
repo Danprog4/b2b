@@ -12,7 +12,10 @@ type FileUploadFieldProps = {
   multiple?: boolean;
   buttonText?: string;
   className?: string;
+  buttonClassName?: string;
+  fileLabelClassName?: string;
   initialFileLabel?: string;
+  showFileNames?: boolean;
   onFilesChange?: (files: File[]) => void;
 };
 
@@ -23,7 +26,10 @@ export function FileUploadField({
   multiple = false,
   buttonText = "Загрузить файл",
   className,
+  buttonClassName,
+  fileLabelClassName,
   initialFileLabel,
+  showFileNames = true,
   onFilesChange,
 }: FileUploadFieldProps) {
   const inputId = useId();
@@ -49,14 +55,22 @@ export function FileUploadField({
       />
       <div className="flex flex-wrap items-center gap-3">
         <label
-          className="inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-lg bg-[#1157ff] px-4 text-sm font-bold text-white transition hover:bg-[#0b49e0]"
+          className={cn(
+            "inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-lg bg-[#1157ff] px-4 text-sm font-bold text-white transition hover:bg-[#0b49e0]",
+            buttonClassName,
+          )}
           htmlFor={inputId}
         >
           <Upload size={17} />
           {buttonText}
         </label>
-        {fileNames.length > 0 ? (
-          <span className="min-w-0 flex-1 truncate rounded-lg bg-white px-3 py-2 text-sm font-bold text-slate-600 ring-1 ring-slate-200">
+        {showFileNames && fileNames.length > 0 ? (
+          <span
+            className={cn(
+              "min-w-0 flex-1 truncate rounded-lg bg-white px-3 py-2 text-sm font-bold text-slate-600 ring-1 ring-slate-200",
+              fileLabelClassName,
+            )}
+          >
             {fileNames.join(", ")}
           </span>
         ) : null}

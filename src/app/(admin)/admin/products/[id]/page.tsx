@@ -13,19 +13,30 @@ import {
   subcategories,
 } from "@/db/schema";
 import {
-  resetProductPriorityOfferAction,
-  setPriorityProductOfferAction,
   updateProductAction,
   upsertProductOfferAction,
 } from "@/lib/admin/product-actions";
 import { requireUser } from "@/lib/auth/session";
 import { getPublicFileUrl } from "@/lib/files/urls";
+import { ToastMessages } from "@/components/ui/toast-message";
 import { ProductForm } from "../product-form";
 
 type ProductEditPageProps = {
   params: Promise<{ id: string }>;
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
+
+const offerStatusOptions = [
+  { value: "draft", label: "Черновик" },
+  { value: "on_moderation", label: "На модерации" },
+  { value: "published", label: "Опубликовано" },
+  { value: "rejected", label: "Отклонено" },
+  { value: "hidden", label: "Скрыто" },
+] as const;
+
+const offerStatusLabels = Object.fromEntries(
+  offerStatusOptions.map((status) => [status.value, status.label]),
+);
 
 export default async function AdminProductEditPage({
   params,
@@ -75,35 +86,39 @@ export default async function AdminProductEditPage({
 
   const [categoryOptions, subcategoryOptions, sellerOptions, galleryImages] =
     await Promise.all([
-    db
-      .select({ id: categories.id, name: categories.name })
-      .from(categories)
-      .orderBy(asc(categories.sortOrder), asc(categories.name)),
-    db
-      .select({
-        id: subcategories.id,
-        name: subcategories.name,
-        categoryName: categories.name,
-      })
-      .from(subcategories)
-      .innerJoin(categories, eq(categories.id, subcategories.categoryId))
-      .orderBy(asc(categories.name), asc(subcategories.sortOrder), asc(subcategories.name)),
-    db
-      .select({ id: sellers.id, name: sellers.name })
-      .from(sellers)
-      .orderBy(asc(sellers.name)),
-    db
-      .select({
-        id: productImages.id,
-        fileId: files.id,
-        storageKey: files.storageKey,
-        fileName: files.originalName,
-      })
-      .from(productImages)
-      .innerJoin(files, eq(files.id, productImages.fileId))
-      .where(and(eq(productImages.productId, product.id), eq(files.isActive, true)))
-      .orderBy(asc(productImages.sortOrder), asc(productImages.createdAt)),
-  ]);
+      db
+        .select({ id: categories.id, name: categories.name })
+        .from(categories)
+        .orderBy(asc(categories.sortOrder), asc(categories.name)),
+      db
+        .select({
+          id: subcategories.id,
+          name: subcategories.name,
+          categoryName: categories.name,
+        })
+        .from(subcategories)
+        .innerJoin(categories, eq(categories.id, subcategories.categoryId))
+        .orderBy(
+          asc(categories.name),
+          asc(subcategories.sortOrder),
+          asc(subcategories.name),
+        ),
+      db
+        .select({ id: sellers.id, name: sellers.name })
+        .from(sellers)
+        .orderBy(asc(sellers.name)),
+      db
+        .select({
+          id: productImages.id,
+          fileId: files.id,
+          storageKey: files.storageKey,
+          fileName: files.originalName,
+        })
+        .from(productImages)
+        .innerJoin(files, eq(files.id, productImages.fileId))
+        .where(and(eq(productImages.productId, product.id), eq(files.isActive, true)))
+        .orderBy(asc(productImages.sortOrder), asc(productImages.createdAt)),
+    ]);
   const offerRows = await db
     .select({
       id: sellerOffers.id,
@@ -112,7 +127,6 @@ export default async function AdminProductEditPage({
       priceWithVat: sellerOffers.priceWithVat,
       vatRate: sellerOffers.vatRate,
       status: sellerOffers.status,
-      isPriority: sellerOffers.isPriority,
     })
     .from(sellerOffers)
     .innerJoin(sellers, eq(sellers.id, sellerOffers.sellerId))
@@ -172,79 +186,47 @@ export default async function AdminProductEditPage({
           </Link>
         </div>
 
-        {saved || created ? (
-          <div className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
-            {created ? "Товар создан." : "Товар сохранен."}
-          </div>
-        ) : null}
-
-        {offerSaved ? (
-          <div className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
-            Предложение сохранено.
-          </div>
-        ) : null}
-
-        {offerWarning ? (
-          <div className="mt-5 rounded-lg bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
-            Автоматический priority сброшен, опубликованных предложений нет.
-          </div>
-        ) : null}
-
-        <section className="mt-5 rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-          <ProductForm
-            action={updateProductAction}
-            product={productWithImages}
-            categories={categoryOptions}
-            subcategories={subcategoryOptions}
-            sellers={sellerOptions}
-            submitText="Сохранить товар"
-          />
-        </section>
+        <ToastMessages
+          items={[
+            ...(saved || created
+              ? [{ message: created ? "Товар создан." : "Товар сохранен." }]
+              : []),
+            ...(offerSaved ? [{ message: "Предложение сохранено." }] : []),
+            ...(offerWarning
+              ? [
+                  {
+                    message: "Опубликованных предложений для витрины нет.",
+                    tone: "warning" as const,
+                  },
+                ]
+              : []),
+          ]}
+        />
 
         <section className="mt-5 rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="text-2xl font-black text-slate-950">
-                Предложения продавцов
-              </h2>
-              <p className="mt-1 text-sm font-bold text-slate-500">
-                Priority: {product.priorityIsManual ? "ручной" : "автоматический"}
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {product.priorityIsManual ? (
-                <form action={resetProductPriorityOfferAction}>
-                  <input name="productId" type="hidden" value={product.id} />
-                  <button
-                    className="h-9 rounded-lg bg-slate-100 px-3 text-sm font-bold text-slate-700 transition hover:bg-slate-200"
-                    type="submit"
-                  >
-                    Сбросить на авто
-                  </button>
-                </form>
-              ) : null}
-              <span className="rounded-lg bg-slate-100 px-3 py-2 text-sm font-bold text-slate-600">
-                {offerRows.length}
-              </span>
-            </div>
+            <h2 className="text-2xl font-black text-slate-950">
+              Предложения продавцов
+            </h2>
+            <span className="rounded-lg bg-slate-100 px-3 py-2 text-sm font-bold text-slate-600">
+              {offerRows.length}
+            </span>
           </div>
 
           <div className="mt-5 overflow-hidden rounded-xl border border-slate-200">
-            <table className="w-full min-w-[900px] border-collapse text-left text-sm">
+            <table className="w-full min-w-[720px] border-collapse text-left text-sm">
               <thead className="bg-slate-50 text-xs uppercase text-slate-500">
                 <tr>
                   <th className="px-4 py-3">Продавец</th>
                   <th className="px-4 py-3">Цена</th>
                   <th className="px-4 py-3">НДС</th>
                   <th className="px-4 py-3">Статус</th>
-                  <th className="px-4 py-3">Priority</th>
-                  <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {offerRows.length === 0 ? (
                   <tr>
-                    <td className="px-4 py-8 text-center text-slate-500" colSpan={6}>
+                    <td className="px-4 py-8 text-center text-slate-500" colSpan={4}>
                       Предложений пока нет.
                     </td>
                   </tr>
@@ -262,25 +244,8 @@ export default async function AdminProductEditPage({
                     </td>
                     <td className="px-4 py-3">
                       <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
-                        {offer.status}
+                        {offerStatusLabels[offer.status] ?? offer.status}
                       </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {offer.id === product.priorityOfferId || offer.isPriority
-                        ? "Да"
-                        : "Нет"}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <form action={setPriorityProductOfferAction}>
-                        <input name="productId" type="hidden" value={product.id} />
-                        <input name="offerId" type="hidden" value={offer.id} />
-                        <button
-                          className="h-9 rounded-lg bg-slate-100 px-3 text-sm font-bold text-slate-700 transition hover:bg-slate-200"
-                          type="submit"
-                        >
-                          Priority
-                        </button>
-                      </form>
                     </td>
                   </tr>
                 ))}
@@ -290,7 +255,7 @@ export default async function AdminProductEditPage({
 
           <form
             action={upsertProductOfferAction}
-            className="mt-5 grid gap-3 rounded-xl bg-slate-50 p-4 lg:grid-cols-[1fr_160px_130px_160px_auto_auto]"
+            className="mt-5 grid gap-3 rounded-xl bg-slate-50 p-4 lg:grid-cols-[1fr_160px_130px_180px_auto]"
           >
             <input name="productId" type="hidden" value={product.id} />
             <select
@@ -327,16 +292,12 @@ export default async function AdminProductEditPage({
               defaultValue="published"
               name="status"
             >
-              <option value="draft">draft</option>
-              <option value="on_moderation">on_moderation</option>
-              <option value="published">published</option>
-              <option value="rejected">rejected</option>
-              <option value="hidden">hidden</option>
+              {offerStatusOptions.map((status) => (
+                <option key={status.value} value={status.value}>
+                  {status.label}
+                </option>
+              ))}
             </select>
-            <label className="flex h-11 items-center gap-2 text-sm font-bold text-slate-700">
-              <input name="isPriority" type="checkbox" />
-              Priority
-            </label>
             <button
               className="h-11 rounded-lg bg-[#1157ff] px-4 text-sm font-bold text-white transition hover:bg-[#0b49e0]"
               type="submit"
@@ -344,6 +305,17 @@ export default async function AdminProductEditPage({
               Сохранить
             </button>
           </form>
+        </section>
+
+        <section className="mt-5 rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+          <ProductForm
+            action={updateProductAction}
+            product={productWithImages}
+            categories={categoryOptions}
+            subcategories={subcategoryOptions}
+            sellers={sellerOptions}
+            submitText="Сохранить товар"
+          />
         </section>
       </div>
     </main>

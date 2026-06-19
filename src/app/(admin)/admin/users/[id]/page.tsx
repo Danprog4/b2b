@@ -3,6 +3,7 @@ import { Building2, FileText, History, Mail, Store, UserRound } from "lucide-rea
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { ToastMessages } from "@/components/ui/toast-message";
 import { db } from "@/db";
 import {
   auditEvents,
@@ -189,17 +190,12 @@ export default async function AdminUserPage({
           </span>
         </div>
 
-        {saved ? (
-          <div className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
-            Пользователь сохранен.
-          </div>
-        ) : null}
-
-        {error ? (
-          <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
-            {error}
-          </div>
-        ) : null}
+        <ToastMessages
+          items={[
+            ...(saved ? [{ message: "Пользователь сохранен." }] : []),
+            ...(error ? [{ message: error, tone: "error" as const }] : []),
+          ]}
+        />
 
         <div className="mt-5 grid items-start gap-5 xl:grid-cols-[1fr_380px]">
           <section className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { SubmitButton } from "@/components/ui/submit-button";
+import { ToastMessages } from "@/components/ui/toast-message";
 import { sendAdminChatMessageAction } from "@/lib/chat/actions";
 import {
   getAdminChat,
@@ -107,17 +108,20 @@ export default async function AdminChatPage({
           </p>
         </section>
 
-        {sent ? (
-          <div className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
-            Ответ отправлен покупателю.
-          </div>
-        ) : null}
-
-        {error ? (
-          <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
-            {errorMessages[error] ?? "Не удалось отправить ответ."}
-          </div>
-        ) : null}
+        <ToastMessages
+          items={[
+            ...(sent ? [{ message: "Ответ отправлен покупателю." }] : []),
+            ...(error
+              ? [
+                  {
+                    message:
+                      errorMessages[error] ?? "Не удалось отправить ответ.",
+                    tone: "error" as const,
+                  },
+                ]
+              : []),
+          ]}
+        />
 
         <section className="mt-5 rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
           <div className="max-h-[620px] overflow-y-auto p-5">

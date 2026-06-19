@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { SubmitButton } from "@/components/ui/submit-button";
+import { ToastMessage } from "@/components/ui/toast-message";
 import { resetPasswordAction } from "@/lib/auth/password-reset-actions";
 
 type ResetPasswordPageProps = {
@@ -38,9 +39,10 @@ export default async function ResetPasswordPage({
         </p>
 
         {error ? (
-          <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-            {errorMessages[error] ?? "Не удалось сменить пароль."}
-          </div>
+          <ToastMessage
+            message={errorMessages[error] ?? "Не удалось сменить пароль."}
+            tone="error"
+          />
         ) : null}
 
         <form action={resetPasswordAction} className="mt-6 grid gap-4">

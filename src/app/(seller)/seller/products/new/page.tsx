@@ -4,6 +4,7 @@ import Link from "next/link";
 import { db } from "@/db";
 import { categories, subcategories } from "@/db/schema";
 import { createSellerProductAction } from "@/lib/seller/product-actions";
+import { ToastMessage } from "@/components/ui/toast-message";
 import { SellerProductForm } from "../product-form";
 
 type NewSellerProductPageProps = {
@@ -59,9 +60,7 @@ export default async function NewSellerProductPage({
           <h1 className="text-3xl font-black text-slate-950">Новый товар</h1>
 
           {error ? (
-            <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
-              {error}
-            </div>
+            <ToastMessage message={error} tone="error" />
           ) : null}
 
           <div className="mt-6">

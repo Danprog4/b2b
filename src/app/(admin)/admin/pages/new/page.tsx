@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { ContentPageForm } from "@/app/(admin)/admin/pages/content-page-form";
+import { ToastMessage } from "@/components/ui/toast-message";
 import { requireUser } from "@/lib/auth/session";
 
 type NewContentPageProps = {
@@ -39,9 +40,7 @@ export default async function NewContentPage({ searchParams }: NewContentPagePro
         </h1>
 
         {error ? (
-          <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
-            {error}
-          </div>
+          <ToastMessage message={error} tone="error" />
         ) : null}
 
         <div className="mt-6">

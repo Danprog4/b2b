@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, inArray, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, or, sql } from "drizzle-orm";
 import {
   Bell,
   Boxes,
@@ -16,6 +16,7 @@ import Link from "next/link";
 import { FileUploadField } from "@/components/ui/file-upload-field";
 import { LogoutButton } from "@/components/logout-button";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { ToastMessages } from "@/components/ui/toast-message";
 import { db } from "@/db";
 import {
   categories,
@@ -49,6 +50,15 @@ type SellerPageProps = {
 
 function getSellerStatusLabel(status: string) {
   return status === "active" ? "Активен" : "Неактивен";
+}
+
+function getPayloadString(payload: unknown, key: string) {
+  if (!payload || typeof payload !== "object") {
+    return "";
+  }
+
+  const value = (payload as Record<string, unknown>)[key];
+  return typeof value === "string" ? value : "";
 }
 
 function getOfferStatusLabel(status: string, isActiveOnStorefront: boolean) {
@@ -194,6 +204,15 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
           order by "submitted_at" desc
           limit 1
         )`,
+        latestRequestPayload: sql<Record<string, unknown> | null>`(
+          select "payload"
+          from "seller_product_change_requests"
+          where
+            "product_id" = ${products.id}
+            and "seller_id" = ${seller.id}
+          order by "submitted_at" desc
+          limit 1
+        )`,
         categoryName: categories.name,
         subcategoryName: subcategories.name,
         imageFileId: files.id,
@@ -212,7 +231,7 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
       .leftJoin(subcategories, eq(subcategories.id, products.subcategoryId))
       .leftJoin(files, eq(files.id, products.mainImageFileId))
       .where(eq(sellerOffers.sellerId, seller.id))
-      .orderBy(asc(products.name))
+      .orderBy(desc(products.createdAt))
       .limit(80),
     db
       .select({
@@ -264,6 +283,25 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
   ]);
 
   const salesAmount = Number(financeSummary?.salesAmount ?? 0);
+  const latestImageFileIds = Array.from(
+    new Set(
+      productRows
+        .map((product) => getPayloadString(product.latestRequestPayload, "mainImageFileId"))
+        .filter(Boolean),
+    ),
+  );
+  const latestImageFiles =
+    latestImageFileIds.length > 0
+      ? await db
+          .select({
+            id: files.id,
+            storageKey: files.storageKey,
+            isActive: files.isActive,
+          })
+          .from(files)
+          .where(inArray(files.id, latestImageFileIds))
+      : [];
+  const latestImageFileById = new Map(latestImageFiles.map((file) => [file.id, file]));
   const sellerCompanyCardDocument = documents.find(
     (document) => document.type === "seller_company_card",
   );
@@ -379,11 +417,17 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
           })}
         </section>
 
-        {productSubmitted ? (
-          <div className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
-            Товар отправлен на модерацию.
-          </div>
-        ) : null}
+        <ToastMessages
+          items={[
+            ...(productSubmitted
+              ? [{ message: "Товар отправлен на модерацию." }]
+              : []),
+            ...(documentUploaded ? [{ message: "Документ сохранен." }] : []),
+            ...(documentError
+              ? [{ message: documentError, tone: "error" as const }]
+              : []),
+          ]}
+        />
 
         <section className="mt-5 grid gap-5 2xl:grid-cols-[minmax(0,1fr)_340px]">
           <div className="grid min-w-0 gap-5">
@@ -449,13 +493,6 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Link
-                    className="inline-flex h-10 items-center gap-2 rounded-lg bg-slate-900 px-4 text-sm font-bold text-white transition hover:bg-slate-800"
-                    href="/seller/products/existing"
-                  >
-                    <Plus size={17} />
-                    К существующему
-                  </Link>
-                  <Link
                     className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#1157ff] px-4 text-sm font-bold text-white transition hover:bg-[#0b49e0]"
                     href="/seller/products/new"
                   >
@@ -485,7 +522,27 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                       </tr>
                     ) : null}
                     {productRows.map((product) => {
-                      const imageUrl = product.imageIsActive
+                      const latestPayload = product.latestRequestPayload;
+                      const displayName =
+                        getPayloadString(latestPayload, "name") || product.name;
+                      const displayPrice =
+                        getPayloadString(latestPayload, "priceWithVat") ||
+                        product.priceWithVat;
+                      const displayUnit =
+                        getPayloadString(latestPayload, "unit") || product.unit;
+                      const latestImageFileId = getPayloadString(
+                        latestPayload,
+                        "mainImageFileId",
+                      );
+                      const latestImageFile = latestImageFileId
+                        ? latestImageFileById.get(latestImageFileId)
+                        : null;
+                      const imageUrl = latestImageFile?.isActive
+                        ? getPublicFileUrl({
+                            id: latestImageFile.id,
+                            storageKey: latestImageFile.storageKey,
+                          })
+                        : product.imageIsActive
                         ? getPublicFileUrl({
                             id: product.imageFileId,
                             storageKey: product.imageStorageKey,
@@ -513,7 +570,7 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                               <span className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-100 text-slate-300">
                                 {imageUrl ? (
                                   <img
-                                    alt={product.name}
+                                    alt={displayName}
                                     className="h-full w-full object-cover"
                                     src={imageUrl}
                                   />
@@ -523,10 +580,10 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                               </span>
                               <span>
                                 <span className="block font-black text-slate-950">
-                                  {product.name}
+                                  {displayName}
                                 </span>
                                 <span className="mt-1 block text-slate-500">
-                                  {product.sku} · {product.unit}
+                                  {product.sku} · {displayUnit}
                                 </span>
                               </span>
                             </Link>
@@ -549,7 +606,7 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                               className="block font-black transition group-hover:text-[#1157ff]"
                               href={`/seller/products/${product.id}`}
                             >
-                              {formatCurrency(product.priceWithVat)}
+                              {formatCurrency(displayPrice)}
                             </Link>
                           </td>
                           <td className="px-4 py-3">
@@ -719,18 +776,6 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                 <Paperclip className="text-[#1157ff]" size={22} />
                 <h2 className="text-xl font-black text-slate-950">Документы</h2>
               </div>
-
-              {documentUploaded ? (
-                <div className="mt-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-700">
-                  Документ сохранен.
-                </div>
-              ) : null}
-
-              {documentError ? (
-                <div className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm font-bold text-red-700">
-                  {documentError}
-                </div>
-              ) : null}
 
               <form
                 action={uploadSellerDocumentAction}

@@ -1,12 +1,13 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { db } from "@/db";
 import {
   auditEvents,
+  productImages,
   products,
   sellerOffers,
   sellerProductChangeRequests,
@@ -25,6 +26,7 @@ type ProductModerationPayload = {
   size?: unknown;
   unit?: unknown;
   mainImageFileId?: unknown;
+  galleryImageFileIds?: unknown;
 };
 
 function getString(formData: FormData, key: string) {
@@ -41,6 +43,12 @@ function toRequiredString(value: unknown) {
 }
 
 function normalizePayload(payload: ProductModerationPayload) {
+  const galleryImageFileIds = Array.isArray(payload.galleryImageFileIds)
+    ? payload.galleryImageFileIds.filter(
+        (fileId): fileId is string => typeof fileId === "string" && Boolean(fileId),
+      )
+    : [];
+
   return {
     name: toRequiredString(payload.name),
     categoryId: toRequiredString(payload.categoryId),
@@ -51,6 +59,7 @@ function normalizePayload(payload: ProductModerationPayload) {
     size: toNullableString(payload.size),
     unit: toRequiredString(payload.unit),
     mainImageFileId: toNullableString(payload.mainImageFileId),
+    galleryImageFileIds,
   };
 }
 
@@ -164,6 +173,8 @@ export async function approveProductModerationRequestAction(formData: FormData) 
         null,
       );
     let selectedPublishedOffer = currentPriorityOffer;
+    const isFirstProductPublication =
+      request.type !== "offer_create" && !currentPriorityOffer;
 
     if (request.type !== "offer_create") {
       await tx
@@ -180,7 +191,9 @@ export async function approveProductModerationRequestAction(formData: FormData) 
           mainImageFileId: payload.mainImageFileId ?? undefined,
           isActive: true,
           priorityOfferId:
-            request.type === "create" ? request.sellerOfferId : undefined,
+            request.type === "create" || !currentPriorityOffer
+              ? request.sellerOfferId
+              : undefined,
           updatedAt: new Date(),
         })
         .where(eq(products.id, productId));
@@ -193,13 +206,30 @@ export async function approveProductModerationRequestAction(formData: FormData) 
         .where(eq(products.id, productId));
     }
 
+    if (
+      request.type === "update" &&
+      Array.isArray(request.payload.galleryImageFileIds)
+    ) {
+      await tx.delete(productImages).where(eq(productImages.productId, productId));
+
+      if (payload.galleryImageFileIds.length > 0) {
+        await tx.insert(productImages).values(
+          payload.galleryImageFileIds.map((fileId, index) => ({
+            productId,
+            fileId,
+            sortOrder: index + 1,
+          })),
+        );
+      }
+    }
+
     await tx
       .update(sellerOffers)
       .set({
         priceWithVat: payload.priceWithVat,
         vatRate: payload.vatRate,
         status: "published",
-        isPriority: request.type === "create" ? true : undefined,
+        isPriority: request.type === "create" || !currentPriorityOffer ? true : undefined,
         moderationComment: comment || null,
         moderatedAt: new Date(),
         moderatedById: admin.id,
@@ -269,7 +299,14 @@ export async function approveProductModerationRequestAction(formData: FormData) 
         createdAt: new Date(),
       };
     } else if (request.type === "update") {
-      selectedPublishedOffer = currentPriorityOffer;
+      selectedPublishedOffer =
+        currentPriorityOffer ?? {
+          id: sellerOfferId,
+          sellerId: request.sellerId,
+          priceWithVat: payload.priceWithVat,
+          publishedAt: new Date(),
+          createdAt: new Date(),
+        };
     }
 
     await insertSellerNotifications(tx, {
@@ -281,7 +318,9 @@ export async function approveProductModerationRequestAction(formData: FormData) 
             ? "Предложение вышло на витрину"
             : "Предложение товара опубликовано"
           : request.type === "update"
-          ? "Изменения товара опубликованы"
+          ? isFirstProductPublication
+            ? "Товар опубликован"
+            : "Изменения товара опубликованы"
           : "Товар опубликован",
       body:
         request.type === "offer_create" && selectedPublishedOffer?.id === sellerOfferId
@@ -388,10 +427,15 @@ export async function rejectProductModerationRequestAction(formData: FormData) {
       return;
     }
 
-    if (
-      (request.type === "create" || request.type === "offer_create") &&
-      request.sellerOfferId
-    ) {
+    if (request.sellerOfferId) {
+      const offerFilters =
+        request.type === "update"
+          ? and(
+              eq(sellerOffers.id, request.sellerOfferId),
+              ne(sellerOffers.status, "published"),
+            )
+          : eq(sellerOffers.id, request.sellerOfferId);
+
       await tx
         .update(sellerOffers)
         .set({
@@ -401,7 +445,7 @@ export async function rejectProductModerationRequestAction(formData: FormData) {
           moderatedById: admin.id,
           updatedAt: new Date(),
         })
-        .where(eq(sellerOffers.id, request.sellerOfferId));
+        .where(offerFilters);
     }
 
     await insertSellerNotifications(tx, {

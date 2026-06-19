@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 
 import { InnAutofillButton } from "@/components/company/inn-autofill-button";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { ToastMessages } from "@/components/ui/toast-message";
 import { db } from "@/db";
 import { buyerCompanies } from "@/db/schema";
 import { getCompanyDocumentReadiness } from "@/lib/account/company-documents";
@@ -118,17 +119,20 @@ export default async function AccountCompanyPage({
             )}
           </div>
 
-          {saved ? (
-            <div className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
-              Данные компании сохранены.
-            </div>
-          ) : null}
-
-          {error ? (
-            <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
-              {errorMessages[error] ?? "Не удалось сохранить данные."}
-            </div>
-          ) : null}
+          <ToastMessages
+            items={[
+              ...(saved ? [{ message: "Данные компании сохранены." }] : []),
+              ...(error
+                ? [
+                    {
+                      message:
+                        errorMessages[error] ?? "Не удалось сохранить данные.",
+                      tone: "error" as const,
+                    },
+                  ]
+                : []),
+            ]}
+          />
 
           {missingFields.length > 0 ? (
             <div className="mt-5 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">

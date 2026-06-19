@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { FileUploadField } from "@/components/ui/file-upload-field";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { ToastMessages } from "@/components/ui/toast-message";
 import { sendBuyerChatMessageAction } from "@/lib/chat/actions";
 import {
   getCurrentBuyerChatMessages,
@@ -90,17 +91,20 @@ export default async function AccountChatPage({ searchParams }: ChatPageProps) {
           </div>
         </div>
 
-        {sent ? (
-          <div className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
-            Сообщение отправлено оператору.
-          </div>
-        ) : null}
-
-        {error ? (
-          <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
-            {errorMessages[error] ?? "Не удалось отправить сообщение."}
-          </div>
-        ) : null}
+        <ToastMessages
+          items={[
+            ...(sent ? [{ message: "Сообщение отправлено оператору." }] : []),
+            ...(error
+              ? [
+                  {
+                    message:
+                      errorMessages[error] ?? "Не удалось отправить сообщение.",
+                    tone: "error" as const,
+                  },
+                ]
+              : []),
+          ]}
+        />
 
         <section className="mt-5 rounded-xl bg-white shadow-sm ring-1 ring-slate-100">
           <div className="max-h-[620px] overflow-y-auto p-5">

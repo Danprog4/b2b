@@ -1,4 +1,4 @@
-import { and, asc, eq, ilike } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -31,6 +31,7 @@ export type ProductListItem = {
   unit: string;
   size: string | null;
   isActive: boolean;
+  createdAt: Date;
   mainImageUrl: string | null;
 };
 
@@ -170,13 +171,6 @@ function getOfferPublishedTime(row: Pick<ProductOfferRow, "offerCreatedAt" | "of
   return (row.offerPublishedAt ?? row.offerCreatedAt).getTime();
 }
 
-function escapeLikePattern(value: string) {
-  return value
-    .replace(/\\/g, "\\\\")
-    .replace(/%/g, "\\%")
-    .replace(/_/g, "\\_");
-}
-
 function isBetterStorefrontOffer(candidate: ProductOfferRow, current: ProductOfferRow) {
   const priceDelta =
     Number(candidate.offerPriceWithVat) - Number(current.offerPriceWithVat);
@@ -236,7 +230,7 @@ export async function getCatalogProducts({
   limit?: number;
 } = {}): Promise<CatalogProductsResult> {
   const filters = [eq(products.isActive, true), eq(categories.isActive, true)];
-  const normalizedQuery = q?.trim();
+  const normalizedQuery = q?.trim().toLocaleLowerCase("ru-RU") ?? "";
   const normalizedPageSize = Math.max(1, Math.min(limit ?? pageSize, 100));
 
   if (categorySlug) {
@@ -290,11 +284,6 @@ export async function getCatalogProducts({
     }
   }
 
-  if (normalizedQuery && normalizedQuery.length >= 2) {
-    const pattern = `%${escapeLikePattern(normalizedQuery)}%`;
-    filters.push(ilike(products.name, pattern));
-  }
-
   const rows = await db
     .select({
       id: products.id,
@@ -328,9 +317,16 @@ export async function getCatalogProducts({
     .leftJoin(subcategories, eq(products.subcategoryId, subcategories.id))
     .leftJoin(files, eq(files.id, products.mainImageFileId))
     .where(and(...filters, eq(sellerOffers.status, "published")))
-    .orderBy(asc(products.name));
+    .orderBy(desc(products.createdAt), asc(products.name));
 
   const items = toProductListItems(rows).filter((item) => {
+    if (
+      normalizedQuery.length >= 2 &&
+      !item.name.toLocaleLowerCase("ru-RU").includes(normalizedQuery)
+    ) {
+      return false;
+    }
+
     const price = Number(item.priceWithVat);
 
     if (typeof minPrice === "number" && Number.isFinite(minPrice) && price < minPrice) {
@@ -353,7 +349,8 @@ export async function getCatalogProducts({
       return Number(b.priceWithVat) - Number(a.priceWithVat);
     }
 
-    return 0;
+    const createdAtDelta = b.createdAt.getTime() - a.createdAt.getTime();
+    return createdAtDelta || a.name.localeCompare(b.name, "ru");
   });
 
   const totalCount = items.length;

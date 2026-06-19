@@ -1,6 +1,4 @@
-import { ImageIcon, X } from "lucide-react";
-
-import { FileUploadField } from "@/components/ui/file-upload-field";
+import { ProductImageFields } from "@/components/products/product-image-fields";
 import { SubmitButton } from "@/components/ui/submit-button";
 import {
   clearProductMainImageAction,
@@ -181,94 +179,13 @@ export function ProductForm({
         />
       </label>
 
-      <section className="grid gap-4 rounded-xl bg-slate-50 p-4">
-        <div>
-          <h2 className="text-base font-black text-slate-950">Изображения</h2>
-          <p className="mt-1 text-sm font-normal leading-6 text-slate-600">
-            Главное фото показывается в каталоге и первым на карточке товара.
-          </p>
-        </div>
-
-        <div className="grid gap-4 lg:grid-cols-[220px_1fr]">
-          <div className="overflow-hidden rounded-xl bg-white ring-1 ring-slate-200">
-            {product?.mainImageUrl ? (
-              <img
-                alt={product.name}
-                className="h-52 w-full object-cover"
-                src={product.mainImageUrl}
-              />
-            ) : (
-              <div className="flex h-52 items-center justify-center bg-slate-100 text-slate-300">
-                <ImageIcon size={44} />
-              </div>
-            )}
-          </div>
-
-          <div className="grid content-start gap-3">
-            <FileUploadField
-              accept="image/jpeg,image/png,image/webp"
-              buttonText={product?.mainImageUrl ? "Заменить главное фото" : "Загрузить главное фото"}
-              name="mainImage"
-            />
-            {product?.mainImageUrl ? (
-              <button
-                className="inline-flex h-10 w-fit items-center justify-center rounded-lg bg-red-50 px-4 text-sm font-bold text-red-600 transition hover:bg-red-100"
-                formAction={clearProductMainImageAction}
-                type="submit"
-              >
-                Удалить главное фото
-              </button>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="grid gap-3">
-          <FileUploadField
-            accept="image/jpeg,image/png,image/webp"
-            buttonText="Загрузить фото галереи"
-            multiple
-            name="galleryImages"
-          />
-
-          {product?.galleryImages && product.galleryImages.length > 0 ? (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {product.galleryImages.map((image) => (
-                <div
-                  className="overflow-hidden rounded-xl bg-white ring-1 ring-slate-200"
-                  key={image.id}
-                >
-                  {image.url ? (
-                    <img
-                      alt={image.fileName}
-                      className="h-36 w-full object-cover"
-                      src={image.url}
-                    />
-                  ) : (
-                    <div className="flex h-36 items-center justify-center bg-slate-100 text-slate-300">
-                      <ImageIcon size={34} />
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between gap-2 p-3">
-                    <span className="min-w-0 truncate text-xs font-bold text-slate-500">
-                      {image.fileName}
-                    </span>
-                    <button
-                      aria-label="Удалить фото"
-                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-red-50 text-red-600 transition hover:bg-red-100"
-                      formAction={removeProductGalleryImageAction}
-                      name="productImageId"
-                      type="submit"
-                      value={image.id}
-                    >
-                      <X size={16} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : null}
-        </div>
-      </section>
+      <ProductImageFields
+        clearMainImageAction={clearProductMainImageAction}
+        galleryImages={product?.galleryImages}
+        mainImageUrl={product?.mainImageUrl}
+        productName={product?.name}
+        removeExistingGalleryImageAction={removeProductGalleryImageAction}
+      />
 
       <div className="grid gap-3 rounded-xl bg-slate-50 p-4 text-sm font-bold text-slate-700">
         <label className="flex items-center gap-3">

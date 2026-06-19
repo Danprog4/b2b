@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 
+import { ToastMessages } from "@/components/ui/toast-message";
 import { RegisterBuyerForm } from "./register-buyer-form";
 
 type RegisterPageProps = {
@@ -37,18 +38,28 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
           Если ИНН уже есть в системе, создается заявка на присоединение.
         </p>
 
-        {error ? (
-          <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-            {errorMessages[error] ?? "Не удалось зарегистрироваться."}
-          </div>
-        ) : null}
-
-        {retry ? (
-          <div className="mt-5 rounded-lg bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
-            Заявка на присоединение была отклонена. Проверьте ИНН и данные
-            компании, затем отправьте регистрацию повторно с тем же email.
-          </div>
-        ) : null}
+        <ToastMessages
+          items={[
+            ...(error
+              ? [
+                  {
+                    message:
+                      errorMessages[error] ?? "Не удалось зарегистрироваться.",
+                    tone: "error" as const,
+                  },
+                ]
+              : []),
+            ...(retry
+              ? [
+                  {
+                    message:
+                      "Заявка на присоединение была отклонена. Проверьте ИНН и данные компании, затем отправьте регистрацию повторно с тем же email.",
+                    tone: "warning" as const,
+                  },
+                ]
+              : []),
+          ]}
+        />
 
         <RegisterBuyerForm />
 

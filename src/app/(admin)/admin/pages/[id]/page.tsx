@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { ContentPageForm } from "@/app/(admin)/admin/pages/content-page-form";
+import { ToastMessages } from "@/components/ui/toast-message";
 import { db } from "@/db";
 import { contentPages } from "@/db/schema";
 import { requireUser } from "@/lib/auth/session";
@@ -72,16 +73,12 @@ export default async function EditContentPage({
           ) : null}
         </div>
 
-        {error ? (
-          <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
-            {error}
-          </div>
-        ) : null}
-        {saved || created ? (
-          <div className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
-            Страница сохранена.
-          </div>
-        ) : null}
+        <ToastMessages
+          items={[
+            ...(error ? [{ message: error, tone: "error" as const }] : []),
+            ...(saved || created ? [{ message: "Страница сохранена." }] : []),
+          ]}
+        />
 
         <div className="mt-6">
           <ContentPageForm page={page} />

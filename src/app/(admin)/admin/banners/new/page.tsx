@@ -2,6 +2,7 @@ import { asc } from "drizzle-orm";
 import Link from "next/link";
 
 import { BannerForm } from "@/app/(admin)/admin/banners/banner-form";
+import { ToastMessage } from "@/components/ui/toast-message";
 import { db } from "@/db";
 import { banners } from "@/db/schema";
 import { getBannerLinkSuggestions } from "@/lib/admin/banner-link-suggestions";
@@ -60,9 +61,7 @@ export default async function NewBannerPage({ searchParams }: NewBannerPageProps
         <h1 className="mt-3 text-3xl font-black text-slate-950">Новый баннер</h1>
 
         {error ? (
-          <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
-            {error}
-          </div>
+          <ToastMessage message={error} tone="error" />
         ) : null}
 
         <div className="mt-6">
