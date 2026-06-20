@@ -13,11 +13,14 @@ import {
   products,
   sellerOffers,
   sellerProductChangeRequests,
+  sellers,
 } from "@/db/schema";
 import { requireUser } from "@/lib/auth/session";
+import { recalculateAutomaticProductPriority } from "@/lib/admin/product-priority";
 import { writeStorageFile } from "@/lib/files/storage";
 import { getNextProductSku } from "@/lib/numbering/sequences";
 import { insertAdminNotifications } from "@/lib/notifications/helpers";
+import { SELLER_DELETED_OFFER_COMMENT } from "@/lib/products/offer-status";
 
 const allowedImageMimeTypes = new Set([
   "image/jpeg",
@@ -544,4 +547,131 @@ export async function requestSellerProductUpdateAction(formData: FormData) {
   revalidatePath("/admin/notifications");
 
   redirect("/seller?productSubmitted=1");
+}
+
+export async function deleteSellerProductAction(formData: FormData) {
+  const user = await requireUser(["seller"]);
+  const productId = getString(formData, "productId");
+
+  if (!user.sellerId || !productId) {
+    redirect("/seller");
+  }
+
+  const sellerId = user.sellerId;
+
+  const [row] = await db
+    .select({
+      productId: products.id,
+      productName: products.name,
+      productSlug: products.slug,
+      priorityOfferId: products.priorityOfferId,
+      offerId: sellerOffers.id,
+      offerStatus: sellerOffers.status,
+      sellerName: sellers.name,
+    })
+    .from(products)
+    .innerJoin(
+      sellerOffers,
+      and(
+        eq(sellerOffers.productId, products.id),
+        eq(sellerOffers.sellerId, sellerId),
+      ),
+    )
+    .innerJoin(sellers, eq(sellers.id, sellerOffers.sellerId))
+    .where(eq(products.id, productId))
+    .limit(1);
+
+  if (!row) {
+    redirect("/seller?productDeleteError=not-found");
+  }
+
+  if (row.offerStatus === "hidden") {
+    redirect("/seller?productDeleted=1");
+  }
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(sellerOffers)
+      .set({
+        status: "hidden",
+        isPriority: false,
+        moderationComment: SELLER_DELETED_OFFER_COMMENT,
+        updatedAt: new Date(),
+      })
+      .where(eq(sellerOffers.id, row.offerId));
+
+    await tx
+      .update(sellerProductChangeRequests)
+      .set({
+        status: "hidden",
+        moderationComment: SELLER_DELETED_OFFER_COMMENT,
+        moderatedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(sellerProductChangeRequests.productId, row.productId),
+          eq(sellerProductChangeRequests.sellerId, sellerId),
+          eq(sellerProductChangeRequests.status, "on_moderation"),
+        ),
+      );
+
+    if (row.priorityOfferId === row.offerId) {
+      await recalculateAutomaticProductPriority(tx, row.productId);
+    }
+
+    const publishedOffers = await tx
+      .select({ id: sellerOffers.id })
+      .from(sellerOffers)
+      .where(
+        and(
+          eq(sellerOffers.productId, row.productId),
+          eq(sellerOffers.status, "published"),
+        ),
+      )
+      .limit(1);
+
+    if (publishedOffers.length === 0) {
+      await tx
+        .update(products)
+        .set({
+          isActive: false,
+          priorityOfferId: null,
+          priorityIsManual: false,
+          updatedAt: new Date(),
+        })
+        .where(eq(products.id, row.productId));
+    }
+
+    await insertAdminNotifications(tx, {
+      type: "seller_product_deleted",
+      title: "Товар удален продавцом",
+      body: `${row.productName} · ${row.sellerName}`,
+      sellerId,
+    });
+
+    await tx.insert(auditEvents).values({
+      actorId: user.id,
+      action: "seller_product.delete",
+      entityType: "seller_offer",
+      entityId: row.offerId,
+      metadata: {
+        productId: row.productId,
+        productName: row.productName,
+        sellerId,
+      },
+    });
+  });
+
+  revalidatePath("/");
+  revalidatePath("/catalog");
+  revalidatePath(`/product/${row.productSlug}`);
+  revalidatePath("/seller");
+  revalidatePath(`/seller/products/${row.productId}`);
+  revalidatePath(`/seller/products/${row.productId}/edit`);
+  revalidatePath("/admin/products");
+  revalidatePath(`/admin/products/${row.productId}`);
+  revalidatePath("/admin/products/moderation");
+
+  redirect("/seller?productDeleted=1");
 }

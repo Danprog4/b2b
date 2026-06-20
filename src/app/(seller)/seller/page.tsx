@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, ne, or, sql } from "drizzle-orm";
 import {
   Bell,
   Boxes,
@@ -43,6 +43,7 @@ import {
 } from "@/lib/documents/types";
 import { getPublicFileUrl } from "@/lib/files/urls";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { SellerProductDeleteButton } from "./products/product-delete-button";
 
 type SellerPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -113,6 +114,9 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
   const search = (await searchParams) ?? {};
   const documentUploaded = search.documentUploaded === "1";
   const productSubmitted = search.productSubmitted === "1";
+  const productDeleted = search.productDeleted === "1";
+  const productDeleteError =
+    typeof search.productDeleteError === "string" ? search.productDeleteError : null;
   const documentError =
     !documentUploaded && typeof search.documentError === "string"
       ? search.documentError
@@ -230,7 +234,12 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
       .innerJoin(categories, eq(categories.id, products.categoryId))
       .leftJoin(subcategories, eq(subcategories.id, products.subcategoryId))
       .leftJoin(files, eq(files.id, products.mainImageFileId))
-      .where(eq(sellerOffers.sellerId, seller.id))
+      .where(
+        and(
+          eq(sellerOffers.sellerId, seller.id),
+          ne(sellerOffers.status, "hidden"),
+        ),
+      )
       .orderBy(desc(products.createdAt))
       .limit(80),
     db
@@ -422,7 +431,16 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
             ...(productSubmitted
               ? [{ message: "Товар отправлен на модерацию." }]
               : []),
+            ...(productDeleted ? [{ message: "Товар удален." }] : []),
             ...(documentUploaded ? [{ message: "Документ сохранен." }] : []),
+            ...(productDeleteError
+              ? [
+                  {
+                    message: "Не удалось удалить товар. Обновите страницу и попробуйте еще раз.",
+                    tone: "error" as const,
+                  },
+                ]
+              : []),
             ...(documentError
               ? [{ message: documentError, tone: "error" as const }]
               : []),
@@ -676,13 +694,19 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                             </Link>
                           </td>
                           <td className="px-4 py-3 text-right">
-                            <Link
-                              className="inline-flex h-9 items-center gap-2 rounded-lg bg-slate-100 px-3 text-sm font-bold text-slate-700 transition hover:bg-slate-200"
-                              href={`/seller/products/${product.id}/edit`}
-                            >
-                              <Pencil size={15} />
-                              Изменить
-                            </Link>
+                            <div className="flex flex-wrap justify-end gap-2">
+                              <Link
+                                className="inline-flex h-9 items-center gap-2 rounded-lg bg-slate-100 px-3 text-sm font-bold text-slate-700 transition hover:bg-slate-200"
+                                href={`/seller/products/${product.id}/edit`}
+                              >
+                                <Pencil size={15} />
+                                Изменить
+                              </Link>
+                              <SellerProductDeleteButton
+                                productId={product.id}
+                                productName={displayName}
+                              />
+                            </div>
                           </td>
                         </tr>
                       );

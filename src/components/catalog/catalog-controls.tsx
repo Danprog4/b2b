@@ -25,6 +25,7 @@ type Subcategory = {
 type CatalogControlsProps = {
   categories: Category[];
   subcategories: Subcategory[];
+  mobileSubcategories?: Subcategory[];
   q: string;
   categorySlug?: string;
   subcategorySlug?: string;
@@ -172,6 +173,86 @@ function CategoryLinks({
   );
 }
 
+function MobileCategoryPicker({
+  categories,
+  subcategories,
+  draftCategorySlug,
+  draftSubcategorySlug,
+  onSelectAll,
+  onSelectCategory,
+  onSelectSubcategory,
+}: {
+  categories: Category[];
+  subcategories: Subcategory[];
+  draftCategorySlug?: string;
+  draftSubcategorySlug?: string;
+  onSelectAll: () => void;
+  onSelectCategory: (categorySlug: string) => void;
+  onSelectSubcategory: (subcategory: Subcategory) => void;
+}) {
+  return (
+    <>
+      <nav className="mt-4 grid gap-1">
+        <button
+          className={`rounded-lg px-3 py-2 text-left text-sm font-bold ${
+            !draftCategorySlug && !draftSubcategorySlug
+              ? "bg-[#eaf1ff] text-[#1157ff]"
+              : "text-slate-700 hover:bg-slate-50"
+          }`}
+          type="button"
+          onClick={onSelectAll}
+        >
+          Все товары
+        </button>
+        {categories.map((category) => (
+          <button
+            className={`block rounded-lg px-3 py-2 text-left text-sm font-bold ${
+              category.slug === draftCategorySlug && !draftSubcategorySlug
+                ? "bg-[#eaf1ff] text-[#1157ff]"
+                : "text-slate-700 hover:bg-slate-50"
+            }`}
+            key={category.id}
+            type="button"
+            onClick={() => onSelectCategory(category.slug)}
+          >
+            <span className="block truncate">{category.name}</span>
+          </button>
+        ))}
+      </nav>
+
+      {subcategories.length > 0 ? (
+        <div className="mt-6 border-t border-slate-100 pt-5">
+          <h2 className="text-sm font-black uppercase tracking-wide text-slate-500">
+            Подкатегории
+          </h2>
+          <nav className="mt-4 grid gap-1">
+            {subcategories.map((subcategory) => (
+              <button
+                className={`block rounded-lg px-3 py-2 text-left text-sm font-bold ${
+                  subcategory.slug === draftSubcategorySlug &&
+                  subcategory.categorySlug === draftCategorySlug
+                    ? "bg-[#eaf1ff] text-[#1157ff]"
+                    : "text-slate-700 hover:bg-slate-50"
+                }`}
+                key={subcategory.id}
+                type="button"
+                onClick={() => onSelectSubcategory(subcategory)}
+              >
+                {!draftCategorySlug ? (
+                  <span className="block truncate text-xs font-semibold text-slate-400">
+                    {subcategory.categoryName}
+                  </span>
+                ) : null}
+                <span className="block truncate">{subcategory.name}</span>
+              </button>
+            ))}
+          </nav>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
 export function CatalogCategoryAside(props: CatalogControlsProps) {
   return (
     <aside className="hidden rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-100 lg:block lg:self-start">
@@ -194,6 +275,7 @@ export function CatalogCategoryAside(props: CatalogControlsProps) {
 export function CatalogControls({
   categories,
   subcategories,
+  mobileSubcategories = subcategories,
   q,
   categorySlug,
   subcategorySlug,
@@ -202,7 +284,6 @@ export function CatalogControls({
   sort,
   hasActiveTopFilters,
   hasActiveCategoryFilters,
-  resetCategoryFiltersHref,
 }: CatalogControlsProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -215,7 +296,27 @@ export function CatalogControls({
   const [minPriceInputValue, setMinPriceInputValue] = useState(minPriceValue);
   const [maxPriceInputValue, setMaxPriceInputValue] = useState(maxPriceValue);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [draftCategorySlug, setDraftCategorySlug] = useState<string | undefined>(
+    categorySlug,
+  );
+  const [draftSubcategorySlug, setDraftSubcategorySlug] = useState<
+    string | undefined
+  >(subcategorySlug);
   const pathCategory = useMemo(() => getPathCategory(pathname), [pathname]);
+  const currentCategorySlug = categorySlug ?? pathCategory.category;
+  const currentSubcategorySlug = subcategorySlug ?? pathCategory.subcategory;
+  const visibleMobileSubcategories = useMemo(
+    () =>
+      draftCategorySlug
+        ? mobileSubcategories.filter(
+            (subcategory) => subcategory.categorySlug === draftCategorySlug,
+          )
+        : mobileSubcategories,
+    [draftCategorySlug, mobileSubcategories],
+  );
+  const hasDraftCategoryChanges =
+    (draftCategorySlug ?? "") !== (currentCategorySlug ?? "") ||
+    (draftSubcategorySlug ?? "") !== (currentSubcategorySlug ?? "");
   const hasAnyActiveFilters =
     hasActiveTopFilters ||
     hasActiveCategoryFilters ||
@@ -268,6 +369,49 @@ export function CatalogControls({
       subcategorySlug,
     ],
   );
+
+  const draftCategoryHref = useMemo(
+    () =>
+      catalogHref({
+        category: draftCategorySlug,
+        subcategory: draftSubcategorySlug,
+        q: searchValue.trim() || undefined,
+        minPrice: minPriceInputValue.trim() || undefined,
+        maxPrice: maxPriceInputValue.trim() || undefined,
+        sort: sort === "new" ? undefined : sort,
+      }),
+    [
+      draftCategorySlug,
+      draftSubcategorySlug,
+      maxPriceInputValue,
+      minPriceInputValue,
+      searchValue,
+      sort,
+    ],
+  );
+
+  const handleSheetOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      setIsSheetOpen(nextOpen);
+
+      if (nextOpen) {
+        setDraftCategorySlug(currentCategorySlug);
+        setDraftSubcategorySlug(currentSubcategorySlug);
+      }
+    },
+    [currentCategorySlug, currentSubcategorySlug],
+  );
+
+  const saveDraftCategoryFilters = useCallback(() => {
+    if (!hasDraftCategoryChanges) {
+      return;
+    }
+
+    setIsSheetOpen(false);
+    window.setTimeout(() => {
+      router.push(draftCategoryHref);
+    }, 300);
+  }, [draftCategoryHref, hasDraftCategoryChanges, router]);
 
   const didMountRef = useRef(false);
 
@@ -468,7 +612,7 @@ export function CatalogControls({
       <Drawer.Root
         direction="bottom"
         open={isSheetOpen}
-        onOpenChange={setIsSheetOpen}
+        onOpenChange={handleSheetOpenChange}
       >
         <Drawer.Trigger asChild>
           <button
@@ -504,34 +648,46 @@ export function CatalogControls({
                 </div>
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5">
-                <CategoryLinks
+                <MobileCategoryPicker
                   categories={categories}
-                  categorySlug={categorySlug}
-                  maxPriceValue={maxPriceValue}
-                  minPriceValue={minPriceValue}
-                  q={q}
-                  sort={sort}
-                  subcategories={subcategories}
-                  subcategorySlug={subcategorySlug}
+                  draftCategorySlug={draftCategorySlug}
+                  draftSubcategorySlug={draftSubcategorySlug}
+                  subcategories={visibleMobileSubcategories}
+                  onSelectAll={() => {
+                    setDraftCategorySlug(undefined);
+                    setDraftSubcategorySlug(undefined);
+                  }}
+                  onSelectCategory={(nextCategorySlug) => {
+                    setDraftCategorySlug(nextCategorySlug);
+                    setDraftSubcategorySlug(undefined);
+                  }}
+                  onSelectSubcategory={(subcategory) => {
+                    setDraftCategorySlug(subcategory.categorySlug);
+                    setDraftSubcategorySlug(subcategory.slug);
+                  }}
                 />
                 {hasActiveCategoryFilters ? (
-                  <Link
+                  <button
                     className="mt-6 inline-flex w-full justify-center rounded-lg bg-slate-100 px-4 py-3 text-sm font-black text-slate-700"
-                    href={resetCategoryFiltersHref}
+                    type="button"
+                    onClick={() => {
+                      setDraftCategorySlug(undefined);
+                      setDraftSubcategorySlug(undefined);
+                    }}
                   >
                     Сбросить категории
-                  </Link>
+                  </button>
                 ) : null}
               </div>
               <div className="border-t border-slate-100 bg-white p-5">
-                <Drawer.Close asChild>
-                  <button
-                    className="inline-flex h-12 w-full items-center justify-center rounded-lg bg-[#1157ff] px-5 text-sm font-black text-white transition hover:bg-[#0b49e0]"
-                    type="button"
-                  >
-                    Сохранить
-                  </button>
-                </Drawer.Close>
+                <button
+                  className="inline-flex h-12 w-full items-center justify-center rounded-lg bg-[#1157ff] px-5 text-sm font-black text-white transition hover:bg-[#0b49e0] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+                  disabled={!hasDraftCategoryChanges}
+                  type="button"
+                  onClick={saveDraftCategoryFilters}
+                >
+                  Сохранить
+                </button>
               </div>
             </div>
           </Drawer.Content>

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, ne } from "drizzle-orm";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -82,7 +82,7 @@ export default async function EditSellerProductPage({
       ),
     )
     .leftJoin(files, eq(files.id, products.mainImageFileId))
-    .where(eq(products.id, id))
+    .where(and(eq(products.id, id), ne(sellerOffers.status, "hidden")))
     .limit(1);
 
   if (!product) {

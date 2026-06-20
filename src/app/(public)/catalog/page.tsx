@@ -115,20 +115,22 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
   const sort = normalizeSort(getParam(params, "sort"));
   const requestedPage = normalizePage(getParam(params, "page"));
 
-  const [categories, subcategories, catalogResult] = await Promise.all([
-    getActiveCategories(),
-    getActiveSubcategories(categorySlug),
-    getCatalogProducts({
-      q,
-      categorySlug,
-      subcategorySlug,
-      minPrice,
-      maxPrice,
-      sort,
-      page: requestedPage,
-      pageSize: 24,
-    }),
-  ]);
+  const [categories, subcategories, mobileSubcategories, catalogResult] =
+    await Promise.all([
+      getActiveCategories(),
+      getActiveSubcategories(categorySlug),
+      getActiveSubcategories(),
+      getCatalogProducts({
+        q,
+        categorySlug,
+        subcategorySlug,
+        minPrice,
+        maxPrice,
+        sort,
+        page: requestedPage,
+        pageSize: 24,
+      }),
+    ]);
   const products = catalogResult.items;
   const totalCount = catalogResult.totalCount;
   const currentPage = catalogResult.page;
@@ -188,6 +190,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
           hasActiveCategoryFilters={hasActiveCategoryFilters}
           hasActiveTopFilters={hasActiveTopFilters}
           maxPriceValue={maxPriceValue}
+          mobileSubcategories={mobileSubcategories}
           minPriceValue={minPriceValue}
           q={q}
           resetCategoryFiltersHref={resetCategoryFiltersHref}

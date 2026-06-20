@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, ne } from "drizzle-orm";
 import { Clock3, Package, Pencil } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -15,6 +15,7 @@ import {
 import { requireUser } from "@/lib/auth/session";
 import { getPublicFileUrl } from "@/lib/files/urls";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { SellerProductDeleteButton } from "../product-delete-button";
 
 type SellerProductPageProps = {
   params: Promise<{ id: string }>;
@@ -136,7 +137,7 @@ export default async function SellerProductPage({ params }: SellerProductPagePro
     .innerJoin(categories, eq(categories.id, products.categoryId))
     .leftJoin(subcategories, eq(subcategories.id, products.subcategoryId))
     .leftJoin(files, eq(files.id, products.mainImageFileId))
-    .where(eq(products.id, id))
+    .where(and(eq(products.id, id), ne(sellerOffers.status, "hidden")))
     .limit(1);
 
   if (!product) {
@@ -210,13 +211,20 @@ export default async function SellerProductPage({ params }: SellerProductPagePro
               {product.subcategoryName ? ` · ${product.subcategoryName}` : ""}
             </p>
           </div>
-          <Link
-            className="inline-flex h-11 items-center gap-2 rounded-lg bg-[#1157ff] px-4 text-sm font-bold text-white transition hover:bg-[#0b49e0]"
-            href={`/seller/products/${product.id}/edit`}
-          >
-            <Pencil size={17} />
-            Изменить
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              className="inline-flex h-11 items-center gap-2 rounded-lg bg-[#1157ff] px-4 text-sm font-bold text-white transition hover:bg-[#0b49e0]"
+              href={`/seller/products/${product.id}/edit`}
+            >
+              <Pencil size={17} />
+              Изменить
+            </Link>
+            <SellerProductDeleteButton
+              className="h-11 px-4"
+              productId={product.id}
+              productName={product.name}
+            />
+          </div>
         </div>
 
         {latestRejectedRequest ? (
