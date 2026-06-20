@@ -18,6 +18,8 @@ import {
 } from "@/lib/admin/product-actions";
 import { requireUser } from "@/lib/auth/session";
 import { getPublicFileUrl } from "@/lib/files/urls";
+import { isSellerDeletedOffer } from "@/lib/products/offer-status";
+import { formatDateTime } from "@/lib/utils";
 import { ToastMessages } from "@/components/ui/toast-message";
 import { ProductForm } from "../product-form";
 
@@ -48,6 +50,7 @@ export default async function AdminProductEditPage({
   const saved = search.saved === "1";
   const created = search.created === "1";
   const offerSaved = search.offerSaved === "1";
+  const offerError = search.offerError;
   const offerWarning = search.offerWarning === "no-published-offers";
 
   const [product] = await db
@@ -127,15 +130,24 @@ export default async function AdminProductEditPage({
       priceWithVat: sellerOffers.priceWithVat,
       vatRate: sellerOffers.vatRate,
       status: sellerOffers.status,
+      moderationComment: sellerOffers.moderationComment,
+      updatedAt: sellerOffers.updatedAt,
     })
     .from(sellerOffers)
     .innerJoin(sellers, eq(sellers.id, sellerOffers.sellerId))
     .where(eq(sellerOffers.productId, product.id))
     .orderBy(asc(sellers.name));
+  const sellerDeletedOffer = offerRows.find((offer) =>
+    isSellerDeletedOffer({
+      status: offer.status,
+      moderationComment: offer.moderationComment,
+    }),
+  );
+  const isDeletedBySeller = Boolean(sellerDeletedOffer);
 
   const productWithImages = {
     ...product,
-    sellerId: priorityOffer?.sellerId ?? product.sellerId,
+    sellerId: sellerDeletedOffer?.sellerId ?? priorityOffer?.sellerId ?? product.sellerId,
     priceWithVat: priorityOffer?.priceWithVat ?? product.priceWithVat,
     vatRate: priorityOffer?.vatRate ?? product.vatRate,
     mainImageUrl: mainImage ? getPublicFileUrl(mainImage) : null,
@@ -192,6 +204,15 @@ export default async function AdminProductEditPage({
               ? [{ message: created ? "Товар создан." : "Товар сохранен." }]
               : []),
             ...(offerSaved ? [{ message: "Предложение сохранено." }] : []),
+            ...(offerError === "seller-deleted"
+              ? [
+                  {
+                    message:
+                      "Товар удален продавцом. Админ не может вернуть его на витрину обычным сохранением.",
+                    tone: "error" as const,
+                  },
+                ]
+              : []),
             ...(offerWarning
               ? [
                   {
@@ -206,12 +227,19 @@ export default async function AdminProductEditPage({
         <section className="mt-5 rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-2xl font-black text-slate-950">
-              Предложения продавцов
+              Продавец и статус
             </h2>
             <span className="rounded-lg bg-slate-100 px-3 py-2 text-sm font-bold text-slate-600">
               {offerRows.length}
             </span>
           </div>
+          {isDeletedBySeller ? (
+            <div className="mt-4 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold leading-6 text-red-900">
+              Товар удален продавцом. Админ может редактировать карточку как
+              архивную, но сохранение не вернет товар на витрину. Чтобы снова
+              продавать товар, продавец должен создать или отправить товар заново.
+            </div>
+          ) : null}
 
           <div className="mt-5 overflow-hidden rounded-xl border border-slate-200">
             <table className="w-full min-w-[720px] border-collapse text-left text-sm">
@@ -231,80 +259,102 @@ export default async function AdminProductEditPage({
                     </td>
                   </tr>
                 ) : null}
-                {offerRows.map((offer) => (
-                  <tr key={offer.id}>
-                    <td className="px-4 py-3 font-bold text-slate-950">
-                      {offer.sellerName}
-                    </td>
-                    <td className="px-4 py-3 font-black">
-                      {Number(offer.priceWithVat).toLocaleString("ru-RU")} ₽
-                    </td>
-                    <td className="px-4 py-3 font-bold text-slate-700">
-                      {Number(offer.vatRate).toFixed(0)}%
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
-                        {offerStatusLabels[offer.status] ?? offer.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                {offerRows.map((offer) => {
+                  const isOfferDeletedBySeller = isSellerDeletedOffer({
+                    status: offer.status,
+                    moderationComment: offer.moderationComment,
+                  });
+
+                  return (
+                    <tr key={offer.id}>
+                      <td className="px-4 py-3 font-bold text-slate-950">
+                        {offer.sellerName}
+                      </td>
+                      <td className="px-4 py-3 font-black">
+                        {Number(offer.priceWithVat).toLocaleString("ru-RU")} ₽
+                      </td>
+                      <td className="px-4 py-3 font-bold text-slate-700">
+                        {Number(offer.vatRate).toFixed(0)}%
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-bold ${
+                            isOfferDeletedBySeller
+                              ? "bg-red-50 text-red-700"
+                              : "bg-slate-100 text-slate-600"
+                          }`}
+                        >
+                          {isOfferDeletedBySeller
+                            ? "Удалено продавцом"
+                            : (offerStatusLabels[offer.status] ?? offer.status)}
+                        </span>
+                        {isOfferDeletedBySeller ? (
+                          <p className="mt-2 text-xs font-semibold text-slate-500">
+                            {formatDateTime(offer.updatedAt)}
+                          </p>
+                        ) : null}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
 
-          <form
-            action={upsertProductOfferAction}
-            className="mt-5 grid gap-3 rounded-xl bg-slate-50 p-4 lg:grid-cols-[1fr_160px_130px_180px_auto]"
-          >
-            <input name="productId" type="hidden" value={product.id} />
-            <select
-              className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold"
-              name="sellerId"
-              required
+          {!isDeletedBySeller ? (
+            <form
+              action={upsertProductOfferAction}
+              className="mt-5 grid gap-3 rounded-xl bg-slate-50 p-4 lg:grid-cols-[1fr_160px_130px_180px_auto]"
             >
-              <option value="">Продавец</option>
-              {sellerOptions.map((seller) => (
-                <option key={seller.id} value={seller.id}>
-                  {seller.name}
-                </option>
-              ))}
-            </select>
-            <input
-              className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold"
-              min="0"
-              name="priceWithVat"
-              placeholder="Цена"
-              required
-              step="0.01"
-              type="number"
-            />
-            <input
-              className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold"
-              defaultValue="22.00"
-              min="0"
-              name="vatRate"
-              step="0.01"
-              type="number"
-            />
-            <select
-              className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold"
-              defaultValue="published"
-              name="status"
-            >
-              {offerStatusOptions.map((status) => (
-                <option key={status.value} value={status.value}>
-                  {status.label}
-                </option>
-              ))}
-            </select>
-            <button
-              className="h-11 rounded-lg bg-[#1157ff] px-4 text-sm font-bold text-white transition hover:bg-[#0b49e0]"
-              type="submit"
-            >
-              Сохранить
-            </button>
-          </form>
+              <input name="productId" type="hidden" value={product.id} />
+              <select
+                className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold"
+                name="sellerId"
+                required
+              >
+                <option value="">Продавец</option>
+                {sellerOptions.map((seller) => (
+                  <option key={seller.id} value={seller.id}>
+                    {seller.name}
+                  </option>
+                ))}
+              </select>
+              <input
+                className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold"
+                min="0"
+                name="priceWithVat"
+                placeholder="Цена"
+                required
+                step="1"
+                type="number"
+              />
+              <input
+                className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold"
+                defaultValue="22.00"
+                min="0"
+                name="vatRate"
+                step="1"
+                type="number"
+              />
+              <select
+                className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold"
+                defaultValue="published"
+                name="status"
+              >
+                {offerStatusOptions.map((status) => (
+                  <option key={status.value} value={status.value}>
+                    {status.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                className="h-11 rounded-lg bg-[#1157ff] px-4 text-sm font-bold text-white transition hover:bg-[#0b49e0]"
+                type="submit"
+              >
+                Сохранить
+              </button>
+            </form>
+          ) : null}
         </section>
 
         <section className="mt-5 rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
@@ -312,6 +362,13 @@ export default async function AdminProductEditPage({
             action={updateProductAction}
             product={productWithImages}
             categories={categoryOptions}
+            catalogActiveLocked={isDeletedBySeller}
+            catalogActiveLockMessage={
+              isDeletedBySeller
+                ? "Товар удален продавцом, поэтому админское сохранение не может вернуть его в каталог."
+                : undefined
+            }
+            sellerLocked={isDeletedBySeller}
             subcategories={subcategoryOptions}
             sellers={sellerOptions}
             submitText="Сохранить товар"

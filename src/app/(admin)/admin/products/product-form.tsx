@@ -34,6 +34,9 @@ type ProductFormProps = {
     }>;
   };
   categories: Option[];
+  catalogActiveLocked?: boolean;
+  catalogActiveLockMessage?: string;
+  sellerLocked?: boolean;
   subcategories: Array<Option & { categoryName: string }>;
   sellers: Option[];
   submitText: string;
@@ -43,6 +46,9 @@ export function ProductForm({
   action,
   product,
   categories,
+  catalogActiveLocked = false,
+  catalogActiveLockMessage,
+  sellerLocked = false,
   subcategories,
   sellers,
   submitText,
@@ -106,9 +112,13 @@ export function ProductForm({
 
       <label className="grid gap-2 text-sm font-bold text-slate-700">
         Продавец
+        {sellerLocked && product?.sellerId ? (
+          <input name="sellerId" type="hidden" value={product.sellerId} />
+        ) : null}
         <select
           name="sellerId"
           required
+          disabled={sellerLocked}
           className="h-12 rounded-lg border border-slate-200 px-4 font-normal text-slate-950"
           defaultValue={product?.sellerId ?? ""}
         >
@@ -127,9 +137,9 @@ export function ProductForm({
           <input
             name="priceWithVat"
             required
-            inputMode="decimal"
+            inputMode="numeric"
             min="0"
-            step="0.01"
+            step="1"
             type="number"
             className="h-12 rounded-lg border border-slate-200 px-4 font-normal text-slate-950"
             defaultValue={product?.priceWithVat ?? ""}
@@ -140,9 +150,9 @@ export function ProductForm({
           НДС, %
           <input
             name="vatRate"
-            inputMode="decimal"
+            inputMode="numeric"
             min="0"
-            step="0.01"
+            step="1"
             type="number"
             className="h-12 rounded-lg border border-slate-200 px-4 font-normal text-slate-950"
             defaultValue={product?.vatRate ?? "22.00"}
@@ -192,10 +202,16 @@ export function ProductForm({
           <input
             name="isActive"
             type="checkbox"
+            disabled={catalogActiveLocked}
             defaultChecked={product?.isActive ?? true}
           />
           Активен в каталоге
         </label>
+        {catalogActiveLocked && catalogActiveLockMessage ? (
+          <p className="text-sm font-semibold leading-6 text-slate-500">
+            {catalogActiveLockMessage}
+          </p>
+        ) : null}
       </div>
 
       <SubmitButton

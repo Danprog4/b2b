@@ -426,7 +426,7 @@ export default async function AdminSellerPage({
                 <input
                   className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-semibold"
                   name="salesAmount"
-                  step="0.01"
+                  step="1"
                   type="number"
                   defaultValue={defaultSalesAmount.toFixed(2)}
                   required
@@ -437,7 +437,7 @@ export default async function AdminSellerPage({
                 <input
                   className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-semibold"
                   name="commissionAmount"
-                  step="0.01"
+                  step="1"
                   type="number"
                   defaultValue={defaultCommissionAmount.toFixed(2)}
                   required
@@ -450,7 +450,7 @@ export default async function AdminSellerPage({
                 <input
                   className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-semibold"
                   name="payoutAmount"
-                  step="0.01"
+                  step="1"
                   type="number"
                   defaultValue={defaultPayoutAmount.toFixed(2)}
                   required
@@ -551,7 +551,7 @@ export default async function AdminSellerPage({
                       <input
                         className="h-10 rounded-lg border border-slate-200 bg-white px-3 font-semibold"
                         name="salesAmount"
-                        step="0.01"
+                        step="1"
                         type="number"
                         defaultValue={payment.salesAmount}
                         required
@@ -562,7 +562,7 @@ export default async function AdminSellerPage({
                       <input
                         className="h-10 rounded-lg border border-slate-200 bg-white px-3 font-semibold"
                         name="commissionAmount"
-                        step="0.01"
+                        step="1"
                         type="number"
                         defaultValue={payment.commissionAmount}
                         required
@@ -573,7 +573,7 @@ export default async function AdminSellerPage({
                       <input
                         className="h-10 rounded-lg border border-slate-200 bg-white px-3 font-semibold"
                         name="payoutAmount"
-                        step="0.01"
+                        step="1"
                         type="number"
                         defaultValue={payment.payoutAmount}
                         required

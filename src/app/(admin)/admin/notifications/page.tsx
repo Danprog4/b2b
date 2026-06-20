@@ -58,6 +58,10 @@ export default async function AdminNotificationsPage() {
       return chat ? `/admin/chats/${chat.id}` : "/admin/chats";
     }
 
+    if (item.type === "seller_product_deleted") {
+      return "/admin/products";
+    }
+
     if (item.type.includes("product")) {
       return "/admin/products/moderation";
     }

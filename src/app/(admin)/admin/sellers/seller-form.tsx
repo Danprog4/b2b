@@ -79,12 +79,12 @@ export function SellerForm({ action, seller, submitText }: SellerFormProps) {
           <input
             className="h-12 rounded-lg border border-slate-200 px-4 font-normal text-slate-950"
             defaultValue={seller?.commissionRate ?? "5.00"}
-            inputMode="decimal"
+            inputMode="numeric"
             max="100"
             min="0"
             name="commissionRate"
             required
-            step="0.01"
+            step="1"
             type="number"
           />
         </label>

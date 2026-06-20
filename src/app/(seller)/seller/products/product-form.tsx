@@ -190,11 +190,11 @@ export function SellerProductForm({
           <input
             className="h-12 rounded-lg border border-slate-200 px-4 font-normal text-slate-950"
             defaultValue={product?.priceWithVat ?? ""}
-            inputMode="decimal"
+            inputMode="numeric"
             min="0"
             name="priceWithVat"
             required
-            step="0.01"
+            step="1"
             type="number"
           />
         </label>

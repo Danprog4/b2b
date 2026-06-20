@@ -13,6 +13,7 @@ import {
 } from "@/db/schema";
 import { requireUser } from "@/lib/auth/session";
 import { getPublicFileUrl } from "@/lib/files/urls";
+import { isSellerDeletedOffer } from "@/lib/products/offer-status";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
 export default async function AdminProductsPage() {
@@ -33,6 +34,7 @@ export default async function AdminProductsPage() {
       offerId: sellerOffers.id,
       offerPriceWithVat: sellerOffers.priceWithVat,
       offerStatus: sellerOffers.status,
+      offerModerationComment: sellerOffers.moderationComment,
       offerPublishedAt: sellerOffers.moderatedAt,
       offerCreatedAt: sellerOffers.createdAt,
       offerSellerName: sellers.name,
@@ -57,6 +59,12 @@ export default async function AdminProductsPage() {
     const first = productOffers[0];
     const offers = productOffers.filter((offer) => offer.offerId);
     const publishedOffers = offers.filter((offer) => offer.offerStatus === "published");
+    const sellerDeletedOffers = offers.filter((offer) =>
+      isSellerDeletedOffer({
+        status: offer.offerStatus,
+        moderationComment: offer.offerModerationComment,
+      }),
+    );
     const priorityOffer = publishedOffers.find(
       (offer) => offer.offerId === first.priorityOfferId,
     );
@@ -79,6 +87,10 @@ export default async function AdminProductsPage() {
     return {
       ...first,
       offerCount: offers.length,
+      sellerDeletedOfferCount: sellerDeletedOffers.length,
+      sellerDeletedOfferNames: sellerDeletedOffers
+        .map((offer) => offer.offerSellerName)
+        .filter((name): name is string => Boolean(name)),
       selectedOffer,
     };
   });
@@ -208,7 +220,14 @@ export default async function AdminProductsPage() {
                       className="block px-5 py-4 text-slate-600"
                       href={`/admin/products/${product.id}`}
                     >
-                      {product.selectedOffer?.offerSellerName ?? "Нет published offer"}
+                      {product.selectedOffer?.offerSellerName ??
+                        (product.sellerDeletedOfferCount > 0
+                          ? `Удалено продавцом${
+                              product.sellerDeletedOfferNames.length > 0
+                                ? `: ${product.sellerDeletedOfferNames.join(", ")}`
+                                : ""
+                            }`
+                          : "Нет published offer")}
                     </Link>
                   </td>
                   <td className="p-0">
@@ -226,15 +245,25 @@ export default async function AdminProductsPage() {
                       className="block px-5 py-4"
                       href={`/admin/products/${product.id}`}
                     >
-                      <span
-                        className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${
-                          product.isActive
-                            ? "bg-emerald-50 text-emerald-700"
-                            : "bg-slate-100 text-slate-500"
-                        }`}
-                      >
-                        {product.offerCount} предл. ·{" "}
-                        {product.isActive ? "активен" : "неактивен"}
+                      <span className="flex flex-wrap gap-2">
+                        <span
+                          className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${
+                            product.isActive
+                              ? "bg-emerald-50 text-emerald-700"
+                              : "bg-slate-100 text-slate-500"
+                          }`}
+                        >
+                          {product.offerCount} предл. ·{" "}
+                          {product.isActive ? "активен" : "неактивен"}
+                        </span>
+                        {product.sellerDeletedOfferCount > 0 ? (
+                          <span className="inline-flex rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-red-700">
+                            Удалено продавцом
+                            {product.sellerDeletedOfferCount > 1
+                              ? `: ${product.sellerDeletedOfferCount}`
+                              : ""}
+                          </span>
+                        ) : null}
                       </span>
                     </Link>
                   </td>

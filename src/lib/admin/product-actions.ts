@@ -17,6 +17,7 @@ import { requireUser } from "@/lib/auth/session";
 import { writeStorageFile } from "@/lib/files/storage";
 import { getNextProductSku } from "@/lib/numbering/sequences";
 import { insertSellerNotifications } from "@/lib/notifications/helpers";
+import { SELLER_DELETED_OFFER_COMMENT } from "@/lib/products/offer-status";
 import {
   recalculateAutomaticProductPriority,
   setManualProductPriorityOffer,
@@ -400,52 +401,78 @@ export async function updateProductAction(formData: FormData) {
   const values = getProductValues(formData);
   validateProductImageUploads(formData, productId);
   const slug = await getUniqueSlug(values.name, productId);
+  const [sellerDeletedOffer] = await db
+    .select({
+      id: sellerOffers.id,
+      sellerId: sellerOffers.sellerId,
+    })
+    .from(sellerOffers)
+    .where(
+      and(
+        eq(sellerOffers.productId, productId),
+        eq(sellerOffers.status, "hidden"),
+        eq(sellerOffers.moderationComment, SELLER_DELETED_OFFER_COMMENT),
+      ),
+    )
+    .limit(1);
+  const valuesToSave = sellerDeletedOffer
+    ? {
+        ...values,
+        sellerId: sellerDeletedOffer.sellerId,
+        isActive: false,
+      }
+    : values;
 
   await db.transaction(async (tx) => {
     await tx
       .update(products)
       .set({
         slug,
-        ...values,
+        ...valuesToSave,
         updatedAt: new Date(),
       })
       .where(eq(products.id, productId));
 
-    const [offer] = await tx
-      .insert(sellerOffers)
-      .values({
-        productId,
-        sellerId: values.sellerId,
-        priceWithVat: values.priceWithVat,
-        vatRate: values.vatRate,
-        status: "published",
-        submittedAt: new Date(),
-        moderatedAt: new Date(),
-        moderatedById: admin.id,
-      })
-      .onConflictDoUpdate({
-        target: [sellerOffers.productId, sellerOffers.sellerId],
-        set: {
-          priceWithVat: values.priceWithVat,
-          vatRate: values.vatRate,
+    let offerId = sellerDeletedOffer?.id ?? null;
+
+    if (!sellerDeletedOffer) {
+      const [offer] = await tx
+        .insert(sellerOffers)
+        .values({
+          productId,
+          sellerId: valuesToSave.sellerId,
+          priceWithVat: valuesToSave.priceWithVat,
+          vatRate: valuesToSave.vatRate,
           status: "published",
+          submittedAt: new Date(),
           moderatedAt: new Date(),
           moderatedById: admin.id,
-          updatedAt: new Date(),
-        },
-      })
-      .returning({ id: sellerOffers.id });
+        })
+        .onConflictDoUpdate({
+          target: [sellerOffers.productId, sellerOffers.sellerId],
+          set: {
+            priceWithVat: valuesToSave.priceWithVat,
+            vatRate: valuesToSave.vatRate,
+            status: "published",
+            moderatedAt: new Date(),
+            moderatedById: admin.id,
+            updatedAt: new Date(),
+          },
+        })
+        .returning({ id: sellerOffers.id });
+      offerId = offer.id;
 
-    const [productPriorityState] = await tx
-      .select({ priorityIsManual: products.priorityIsManual })
-      .from(products)
-      .where(eq(products.id, productId))
-      .limit(1);
+      const [productPriorityState] = await tx
+        .select({ priorityIsManual: products.priorityIsManual })
+        .from(products)
+        .where(eq(products.id, productId))
+        .limit(1);
 
-    if (productPriorityState?.priorityIsManual) {
-      await syncStoredProductPriorityOffer(tx, productId);
-    } else {
-      await recalculateAutomaticProductPriority(tx, productId);
+      if (productPriorityState?.priorityIsManual) {
+        await syncStoredProductPriorityOffer(tx, productId);
+      } else {
+        await recalculateAutomaticProductPriority(tx, productId);
+      }
     }
 
     await tx.insert(auditEvents).values({
@@ -454,10 +481,11 @@ export async function updateProductAction(formData: FormData) {
       entityType: "product",
       entityId: productId,
       metadata: {
-        name: values.name,
-        active: values.isActive,
-        sellerId: values.sellerId,
-        offerId: offer.id,
+        name: valuesToSave.name,
+        active: valuesToSave.isActive,
+        sellerDeleted: Boolean(sellerDeletedOffer),
+        sellerId: valuesToSave.sellerId,
+        offerId,
       },
     });
   });
@@ -610,6 +638,23 @@ export async function upsertProductOfferAction(formData: FormData) {
 
   if (!product) {
     redirect("/admin/products");
+  }
+
+  const [sellerDeletedOffer] = await db
+    .select({ id: sellerOffers.id })
+    .from(sellerOffers)
+    .where(
+      and(
+        eq(sellerOffers.productId, productId),
+        eq(sellerOffers.sellerId, sellerId),
+        eq(sellerOffers.status, "hidden"),
+        eq(sellerOffers.moderationComment, SELLER_DELETED_OFFER_COMMENT),
+      ),
+    )
+    .limit(1);
+
+  if (sellerDeletedOffer) {
+    redirect(`/admin/products/${productId}?offerError=seller-deleted`);
   }
 
   await db.transaction(async (tx) => {

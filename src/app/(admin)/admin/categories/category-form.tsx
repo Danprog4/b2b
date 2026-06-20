@@ -90,6 +90,7 @@ export function CategoryForm({ action, category, submitText }: CategoryFormProps
           Порядок
           <input
             name="sortOrder"
+            step="1"
             type="number"
             className="h-12 rounded-lg border border-slate-200 px-4 font-normal text-slate-950"
             defaultValue={category?.sortOrder ?? 0}

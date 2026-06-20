@@ -556,22 +556,24 @@ export function CatalogControls({
         </label>
         <input
           className="h-12 rounded-lg border border-slate-200 px-4"
-          inputMode="decimal"
+          inputMode="numeric"
           min="0"
           name="minPrice"
           placeholder="Цена от"
           ref={minPriceInputRef}
+          step="1"
           type="number"
           value={minPriceInputValue}
           onChange={(event) => setMinPriceInputValue(event.currentTarget.value)}
         />
         <input
           className="h-12 rounded-lg border border-slate-200 px-4"
-          inputMode="decimal"
+          inputMode="numeric"
           min="0"
           name="maxPrice"
           placeholder="Цена до"
           ref={maxPriceInputRef}
+          step="1"
           type="number"
           value={maxPriceInputValue}
           onChange={(event) => setMaxPriceInputValue(event.currentTarget.value)}

@@ -511,7 +511,7 @@ export default async function AdminOrdersPage({
               <input
                 className="h-11 rounded-lg border border-slate-200 px-3 font-semibold outline-none transition focus:border-[#1157ff]"
                 defaultValue={amountFrom}
-                inputMode="decimal"
+                inputMode="numeric"
                 name="amountFrom"
                 placeholder="0"
               />
@@ -521,7 +521,7 @@ export default async function AdminOrdersPage({
               <input
                 className="h-11 rounded-lg border border-slate-200 px-3 font-semibold outline-none transition focus:border-[#1157ff]"
                 defaultValue={amountTo}
-                inputMode="decimal"
+                inputMode="numeric"
                 name="amountTo"
                 placeholder="100000"
               />
