@@ -2,7 +2,7 @@
 
 import { randomUUID } from "node:crypto";
 
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -88,6 +88,8 @@ const buyerCompanyDocumentTypeValues = new Set(
 const sellerDocumentTypeValues = new Set(sellerDocumentTypes.map(([value]) => value));
 const orderDocumentTypeValues = new Set(orderDocumentTypes.map(([value]) => value));
 const adminDocumentTypeValues = new Set(documentTypes.map(([value]) => value));
+
+type DocumentTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 function getString(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -327,6 +329,46 @@ async function insertAdminNotifications(
   );
 }
 
+async function getActiveBuyerCompanyDocumentsByType(
+  tx: DocumentTransaction,
+  buyerCompanyId: string,
+  type: string,
+) {
+  return tx
+    .select({
+      id: documents.id,
+      title: documents.title,
+      currentVersion: documents.currentVersion,
+    })
+    .from(documents)
+    .where(
+      and(
+        eq(documents.target, "buyer_company"),
+        eq(documents.buyerCompanyId, buyerCompanyId),
+        eq(documents.type, type),
+        eq(documents.isActive, true),
+      ),
+    )
+    .orderBy(desc(documents.updatedAt), desc(documents.createdAt));
+}
+
+async function hideDuplicateBuyerCompanyDocuments(
+  tx: DocumentTransaction,
+  duplicateDocumentIds: string[],
+) {
+  if (duplicateDocumentIds.length === 0) {
+    return;
+  }
+
+  await tx
+    .update(documents)
+    .set({
+      isActive: false,
+      updatedAt: new Date(),
+    })
+    .where(inArray(documents.id, duplicateDocumentIds));
+}
+
 export async function uploadOrderDocumentAction(formData: FormData) {
   const user = await requireUser(["admin"]);
   const orderId = getString(formData, "orderId");
@@ -541,6 +583,8 @@ export async function uploadBuyerCompanyDocumentAction(formData: FormData) {
     redirect(returnPath);
   }
 
+  const buyerCompanyId = user.buyerCompanyId;
+
   if (!title) {
     redirectWithDocumentError(returnPath, "Укажите название документа.");
   }
@@ -551,17 +595,79 @@ export async function uploadBuyerCompanyDocumentAction(formData: FormData) {
   const storedFile = await persistDocumentFile(
     file,
     user.id,
-    `documents/buyer-companies/${user.buyerCompanyId}`,
+    `documents/buyer-companies/${buyerCompanyId}`,
   );
+  let documentWasUpdated = false;
 
   await db.transaction(async (tx) => {
+    const existingDocuments = await getActiveBuyerCompanyDocumentsByType(
+      tx,
+      buyerCompanyId,
+      type,
+    );
+    const [currentDocument, ...duplicateDocuments] = existingDocuments;
+
+    if (currentDocument) {
+      documentWasUpdated = true;
+      const nextVersion = currentDocument.currentVersion + 1;
+
+      await tx.insert(documentVersions).values({
+        documentId: currentDocument.id,
+        fileId: storedFile.id,
+        version: nextVersion,
+        comment: comment || null,
+        uploadedById: user.id,
+      });
+
+      await tx
+        .update(documents)
+        .set({
+          title,
+          currentVersion: nextVersion,
+          isVisibleToBuyer: true,
+          updatedAt: new Date(),
+        })
+        .where(eq(documents.id, currentDocument.id));
+
+      await hideDuplicateBuyerCompanyDocuments(
+        tx,
+        duplicateDocuments.map((document) => document.id),
+      );
+
+      await tx.insert(auditEvents).values({
+        actorId: user.id,
+        action: "document.version_upload",
+        entityType: "document",
+        entityId: currentDocument.id,
+        metadata: {
+          target: "buyer_company",
+          buyerCompanyId,
+          type,
+          title,
+          version: nextVersion,
+          hiddenDuplicateDocumentIds: duplicateDocuments.map(
+            (document) => document.id,
+          ),
+        },
+      });
+
+      await insertAdminNotifications(tx, {
+        type: "document_updated_by_buyer",
+        title: "Покупатель обновил документ",
+        body: title,
+        buyerCompanyId,
+      });
+
+      return;
+    }
+
     const [document] = await tx
       .insert(documents)
       .values({
         type,
         title,
         target: "buyer_company",
-        buyerCompanyId: user.buyerCompanyId,
+        buyerCompanyId,
         currentVersion: 1,
         isVisibleToBuyer: true,
         uploadedById: user.id,
@@ -583,7 +689,7 @@ export async function uploadBuyerCompanyDocumentAction(formData: FormData) {
       entityId: document.id,
       metadata: {
         target: "buyer_company",
-        buyerCompanyId: user.buyerCompanyId,
+        buyerCompanyId,
         title,
       },
     });
@@ -592,7 +698,7 @@ export async function uploadBuyerCompanyDocumentAction(formData: FormData) {
       type: "document_uploaded_by_buyer",
       title: "Покупатель загрузил документ",
       body: title,
-      buyerCompanyId: user.buyerCompanyId,
+      buyerCompanyId,
     });
   });
 
@@ -604,7 +710,9 @@ export async function uploadBuyerCompanyDocumentAction(formData: FormData) {
   revalidatePath("/admin");
   revalidatePath("/admin/notifications");
 
-  redirect("/account/documents?documentUploaded=1");
+  redirect(
+    `/account/documents?${documentWasUpdated ? "documentUpdated" : "documentUploaded"}=1`,
+  );
 }
 
 export async function uploadBuyerCompanyDocumentVersionAction(formData: FormData) {
@@ -940,8 +1048,77 @@ export async function uploadAdminDocumentAction(formData: FormData) {
   }
 
   const storedFile = await persistDocumentFile(file, user.id, storagePrefix);
+  let documentWasUpdated = false;
 
   await db.transaction(async (tx) => {
+    if (target === "buyer_company" && buyerCompanyId) {
+      const existingDocuments = await getActiveBuyerCompanyDocumentsByType(
+        tx,
+        buyerCompanyId,
+        type,
+      );
+      const [currentDocument, ...duplicateDocuments] = existingDocuments;
+
+      if (currentDocument) {
+        documentWasUpdated = true;
+        const nextVersion = currentDocument.currentVersion + 1;
+
+        await tx.insert(documentVersions).values({
+          documentId: currentDocument.id,
+          fileId: storedFile.id,
+          version: nextVersion,
+          comment: comment || null,
+          uploadedById: user.id,
+        });
+
+        await tx
+          .update(documents)
+          .set({
+            title,
+            currentVersion: nextVersion,
+            isVisibleToBuyer,
+            isVisibleToSeller,
+            updatedAt: new Date(),
+          })
+          .where(eq(documents.id, currentDocument.id));
+
+        await hideDuplicateBuyerCompanyDocuments(
+          tx,
+          duplicateDocuments.map((document) => document.id),
+        );
+
+        if (isVisibleToBuyer) {
+          await insertBuyerCompanyNotifications(tx, {
+            buyerCompanyId,
+            type: "document_updated",
+            title: "Документ обновлен",
+            body: title,
+          });
+        }
+
+        await tx.insert(auditEvents).values({
+          actorId: user.id,
+          action: "document.version_upload",
+          entityType: "document",
+          entityId: currentDocument.id,
+          metadata: {
+            target,
+            targetId,
+            type,
+            title,
+            version: nextVersion,
+            visibleToBuyer: isVisibleToBuyer,
+            visibleToSeller: isVisibleToSeller,
+            hiddenDuplicateDocumentIds: duplicateDocuments.map(
+              (document) => document.id,
+            ),
+          },
+        });
+
+        return;
+      }
+    }
+
     const [document] = await tx
       .insert(documents)
       .values({
@@ -1006,7 +1183,12 @@ export async function uploadAdminDocumentAction(formData: FormData) {
     revalidatePath("/seller");
   }
 
-  redirect(getRedirectPath(returnPath, "documentUploaded"));
+  redirect(
+    getRedirectPath(
+      returnPath,
+      documentWasUpdated ? "documentUpdated" : "documentUploaded",
+    ),
+  );
 }
 
 export async function uploadAdminDocumentVersionAction(formData: FormData) {

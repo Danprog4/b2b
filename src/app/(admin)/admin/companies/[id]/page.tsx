@@ -17,6 +17,7 @@ import {
 import { updateBuyerCompanyAdminAction } from "@/lib/admin/company-actions";
 import { requireUser } from "@/lib/auth/session";
 import { regenerateBuyerCompanyContractAdminAction } from "@/lib/contracts/actions";
+import { filterCurrentBuyerCompanyDocuments } from "@/lib/documents/queries";
 import { getDocumentTypeLabel } from "@/lib/documents/types";
 import { getOrderStatusLabel } from "@/lib/orders/status";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
@@ -207,6 +208,7 @@ export default async function AdminCompanyPage({
         type: documents.type,
         title: documents.title,
         target: documents.target,
+        buyerCompanyId: documents.buyerCompanyId,
         currentVersion: documents.currentVersion,
         isVisibleToBuyer: documents.isVisibleToBuyer,
         createdAt: documents.createdAt,
@@ -225,8 +227,8 @@ export default async function AdminCompanyPage({
       )
       .innerJoin(files, eq(files.id, documentVersions.fileId))
       .where(and(eq(documents.buyerCompanyId, company.id), eq(documents.isActive, true)))
-      .orderBy(desc(documents.createdAt))
-      .limit(10),
+      .orderBy(desc(documentVersions.createdAt), desc(documents.createdAt))
+      .then((rows) => filterCurrentBuyerCompanyDocuments(rows).slice(0, 10)),
     db
       .select({
         id: contracts.id,

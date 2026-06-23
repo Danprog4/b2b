@@ -62,6 +62,7 @@ export default async function CartPage({ searchParams }: CartPageProps) {
   const hasUnavailableLines = cart.lines.some((line) => !line.isActive);
   const canCheckout =
     user?.role === "buyer" && cart.lines.length > 0 && !hasUnavailableLines;
+  const checkoutLoginHref = `/login?next=${encodeURIComponent("/cart")}`;
 
   return (
     <main className="min-h-screen bg-[#f4f6fb] px-5 py-6 text-slate-900">
@@ -211,7 +212,7 @@ export default async function CartPage({ searchParams }: CartPageProps) {
                 </Link>
               ) : (
                 <Link
-                  href="/login?next=/cart"
+                  href={checkoutLoginHref}
                   className="mt-6 flex h-12 items-center justify-center rounded-lg bg-[#1157ff] font-bold text-white transition hover:bg-[#0b49e0]"
                 >
                   Войти для оформления

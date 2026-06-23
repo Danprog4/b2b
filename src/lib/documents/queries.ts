@@ -11,6 +11,33 @@ import {
 } from "@/db/schema";
 import { requireUser } from "@/lib/auth/session";
 
+type BuyerCompanyDocumentRow = {
+  buyerCompanyId: string | null;
+  target: string;
+  type: string;
+};
+
+export function filterCurrentBuyerCompanyDocuments<
+  DocumentRow extends BuyerCompanyDocumentRow,
+>(rows: DocumentRow[]) {
+  const seenCompanyDocumentTypes = new Set<string>();
+
+  return rows.filter((document) => {
+    if (document.target !== "buyer_company" || !document.buyerCompanyId) {
+      return true;
+    }
+
+    const key = `${document.buyerCompanyId}:${document.type}`;
+
+    if (seenCompanyDocumentTypes.has(key)) {
+      return false;
+    }
+
+    seenCompanyDocumentTypes.add(key);
+    return true;
+  });
+}
+
 export async function getAdminOrderDocuments(orderId: string) {
   await requireUser(["admin"]);
 
@@ -157,7 +184,7 @@ export async function getCurrentBuyerOrderCompanyContract(orderId: string) {
         eq(documents.isVisibleToBuyer, true),
       ),
     )
-    .orderBy(desc(documents.createdAt))
+    .orderBy(desc(documentVersions.createdAt), desc(documents.createdAt))
     .limit(1);
 
   return contract ?? null;
@@ -170,12 +197,13 @@ export async function getCurrentBuyerCompanyDocuments() {
     return [];
   }
 
-  return db
+  const rows = await db
     .select({
       id: documents.id,
       type: documents.type,
       title: documents.title,
       target: documents.target,
+      buyerCompanyId: documents.buyerCompanyId,
       currentVersion: documents.currentVersion,
       versionId: documentVersions.id,
       fileName: files.originalName,
@@ -200,7 +228,9 @@ export async function getCurrentBuyerCompanyDocuments() {
         eq(documents.isVisibleToBuyer, true),
       ),
     )
-    .orderBy(desc(documents.createdAt));
+    .orderBy(desc(documentVersions.createdAt), desc(documents.createdAt));
+
+  return filterCurrentBuyerCompanyDocuments(rows);
 }
 
 export async function getCurrentSellerDocuments() {
@@ -259,6 +289,7 @@ export async function getAdminDocuments() {
       isActive: documents.isActive,
       createdAt: documents.createdAt,
       updatedAt: documents.updatedAt,
+      buyerCompanyId: documents.buyerCompanyId,
       orderNumber: orders.number,
       buyerCompanyName: buyerCompanies.name,
       sellerName: sellers.name,
@@ -281,9 +312,10 @@ export async function getAdminDocuments() {
     .leftJoin(buyerCompanies, eq(buyerCompanies.id, documents.buyerCompanyId))
     .leftJoin(sellers, eq(sellers.id, documents.sellerId))
     .where(eq(documents.isActive, true))
-    .orderBy(desc(documents.createdAt));
+    .orderBy(desc(documentVersions.createdAt), desc(documents.createdAt));
 
-  const documentIds = rows.map((document) => document.id);
+  const currentRows = filterCurrentBuyerCompanyDocuments(rows);
+  const documentIds = currentRows.map((document) => document.id);
 
   if (documentIds.length === 0) {
     return [];
@@ -313,7 +345,7 @@ export async function getAdminDocuments() {
     versionsByDocument.set(version.documentId, list);
   }
 
-  return rows.map((document) => ({
+  return currentRows.map((document) => ({
     ...document,
     versions: versionsByDocument.get(document.id) ?? [],
   }));

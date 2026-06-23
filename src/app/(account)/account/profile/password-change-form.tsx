@@ -60,8 +60,8 @@ export function PasswordChangeForm() {
         />
       </label>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <label className="grid gap-2 text-sm font-bold text-slate-700">
+      <div className="grid items-start gap-4 md:grid-cols-2">
+        <label className="grid content-start gap-2 text-sm font-bold text-slate-700">
           Новый пароль
           <input
             aria-describedby="profile-password-requirements"
@@ -85,7 +85,7 @@ export function PasswordChangeForm() {
             showInvalid={submittedWithInvalidPassword}
           />
         </label>
-        <label className="grid gap-2 text-sm font-bold text-slate-700">
+        <label className="grid content-start gap-2 text-sm font-bold text-slate-700">
           Повторите пароль
           <input
             aria-describedby={

@@ -31,8 +31,11 @@ export default async function AccountDocumentsPage({
 }: AccountDocumentsPageProps) {
   const params = (await searchParams) ?? {};
   const documentUploaded = params.documentUploaded === "1";
+  const documentUpdated = params.documentUpdated === "1";
   const documentError =
-    !documentUploaded && typeof params.documentError === "string"
+    !documentUploaded &&
+    !documentUpdated &&
+    typeof params.documentError === "string"
       ? params.documentError
       : null;
   const user = await requireUser(["buyer"]);
@@ -76,6 +79,7 @@ export default async function AccountDocumentsPage({
         <ToastMessages
           items={[
             ...(documentUploaded ? [{ message: "Документ загружен." }] : []),
+            ...(documentUpdated ? [{ message: "Документ обновлен." }] : []),
             ...(documentError
               ? [{ message: documentError, tone: "error" as const }]
               : []),

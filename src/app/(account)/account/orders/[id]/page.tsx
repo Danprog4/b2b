@@ -1,10 +1,4 @@
-import {
-  Clock3,
-  Download,
-  FileText,
-  Paperclip,
-  XCircle,
-} from "lucide-react";
+import { Clock3, Download, FileText, Paperclip } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -18,12 +12,13 @@ import {
   getCurrentBuyerOrder,
   getCurrentBuyerOrderStatusHistory,
 } from "@/lib/orders/queries";
-import { cancelAcceptedOrderAction, repeatOrderAction } from "@/lib/orders/actions";
+import { repeatOrderAction } from "@/lib/orders/actions";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { OrderLineCard } from "@/components/orders/order-line-card";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { ToastMessages } from "@/components/ui/toast-message";
 import { markCurrentBuyerOrderViewed } from "@/lib/orders/view-actions";
+import { CancelOrderForm } from "./cancel-order-form";
 import { EditOrderButton } from "./edit-order-button";
 
 type OrderPageProps = {
@@ -197,17 +192,13 @@ export default async function AccountOrderPage({
               <EditOrderButton orderId={order.id} />
             ) : null}
             {order.status === "accepted" ? (
-              <form action={cancelAcceptedOrderAction} className="mt-3">
-                <input name="orderId" type="hidden" value={order.id} />
-                <SubmitButton
-                  className="h-12 w-full rounded-lg bg-red-50 font-bold text-red-700 transition hover:bg-red-100"
-                  pendingText="Отменяем"
-                >
-                  <XCircle size={18} />
-                  Отменить заказ
-                </SubmitButton>
-              </form>
-            ) : null}
+              <CancelOrderForm orderId={order.id} orderNumber={order.number} />
+            ) : (
+              <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-sm leading-6 text-slate-600">
+                Покупатель может отменить заказ только до оплаты, пока он в
+                статусе «Принят».
+              </p>
+            )}
             <form action={repeatOrderAction} className="mt-5">
               <input name="orderId" type="hidden" value={order.id} />
               <SubmitButton

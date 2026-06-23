@@ -17,10 +17,12 @@ import {
   sellerProductChangeRequests,
   sellers,
   systemEvents,
+  documentVersions,
 } from "@/db/schema";
 import { getCompanyDocumentReadiness } from "@/lib/account/company-documents";
 import { requireUser } from "@/lib/auth/session";
 import { getAdminPendingChatCount } from "@/lib/chat/queries";
+import { filterCurrentBuyerCompanyDocuments } from "@/lib/documents/queries";
 import { getDocumentTypeLabel } from "@/lib/documents/types";
 import { getOrderStatusLabel } from "@/lib/orders/status";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
@@ -225,11 +227,20 @@ export default async function AdminPage() {
         type: documents.type,
         title: documents.title,
         target: documents.target,
+        buyerCompanyId: documents.buyerCompanyId,
         createdAt: documents.createdAt,
+        uploadedAt: documentVersions.createdAt,
         buyerCompanyName: buyerCompanies.name,
         sellerName: sellers.name,
       })
       .from(documents)
+      .innerJoin(
+        documentVersions,
+        and(
+          eq(documentVersions.documentId, documents.id),
+          eq(documentVersions.version, documents.currentVersion),
+        ),
+      )
       .leftJoin(buyerCompanies, eq(buyerCompanies.id, documents.buyerCompanyId))
       .leftJoin(sellers, eq(sellers.id, documents.sellerId))
       .where(
@@ -238,8 +249,9 @@ export default async function AdminPage() {
           sql`${documents.target} in ('buyer_company', 'seller')`,
         ),
       )
-      .orderBy(desc(documents.createdAt))
-      .limit(8),
+      .orderBy(desc(documentVersions.createdAt), desc(documents.createdAt))
+      .limit(24)
+      .then((rows) => filterCurrentBuyerCompanyDocuments(rows).slice(0, 8)),
     db
       .select({ count: count() })
       .from(invoices)
@@ -271,7 +283,12 @@ export default async function AdminPage() {
       .where(eq(contracts.status, "failed"))
       .then(([row]) => row),
     db
-      .select({ count: count() })
+      .select({
+        id: documents.id,
+        target: documents.target,
+        buyerCompanyId: documents.buyerCompanyId,
+        type: documents.type,
+      })
       .from(documents)
       .where(
         and(
@@ -279,7 +296,9 @@ export default async function AdminPage() {
           inArray(documents.target, ["buyer_company", "seller"]),
         ),
       )
-      .then(([row]) => row),
+      .then((rows) => ({
+        count: filterCurrentBuyerCompanyDocuments(rows).length,
+      })),
     getAdminPendingChatCount(),
     db
       .select({

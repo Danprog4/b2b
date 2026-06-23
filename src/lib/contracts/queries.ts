@@ -41,7 +41,7 @@ async function getContractDocument(companyId: string) {
         eq(documents.isVisibleToBuyer, true),
       ),
     )
-    .orderBy(desc(documents.createdAt))
+    .orderBy(desc(documentVersions.createdAt), desc(documents.createdAt))
     .limit(1);
 
   return document ?? null;
