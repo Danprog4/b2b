@@ -7,8 +7,10 @@ import {
   type AutofilledCompany,
   InnAutofillButton,
 } from "@/components/company/inn-autofill-button";
+import { PasswordRequirements } from "@/components/auth/password-requirements";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { registerBuyerAction } from "@/lib/auth/actions";
+import { isPasswordPolicyValid } from "@/lib/auth/password-policy";
 
 type Step = "account" | "company";
 
@@ -72,6 +74,10 @@ function HiddenRegistrationFields({ values }: { values: FormValues }) {
 export function RegisterBuyerForm() {
   const [step, setStep] = useState<Step>("account");
   const [values, setValues] = useState<FormValues>(initialValues);
+  const [submittedWithInvalidPassword, setSubmittedWithInvalidPassword] =
+    useState(false);
+  const showPasswordInvalid =
+    submittedWithInvalidPassword && !isPasswordPolicyValid(values.password);
 
   function updateField<Key extends keyof FormValues>(
     key: Key,
@@ -85,6 +91,11 @@ export function RegisterBuyerForm() {
 
   function handleAccountNext(event: MouseEvent<HTMLButtonElement>) {
     if (!event.currentTarget.form?.reportValidity()) {
+      return;
+    }
+
+    if (!isPasswordPolicyValid(values.password)) {
+      setSubmittedWithInvalidPassword(true);
       return;
     }
 
@@ -180,16 +191,24 @@ export function RegisterBuyerForm() {
               Пароль
               <input
                 name="password"
+                aria-describedby="register-password-requirements"
+                aria-invalid={showPasswordInvalid}
                 autoComplete="new-password"
                 minLength={8}
                 type="password"
                 required
                 className="h-12 rounded-lg border border-slate-200 px-4 font-normal text-slate-950"
-                onChange={(event) =>
-                  updateField("password", getInputValue(event))
-                }
+                onChange={(event) => {
+                  updateField("password", getInputValue(event));
+                  setSubmittedWithInvalidPassword(false);
+                }}
                 placeholder="Минимум 8 символов"
                 value={values.password}
+              />
+              <PasswordRequirements
+                id="register-password-requirements"
+                password={values.password}
+                showInvalid={submittedWithInvalidPassword}
               />
             </label>
           </div>
@@ -287,7 +306,7 @@ export function RegisterBuyerForm() {
             Руководитель
             <input
               name="directorName"
-              required
+              required={values.companyType === "ooo"}
               className="h-12 rounded-lg border border-slate-200 px-4 font-normal text-slate-950"
               onChange={(event) =>
                 updateField("directorName", getInputValue(event))

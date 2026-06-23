@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 
 import { ToastMessages } from "@/components/ui/toast-message";
+import { PASSWORD_POLICY_ERROR } from "@/lib/auth/password-policy";
 import { RegisterBuyerForm } from "./register-buyer-form";
 
 type RegisterPageProps = {
@@ -16,7 +17,7 @@ export const metadata: Metadata = {
 
 const errorMessages: Record<string, string> = {
   required: "Заполните обязательные поля.",
-  password: "Пароль должен быть не короче 8 символов.",
+  password: PASSWORD_POLICY_ERROR,
   email: "Пользователь с таким email уже зарегистрирован.",
 };
 

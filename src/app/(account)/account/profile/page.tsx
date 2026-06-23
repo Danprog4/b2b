@@ -5,11 +5,10 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { ToastMessages } from "@/components/ui/toast-message";
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import {
-  changeBuyerPasswordAction,
-  updateBuyerProfileAction,
-} from "@/lib/account/profile-actions";
+import { updateBuyerProfileAction } from "@/lib/account/profile-actions";
+import { PASSWORD_POLICY_ERROR } from "@/lib/auth/password-policy";
 import { requireUser } from "@/lib/auth/session";
+import { PasswordChangeForm } from "./password-change-form";
 
 type ProfilePageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -23,8 +22,9 @@ const errorMessages: Record<string, string> = {
 const passwordErrorMessages: Record<string, string> = {
   required: "Заполните текущий пароль, новый пароль и подтверждение.",
   current: "Текущий пароль указан неверно.",
-  length: "Новый пароль должен быть не короче 8 символов.",
+  length: PASSWORD_POLICY_ERROR.replace("Пароль", "Новый пароль"),
   match: "Новый пароль и подтверждение не совпадают.",
+  same: "Новый пароль должен отличаться от текущего.",
 };
 
 function getParam(
@@ -159,47 +159,7 @@ export default async function AccountProfilePage({
             символов.
           </p>
 
-          <form action={changeBuyerPasswordAction} className="mt-6 grid gap-5">
-            <label className="grid gap-2 text-sm font-bold text-slate-700">
-              Текущий пароль
-              <input
-                name="currentPassword"
-                type="password"
-                required
-                className="h-12 rounded-lg border border-slate-200 px-4 font-normal text-slate-950"
-              />
-            </label>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <label className="grid gap-2 text-sm font-bold text-slate-700">
-                Новый пароль
-                <input
-                  name="newPassword"
-                  type="password"
-                  minLength={8}
-                  required
-                  className="h-12 rounded-lg border border-slate-200 px-4 font-normal text-slate-950"
-                />
-              </label>
-              <label className="grid gap-2 text-sm font-bold text-slate-700">
-                Повторите пароль
-                <input
-                  name="confirmPassword"
-                  type="password"
-                  minLength={8}
-                  required
-                  className="h-12 rounded-lg border border-slate-200 px-4 font-normal text-slate-950"
-                />
-              </label>
-            </div>
-
-            <SubmitButton
-              className="h-12 justify-self-start rounded-lg bg-slate-900 px-6 font-bold text-white transition hover:bg-slate-800"
-              pendingText="Меняем пароль"
-            >
-              Изменить пароль
-            </SubmitButton>
-          </form>
+          <PasswordChangeForm />
         </section>
       </div>
     </main>

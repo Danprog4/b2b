@@ -41,7 +41,7 @@ export function getCompanyMissingFields(company: CompanyForCheckoutValidation) {
     missingFields.push(company.type === "ip" ? "ОГРНИП" : "ОГРН");
   }
 
-  if (!hasValue(company.directorName)) {
+  if (company.type === "ooo" && !hasValue(company.directorName)) {
     missingFields.push("Руководитель");
   }
 

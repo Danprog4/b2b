@@ -1,8 +1,8 @@
 import Link from "next/link";
 
-import { SubmitButton } from "@/components/ui/submit-button";
 import { ToastMessage } from "@/components/ui/toast-message";
-import { resetPasswordAction } from "@/lib/auth/password-reset-actions";
+import { PASSWORD_POLICY_ERROR } from "@/lib/auth/password-policy";
+import { ResetPasswordForm } from "./reset-password-form";
 
 type ResetPasswordPageProps = {
   params: Promise<{ token: string }>;
@@ -11,8 +11,9 @@ type ResetPasswordPageProps = {
 
 const errorMessages: Record<string, string> = {
   required: "Заполните оба поля пароля.",
-  password: "Пароль должен быть не короче 8 символов.",
+  password: PASSWORD_POLICY_ERROR,
   match: "Пароли не совпадают.",
+  same: "Новый пароль должен отличаться от старого.",
   invalid: "Ссылка восстановления недействительна или устарела.",
 };
 
@@ -45,37 +46,7 @@ export default async function ResetPasswordPage({
           />
         ) : null}
 
-        <form action={resetPasswordAction} className="mt-6 grid gap-4">
-          <input name="token" type="hidden" value={token} />
-          <label className="grid gap-2 text-sm font-bold text-slate-700">
-            Новый пароль
-            <input
-              name="password"
-              type="password"
-              required
-              minLength={8}
-              className="h-12 rounded-lg border border-slate-200 px-4 font-normal text-slate-950"
-              placeholder="Не менее 8 символов"
-            />
-          </label>
-          <label className="grid gap-2 text-sm font-bold text-slate-700">
-            Повторите пароль
-            <input
-              name="passwordConfirm"
-              type="password"
-              required
-              minLength={8}
-              className="h-12 rounded-lg border border-slate-200 px-4 font-normal text-slate-950"
-              placeholder="Повторите новый пароль"
-            />
-          </label>
-          <SubmitButton
-            className="mt-2 h-12 rounded-lg bg-[#1157ff] font-bold text-white transition hover:bg-[#0b49e0]"
-            pendingText="Сохраняем"
-          >
-            Сменить пароль
-          </SubmitButton>
-        </form>
+        <ResetPasswordForm token={token} />
 
         <p className="mt-6 text-sm text-slate-600">
           Нужна новая ссылка?{" "}

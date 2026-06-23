@@ -12,6 +12,7 @@ import {
 } from "@/db/schema";
 import { createSession, destroyCurrentSession } from "@/lib/auth/session";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
+import { isPasswordPolicyValid } from "@/lib/auth/password-policy";
 import { mergeGuestCartIntoUserCart } from "@/lib/cart/merge";
 import { normalizeInn } from "@/lib/company-normalize";
 import { getCompanyMissingFields } from "@/lib/account/company-validation";
@@ -189,7 +190,7 @@ export async function registerBuyerAction(formData: FormData) {
     redirect("/register?error=required");
   }
 
-  if (password.length < 8) {
+  if (!isPasswordPolicyValid(password)) {
     redirect("/register?error=password");
   }
 

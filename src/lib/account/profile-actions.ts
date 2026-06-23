@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { auditEvents, users } from "@/db/schema";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
+import { isPasswordPolicyValid } from "@/lib/auth/password-policy";
 import { requireUser } from "@/lib/auth/session";
 
 function getString(formData: FormData, key: string) {
@@ -72,7 +73,7 @@ export async function changeBuyerPasswordAction(formData: FormData) {
     redirect("/account/profile?passwordError=required");
   }
 
-  if (newPassword.length < 8) {
+  if (!isPasswordPolicyValid(newPassword)) {
     redirect("/account/profile?passwordError=length");
   }
 
@@ -88,6 +89,10 @@ export async function changeBuyerPasswordAction(formData: FormData) {
 
   if (!storedUser || !verifyPassword(currentPassword, storedUser.passwordHash)) {
     redirect("/account/profile?passwordError=current");
+  }
+
+  if (verifyPassword(newPassword, storedUser.passwordHash)) {
+    redirect("/account/profile?passwordError=same");
   }
 
   await db.transaction(async (tx) => {

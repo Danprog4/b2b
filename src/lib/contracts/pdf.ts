@@ -225,7 +225,8 @@ export async function generateBuyerContractPdf(input: ContractPdfInput) {
   text(
     page,
     font,
-    input.buyerDirectorName ?? "Уполномоченный представитель",
+    input.buyerDirectorName ??
+      (input.buyerType === "ip" ? input.buyerName : "Уполномоченный представитель"),
     330,
     y,
     8.5,

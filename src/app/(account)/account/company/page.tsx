@@ -232,7 +232,6 @@ export default async function AccountCompanyPage({
               Руководитель
               <input
                 name="directorName"
-                required
                 className="h-12 rounded-lg border border-slate-200 px-4 font-normal text-slate-950"
                 defaultValue={company.directorName ?? ""}
                 placeholder="ФИО руководителя"

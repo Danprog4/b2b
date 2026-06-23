@@ -8,7 +8,8 @@ import { revalidatePath } from "next/cache";
 
 import { db } from "@/db";
 import { emailOutbox, passwordResetTokens, users } from "@/db/schema";
-import { hashPassword } from "@/lib/auth/password";
+import { hashPassword, verifyPassword } from "@/lib/auth/password";
+import { isPasswordPolicyValid } from "@/lib/auth/password-policy";
 
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
 
@@ -92,7 +93,7 @@ export async function resetPasswordAction(formData: FormData) {
     redirect(`${errorPath}?error=required`);
   }
 
-  if (password.length < 8) {
+  if (!isPasswordPolicyValid(password)) {
     redirect(`${errorPath}?error=password`);
   }
 
@@ -109,8 +110,10 @@ export async function resetPasswordAction(formData: FormData) {
       .select({
         id: passwordResetTokens.id,
         userId: passwordResetTokens.userId,
+        userPasswordHash: users.passwordHash,
       })
       .from(passwordResetTokens)
+      .innerJoin(users, eq(users.id, passwordResetTokens.userId))
       .where(
         and(
           eq(passwordResetTokens.tokenHash, tokenHash),
@@ -124,6 +127,10 @@ export async function resetPasswordAction(formData: FormData) {
       return false;
     }
 
+    if (verifyPassword(password, resetToken.userPasswordHash)) {
+      return "same" as const;
+    }
+
     await tx
       .update(users)
       .set({ passwordHash, updatedAt: now })
@@ -134,11 +141,15 @@ export async function resetPasswordAction(formData: FormData) {
       .set({ usedAt: now, updatedAt: now })
       .where(eq(passwordResetTokens.id, resetToken.id));
 
-    return true;
+    return "applied" as const;
   });
 
   if (!resetApplied) {
     redirect(`${errorPath}?error=invalid`);
+  }
+
+  if (resetApplied === "same") {
+    redirect(`${errorPath}?error=same`);
   }
 
   redirect("/login?reset=1");
