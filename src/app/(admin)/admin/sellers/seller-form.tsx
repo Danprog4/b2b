@@ -46,7 +46,9 @@ export function SellerForm({ action, seller, submitText }: SellerFormProps) {
             defaultValue={seller?.inn ?? ""}
             inputMode="numeric"
             maxLength={12}
+            minLength={10}
             name="inn"
+            pattern="[0-9]{10}|[0-9]{12}"
             placeholder="7702000001"
             required
           />
@@ -62,6 +64,7 @@ export function SellerForm({ action, seller, submitText }: SellerFormProps) {
             inputMode="numeric"
             maxLength={9}
             name="kpp"
+            pattern="[0-9]{9}"
           />
         </label>
         <label className="grid gap-2 text-sm font-bold text-slate-700">
@@ -72,6 +75,7 @@ export function SellerForm({ action, seller, submitText }: SellerFormProps) {
             inputMode="numeric"
             maxLength={15}
             name="ogrn"
+            pattern="[0-9]{13}|[0-9]{15}"
           />
         </label>
         <label className="grid gap-2 text-sm font-bold text-slate-700">

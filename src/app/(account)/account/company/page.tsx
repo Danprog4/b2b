@@ -200,6 +200,10 @@ export default async function AccountCompanyPage({
                 <input
                   name="inn"
                   required
+                  inputMode="numeric"
+                  maxLength={12}
+                  minLength={10}
+                  pattern="[0-9]{10}|[0-9]{12}"
                   className="h-12 rounded-lg border border-slate-200 px-4 font-normal text-slate-950"
                   defaultValue={company.inn}
                 />
@@ -208,6 +212,9 @@ export default async function AccountCompanyPage({
                 КПП
                 <input
                   name="kpp"
+                  inputMode="numeric"
+                  maxLength={9}
+                  pattern="[0-9]{9}"
                   className="h-12 rounded-lg border border-slate-200 px-4 font-normal text-slate-950"
                   defaultValue={company.kpp ?? ""}
                 />
@@ -217,6 +224,10 @@ export default async function AccountCompanyPage({
                 <input
                   name="ogrn"
                   required
+                  inputMode="numeric"
+                  maxLength={15}
+                  minLength={13}
+                  pattern="[0-9]{13}|[0-9]{15}"
                   className="h-12 rounded-lg border border-slate-200 px-4 font-normal text-slate-950"
                   defaultValue={company.ogrn ?? ""}
                 />
@@ -290,6 +301,10 @@ export default async function AccountCompanyPage({
                   <input
                     name="bik"
                     required
+                    inputMode="numeric"
+                    maxLength={9}
+                    minLength={9}
+                    pattern="[0-9]{9}"
                     className="h-12 rounded-lg border border-slate-200 px-4 font-normal text-slate-950"
                     defaultValue={getBankValue(company.bankDetails, "bik")}
                   />
@@ -299,6 +314,10 @@ export default async function AccountCompanyPage({
                   <input
                     name="checkingAccount"
                     required
+                    inputMode="numeric"
+                    maxLength={20}
+                    minLength={20}
+                    pattern="[0-9]{20}"
                     className="h-12 rounded-lg border border-slate-200 px-4 font-normal text-slate-950"
                     defaultValue={getBankValue(
                       company.bankDetails,
@@ -311,6 +330,10 @@ export default async function AccountCompanyPage({
                   <input
                     name="correspondentAccount"
                     required
+                    inputMode="numeric"
+                    maxLength={20}
+                    minLength={20}
+                    pattern="[0-9]{20}"
                     className="h-12 rounded-lg border border-slate-200 px-4 font-normal text-slate-950"
                     defaultValue={getBankValue(
                       company.bankDetails,

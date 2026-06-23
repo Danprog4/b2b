@@ -362,7 +362,11 @@ export default async function AdminCompanyPage({
                   <input
                     className="h-11 rounded-lg border border-slate-200 px-4 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
                     defaultValue={company.inn}
+                    inputMode="numeric"
+                    maxLength={12}
+                    minLength={10}
                     name="inn"
+                    pattern="[0-9]{10}|[0-9]{12}"
                     required
                   />
                 </label>
@@ -371,7 +375,10 @@ export default async function AdminCompanyPage({
                   <input
                     className="h-11 rounded-lg border border-slate-200 px-4 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
                     defaultValue={company.kpp ?? ""}
+                    inputMode="numeric"
+                    maxLength={9}
                     name="kpp"
+                    pattern="[0-9]{9}"
                   />
                 </label>
                 <label className="grid gap-2">
@@ -381,7 +388,11 @@ export default async function AdminCompanyPage({
                   <input
                     className="h-11 rounded-lg border border-slate-200 px-4 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
                     defaultValue={company.ogrn ?? ""}
+                    inputMode="numeric"
+                    maxLength={15}
+                    minLength={13}
                     name="ogrn"
+                    pattern="[0-9]{13}|[0-9]{15}"
                   />
                 </label>
               </div>
@@ -449,7 +460,11 @@ export default async function AdminCompanyPage({
                     <input
                       className="h-11 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
                       defaultValue={getBankValue(company.bankDetails, "bik")}
+                      inputMode="numeric"
+                      maxLength={9}
+                      minLength={9}
                       name="bik"
+                      pattern="[0-9]{9}"
                     />
                   </label>
                   <label className="grid gap-2">
@@ -462,7 +477,11 @@ export default async function AdminCompanyPage({
                         company.bankDetails,
                         "checkingAccount",
                       )}
+                      inputMode="numeric"
+                      maxLength={20}
+                      minLength={20}
                       name="checkingAccount"
+                      pattern="[0-9]{20}"
                     />
                   </label>
                   <label className="grid gap-2">
@@ -475,7 +494,11 @@ export default async function AdminCompanyPage({
                         company.bankDetails,
                         "correspondentAccount",
                       )}
+                      inputMode="numeric"
+                      maxLength={20}
+                      minLength={20}
                       name="correspondentAccount"
+                      pattern="[0-9]{20}"
                     />
                   </label>
                 </div>
