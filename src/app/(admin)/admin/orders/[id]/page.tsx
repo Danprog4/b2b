@@ -467,7 +467,7 @@ export default async function AdminOrderPage({
               {order.status === "accepted" ? (
                 <form
                   action={addOrderItemAction}
-                  className="mt-4 grid gap-3 rounded-xl bg-slate-50 p-4 md:grid-cols-[minmax(0,1fr)_140px_auto]"
+                  className="mt-4 grid gap-4 rounded-xl bg-slate-50 p-4 md:grid-cols-[minmax(280px,720px)_160px_auto] md:items-end md:gap-6"
                 >
                   <input name="orderId" type="hidden" value={order.id} />
                   <label className="grid gap-2 text-sm font-bold text-slate-700">
