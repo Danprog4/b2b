@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { auditEvents, buyerCompanies } from "@/db/schema";
 import { requireUser } from "@/lib/auth/session";
-import { normalizeInn } from "@/lib/company-normalize";
+import { normalizeDigits, normalizeInn } from "@/lib/company-normalize";
 import { generateBuyerCompanyContract } from "@/lib/contracts/generation";
 
 const allowedStatuses = new Set(["active", "blocked"]);
@@ -21,6 +21,10 @@ function nullableValue<T>(value: T | null) {
   return value ?? sql`null`;
 }
 
+function hasDigitLength(value: string, length: number) {
+  return new RegExp(`^\\d{${length}}$`).test(value);
+}
+
 function redirectWithCompanyError(companyId: string, error: string) {
   redirect(`/admin/companies/${companyId}?error=${error}`);
 }
@@ -28,9 +32,11 @@ function redirectWithCompanyError(companyId: string, error: string) {
 function getBankDetails(formData: FormData) {
   return {
     bankName: getString(formData, "bankName"),
-    bik: getString(formData, "bik"),
-    checkingAccount: getString(formData, "checkingAccount"),
-    correspondentAccount: getString(formData, "correspondentAccount"),
+    bik: normalizeDigits(getString(formData, "bik")),
+    checkingAccount: normalizeDigits(getString(formData, "checkingAccount")),
+    correspondentAccount: normalizeDigits(
+      getString(formData, "correspondentAccount"),
+    ),
   };
 }
 
@@ -40,9 +46,28 @@ export async function updateBuyerCompanyAdminAction(formData: FormData) {
   const type = getString(formData, "type") === "ip" ? "ip" : "ooo";
   const name = getString(formData, "name");
   const inn = normalizeInn(getString(formData, "inn"));
+  const kpp = normalizeDigits(getString(formData, "kpp"));
+  const ogrn = normalizeDigits(getString(formData, "ogrn"));
+  const directorName = getString(formData, "directorName");
+  const legalAddress = getString(formData, "legalAddress");
+  const bankDetails = getBankDetails(formData);
+  const contactEmail = getString(formData, "contactEmail");
+  const contactPhone = getString(formData, "contactPhone");
   const status = getString(formData, "status") || "active";
 
   if (!companyId || !name || !inn || !allowedStatuses.has(status)) {
+    redirectWithCompanyError(companyId || "unknown", "required");
+  }
+
+  if (!hasDigitLength(inn, type === "ip" ? 12 : 10)) {
+    redirectWithCompanyError(companyId || "unknown", "required");
+  }
+
+  if (type === "ooo" && kpp && !hasDigitLength(kpp, 9)) {
+    redirectWithCompanyError(companyId || "unknown", "required");
+  }
+
+  if (ogrn && !hasDigitLength(ogrn, type === "ip" ? 15 : 13)) {
     redirectWithCompanyError(companyId || "unknown", "required");
   }
 
@@ -76,13 +101,13 @@ export async function updateBuyerCompanyAdminAction(formData: FormData) {
       type,
       name,
       inn,
-      kpp: type === "ooo" ? nullableValue(getString(formData, "kpp") || null) : sql`null`,
-      ogrn: nullableValue(getString(formData, "ogrn") || null),
-      directorName: nullableValue(getString(formData, "directorName") || null),
-      legalAddress: nullableValue(getString(formData, "legalAddress") || null),
-      bankDetails: getBankDetails(formData),
-      contactEmail: nullableValue(getString(formData, "contactEmail") || null),
-      contactPhone: nullableValue(getString(formData, "contactPhone") || null),
+      kpp: type === "ooo" ? nullableValue(kpp || null) : sql`null`,
+      ogrn: nullableValue(ogrn || null),
+      directorName: nullableValue(directorName || null),
+      legalAddress: nullableValue(legalAddress || null),
+      bankDetails,
+      contactEmail: nullableValue(contactEmail || null),
+      contactPhone: nullableValue(contactPhone || null),
       status,
       updatedAt: new Date(),
     })

@@ -17,6 +17,8 @@ export const metadata: Metadata = {
 
 const errorMessages: Record<string, string> = {
   required: "Заполните обязательные поля.",
+  company_details:
+    "Проверьте реквизиты: ИНН/КПП/ОГРН/БИК и счета должны содержать корректное количество цифр.",
   password: PASSWORD_POLICY_ERROR,
   email: "Пользователь с таким email уже зарегистрирован.",
 };

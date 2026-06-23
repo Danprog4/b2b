@@ -8,7 +8,7 @@ import { db } from "@/db";
 import { auditEvents, buyerCompanies } from "@/db/schema";
 import { requireUser } from "@/lib/auth/session";
 import { getCompanyMissingFields } from "@/lib/account/company-validation";
-import { normalizeInn } from "@/lib/company-normalize";
+import { normalizeDigits, normalizeInn } from "@/lib/company-normalize";
 import { generateBuyerCompanyContract } from "@/lib/contracts/generation";
 
 function getString(formData: FormData, key: string) {
@@ -39,8 +39,8 @@ export async function updateBuyerCompanyAction(formData: FormData) {
   const type = getString(formData, "type") === "ip" ? "ip" : "ooo";
   const name = getString(formData, "name");
   const inn = normalizeInn(getString(formData, "inn"));
-  const kpp = getString(formData, "kpp");
-  const ogrn = getString(formData, "ogrn");
+  const kpp = normalizeDigits(getString(formData, "kpp"));
+  const ogrn = normalizeDigits(getString(formData, "ogrn"));
   const directorName = getString(formData, "directorName");
   const legalAddress = getString(formData, "legalAddress");
   const contactEmail = getString(formData, "contactEmail");
@@ -48,9 +48,11 @@ export async function updateBuyerCompanyAction(formData: FormData) {
   const nextPath = getSafeNextPath(getString(formData, "next"));
   const bankDetails = {
     bankName: getString(formData, "bankName"),
-    bik: getString(formData, "bik"),
-    checkingAccount: getString(formData, "checkingAccount"),
-    correspondentAccount: getString(formData, "correspondentAccount"),
+    bik: normalizeDigits(getString(formData, "bik")),
+    checkingAccount: normalizeDigits(getString(formData, "checkingAccount")),
+    correspondentAccount: normalizeDigits(
+      getString(formData, "correspondentAccount"),
+    ),
   };
 
   const missingFields = getCompanyMissingFields({

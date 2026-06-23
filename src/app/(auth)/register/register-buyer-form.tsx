@@ -249,6 +249,10 @@ export function RegisterBuyerForm() {
               <input
                 name="inn"
                 required
+                inputMode="numeric"
+                maxLength={values.companyType === "ip" ? 12 : 10}
+                minLength={values.companyType === "ip" ? 12 : 10}
+                pattern={values.companyType === "ip" ? "\\d{12}" : "\\d{10}"}
                 className="h-12 rounded-lg border border-slate-200 px-4 font-normal text-slate-950"
                 onChange={(event) => updateField("inn", getInputValue(event))}
                 placeholder="7703000001"
@@ -283,6 +287,10 @@ export function RegisterBuyerForm() {
               <input
                 name="kpp"
                 required={values.companyType === "ooo"}
+                inputMode="numeric"
+                maxLength={9}
+                minLength={values.companyType === "ooo" ? 9 : undefined}
+                pattern={values.companyType === "ooo" ? "\\d{9}" : "\\d{0,9}"}
                 className="h-12 rounded-lg border border-slate-200 px-4 font-normal text-slate-950"
                 onChange={(event) => updateField("kpp", getInputValue(event))}
                 placeholder="770301001"
@@ -294,6 +302,10 @@ export function RegisterBuyerForm() {
               <input
                 name="ogrn"
                 required
+                inputMode="numeric"
+                maxLength={values.companyType === "ip" ? 15 : 13}
+                minLength={values.companyType === "ip" ? 15 : 13}
+                pattern={values.companyType === "ip" ? "\\d{15}" : "\\d{13}"}
                 className="h-12 rounded-lg border border-slate-200 px-4 font-normal text-slate-950"
                 onChange={(event) => updateField("ogrn", getInputValue(event))}
                 placeholder="1027703000001"
@@ -383,6 +395,10 @@ export function RegisterBuyerForm() {
                 <input
                   name="bik"
                   required
+                  inputMode="numeric"
+                  maxLength={9}
+                  minLength={9}
+                  pattern="\\d{9}"
                   className="h-12 rounded-lg border border-slate-200 bg-white px-4 font-normal text-slate-950"
                   onChange={(event) => updateField("bik", getInputValue(event))}
                   value={values.bik}
@@ -393,6 +409,10 @@ export function RegisterBuyerForm() {
                 <input
                   name="checkingAccount"
                   required
+                  inputMode="numeric"
+                  maxLength={20}
+                  minLength={20}
+                  pattern="\\d{20}"
                   className="h-12 rounded-lg border border-slate-200 bg-white px-4 font-normal text-slate-950"
                   onChange={(event) =>
                     updateField("checkingAccount", getInputValue(event))
@@ -405,6 +425,10 @@ export function RegisterBuyerForm() {
                 <input
                   name="correspondentAccount"
                   required
+                  inputMode="numeric"
+                  maxLength={20}
+                  minLength={20}
+                  pattern="\\d{20}"
                   className="h-12 rounded-lg border border-slate-200 bg-white px-4 font-normal text-slate-950"
                   onChange={(event) =>
                     updateField("correspondentAccount", getInputValue(event))

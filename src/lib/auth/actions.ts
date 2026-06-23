@@ -14,7 +14,7 @@ import { createSession, destroyCurrentSession } from "@/lib/auth/session";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { isPasswordPolicyValid } from "@/lib/auth/password-policy";
 import { mergeGuestCartIntoUserCart } from "@/lib/cart/merge";
-import { normalizeInn } from "@/lib/company-normalize";
+import { normalizeDigits, normalizeInn } from "@/lib/company-normalize";
 import { getCompanyMissingFields } from "@/lib/account/company-validation";
 import { generateBuyerCompanyContract } from "@/lib/contracts/generation";
 import { insertAdminNotifications } from "@/lib/notifications/helpers";
@@ -173,17 +173,19 @@ export async function registerBuyerAction(formData: FormData) {
   const name = getString(formData, "name");
   const phone = getString(formData, "phone");
   const companyName = getString(formData, "companyName");
-  const kpp = getString(formData, "kpp");
-  const ogrn = getString(formData, "ogrn");
+  const kpp = normalizeDigits(getString(formData, "kpp"));
+  const ogrn = normalizeDigits(getString(formData, "ogrn"));
   const directorName = getString(formData, "directorName");
   const legalAddress = getString(formData, "legalAddress");
   const contactEmail = getString(formData, "contactEmail") || email;
   const contactPhone = getString(formData, "contactPhone") || phone;
   const bankDetails = {
     bankName: getString(formData, "bankName"),
-    bik: getString(formData, "bik"),
-    checkingAccount: getString(formData, "checkingAccount"),
-    correspondentAccount: getString(formData, "correspondentAccount"),
+    bik: normalizeDigits(getString(formData, "bik")),
+    checkingAccount: normalizeDigits(getString(formData, "checkingAccount")),
+    correspondentAccount: normalizeDigits(
+      getString(formData, "correspondentAccount"),
+    ),
   };
 
   if (!email || !password || !inn || !companyName || !phone) {
@@ -323,7 +325,7 @@ export async function registerBuyerAction(formData: FormData) {
   });
 
   if (missingCompanyFields.length > 0) {
-    redirect("/register?error=required");
+    redirect("/register?error=company_details");
   }
 
   if (existingUser && canReusePendingUser) {
@@ -377,36 +379,42 @@ export async function registerBuyerAction(formData: FormData) {
     redirect("/account");
   }
 
-  const [company] = await db
-    .insert(buyerCompanies)
-    .values({
-      type,
-      name: companyName,
-      inn,
-      kpp: type === "ooo" ? kpp : null,
-      ogrn,
-      directorName,
-      legalAddress,
-      bankDetails,
-      contactEmail,
-      contactPhone,
-    })
-    .returning();
-
-  const [user] = await db
-    .insert(users)
-    .values({
-      name,
-      email,
-      phone,
-      passwordHash: hashPassword(password),
-      role: "buyer",
-      status: "active",
-      buyerCompanyId: company.id,
-    })
-    .returning();
+  let createdCompanyId = "";
+  let createdUserId = "";
 
   await db.transaction(async (tx) => {
+    const [company] = await tx
+      .insert(buyerCompanies)
+      .values({
+        type,
+        name: companyName,
+        inn,
+        kpp: type === "ooo" ? kpp : null,
+        ogrn,
+        directorName,
+        legalAddress,
+        bankDetails,
+        contactEmail,
+        contactPhone,
+      })
+      .returning({ id: buyerCompanies.id });
+
+    const [user] = await tx
+      .insert(users)
+      .values({
+        name,
+        email,
+        phone,
+        passwordHash: hashPassword(password),
+        role: "buyer",
+        status: "active",
+        buyerCompanyId: company.id,
+      })
+      .returning({ id: users.id });
+
+    createdCompanyId = company.id;
+    createdUserId = user.id;
+
     await queueRegistrationEmail(tx, {
       email,
       name,
@@ -415,10 +423,10 @@ export async function registerBuyerAction(formData: FormData) {
     });
   });
 
-  await generateBuyerCompanyContract(company.id, user.id, {
+  await generateBuyerCompanyContract(createdCompanyId, createdUserId, {
     source: "registration",
   });
-  await createSession(user.id);
-  await mergeGuestCartIntoUserCart(user.id);
+  await createSession(createdUserId);
+  await mergeGuestCartIntoUserCart(createdUserId);
   redirect("/account");
 }
