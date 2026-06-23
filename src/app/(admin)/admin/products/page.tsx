@@ -11,6 +11,7 @@ import {
   sellers,
   subcategories,
 } from "@/db/schema";
+import { withAdminBreadcrumbSource } from "@/lib/admin/breadcrumbs";
 import { requireUser } from "@/lib/auth/session";
 import { getPublicFileUrl } from "@/lib/files/urls";
 import { isSellerDeletedOffer } from "@/lib/products/offer-status";
@@ -173,13 +174,17 @@ export default async function AdminProductsPage() {
                       storageKey: product.mainImageStorageKey,
                     })
                   : null;
+                const productHref = withAdminBreadcrumbSource(
+                  `/admin/products/${product.id}`,
+                  "products",
+                );
 
                 return (
                   <tr key={product.id} className="align-top hover:bg-slate-50">
                     <td className="p-0">
                       <Link
                         className="flex gap-3 px-5 py-4"
-                        href={`/admin/products/${product.id}`}
+                        href={productHref}
                       >
                         <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-100 text-slate-400">
                           {imageUrl ? (
@@ -205,7 +210,7 @@ export default async function AdminProductsPage() {
                   <td className="p-0">
                     <Link
                       className="block px-5 py-4"
-                      href={`/admin/products/${product.id}`}
+                      href={productHref}
                     >
                       <span className="block font-bold text-slate-950">
                         {product.categoryName}
@@ -218,7 +223,7 @@ export default async function AdminProductsPage() {
                   <td className="p-0">
                     <Link
                       className="block px-5 py-4 text-slate-600"
-                      href={`/admin/products/${product.id}`}
+                      href={productHref}
                     >
                       {product.selectedOffer?.offerSellerName ??
                         (product.sellerDeletedOfferCount > 0
@@ -233,7 +238,7 @@ export default async function AdminProductsPage() {
                   <td className="p-0">
                     <Link
                       className="block px-5 py-4 font-black"
-                      href={`/admin/products/${product.id}`}
+                      href={productHref}
                     >
                       {product.selectedOffer?.offerPriceWithVat
                         ? formatCurrency(product.selectedOffer.offerPriceWithVat)
@@ -243,7 +248,7 @@ export default async function AdminProductsPage() {
                   <td className="p-0">
                     <Link
                       className="block px-5 py-4"
-                      href={`/admin/products/${product.id}`}
+                      href={productHref}
                     >
                       <span className="flex flex-wrap gap-2">
                         <span
@@ -270,7 +275,7 @@ export default async function AdminProductsPage() {
                   <td className="p-0">
                     <Link
                       className="block px-5 py-4 text-slate-600"
-                      href={`/admin/products/${product.id}`}
+                      href={productHref}
                     >
                       {formatDateTime(product.updatedAt)}
                     </Link>

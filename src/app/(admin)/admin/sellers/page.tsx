@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { db } from "@/db";
 import { documents, orderItems, products, sellers } from "@/db/schema";
+import { withAdminBreadcrumbSource } from "@/lib/admin/breadcrumbs";
 import { requireUser } from "@/lib/auth/session";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
@@ -124,13 +125,17 @@ export default async function AdminSellersPage() {
               ) : null}
               {sellerRows.map((seller) => {
                 const orderStat = ordersBySeller.get(seller.id);
+                const sellerHref = withAdminBreadcrumbSource(
+                  `/admin/sellers/${seller.id}`,
+                  "sellers",
+                );
 
                 return (
                   <tr key={seller.id} className="align-top hover:bg-slate-50">
                     <td className="p-0">
                       <Link
                         className="flex gap-3 px-5 py-4"
-                        href={`/admin/sellers/${seller.id}`}
+                        href={sellerHref}
                       >
                         <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#1157ff]">
                           <Building2 size={22} />
@@ -149,7 +154,7 @@ export default async function AdminSellersPage() {
                     <td className="p-0">
                       <Link
                         className="block px-5 py-4 font-black text-slate-950"
-                        href={`/admin/sellers/${seller.id}`}
+                        href={sellerHref}
                       >
                         {seller.contractNumber ?? "—"}
                       </Link>
@@ -157,7 +162,7 @@ export default async function AdminSellersPage() {
                     <td className="p-0">
                       <Link
                         className="block px-5 py-4 text-slate-600"
-                        href={`/admin/sellers/${seller.id}`}
+                        href={sellerHref}
                       >
                         <span className="block font-bold text-slate-950">
                           {seller.contactName ?? "Контакт не указан"}
@@ -170,7 +175,7 @@ export default async function AdminSellersPage() {
                     <td className="p-0">
                       <Link
                         className="block px-5 py-4 font-black"
-                        href={`/admin/sellers/${seller.id}`}
+                        href={sellerHref}
                       >
                         {Number(seller.commissionRate).toFixed(2)}%
                       </Link>
@@ -178,7 +183,7 @@ export default async function AdminSellersPage() {
                     <td className="p-0">
                       <Link
                         className="block px-5 py-4 font-bold"
-                        href={`/admin/sellers/${seller.id}`}
+                        href={sellerHref}
                       >
                         {productsBySeller.get(seller.id) ?? 0}
                       </Link>
@@ -186,7 +191,7 @@ export default async function AdminSellersPage() {
                     <td className="p-0">
                       <Link
                         className="block px-5 py-4"
-                        href={`/admin/sellers/${seller.id}`}
+                        href={sellerHref}
                       >
                         <span className="block font-bold text-slate-950">
                           {orderStat?.orderCount ?? 0}
@@ -199,7 +204,7 @@ export default async function AdminSellersPage() {
                     <td className="p-0">
                       <Link
                         className="block px-5 py-4 font-black"
-                        href={`/admin/sellers/${seller.id}`}
+                        href={sellerHref}
                       >
                         {formatCurrency(orderStat?.salesAmount ?? "0")}
                       </Link>
@@ -207,7 +212,7 @@ export default async function AdminSellersPage() {
                     <td className="p-0">
                       <Link
                         className="block px-5 py-4"
-                        href={`/admin/sellers/${seller.id}`}
+                        href={sellerHref}
                       >
                         <span
                           className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${
@@ -223,7 +228,7 @@ export default async function AdminSellersPage() {
                     <td className="p-0">
                       <Link
                         className="block px-5 py-4"
-                        href={`/admin/sellers/${seller.id}`}
+                        href={sellerHref}
                       >
                         <span
                           className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${
@@ -239,7 +244,7 @@ export default async function AdminSellersPage() {
                     <td className="p-0">
                       <Link
                         className="block px-5 py-4 text-slate-600"
-                        href={`/admin/sellers/${seller.id}`}
+                        href={sellerHref}
                       >
                         {formatDateTime(seller.updatedAt)}
                       </Link>

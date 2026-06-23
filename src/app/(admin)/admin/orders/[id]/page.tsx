@@ -36,6 +36,10 @@ import {
   updateOrderItemQuantityAction,
   updateOrderStatusAction,
 } from "@/lib/admin/order-actions";
+import {
+  getAdminBreadcrumbSource,
+  withAdminBreadcrumbSource,
+} from "@/lib/admin/breadcrumbs";
 import { requireUser } from "@/lib/auth/session";
 import {
   uploadOrderDocumentAction,
@@ -79,6 +83,7 @@ export default async function AdminOrderPage({
   const invoiceError = search.invoiceError === "1";
   const orderEdited = search.orderEdited === "1";
   const statusError = search.statusError === "1";
+  const breadcrumbSource = getAdminBreadcrumbSource(search, "orders");
   const orderEditError =
     typeof search.orderEditError === "string" ? search.orderEditError : null;
   const documentError =
@@ -234,15 +239,18 @@ export default async function AdminOrderPage({
             Админ-панель
           </Link>
           <span>/</span>
-          <Link className="text-[#1157ff]" href="/admin/orders">
-            Заказы
+          <Link className="text-[#1157ff]" href={breadcrumbSource.href}>
+            {breadcrumbSource.label}
           </Link>
           <span>/</span>
           <span>{order.number}</span>
         </div>
 
-        <Link className="text-sm font-bold text-[#1157ff]" href="/admin/orders">
-          ← Все заказы
+        <Link
+          className="text-sm font-bold text-[#1157ff]"
+          href={breadcrumbSource.href}
+        >
+          ← {breadcrumbSource.label}
         </Link>
 
         <ToastMessages
@@ -343,7 +351,10 @@ export default async function AdminOrderPage({
                         {item.sellerId ? (
                           <Link
                             className="text-[#1157ff]"
-                            href={`/admin/sellers/${item.sellerId}`}
+                            href={withAdminBreadcrumbSource(
+                              `/admin/sellers/${item.sellerId}`,
+                              "orders",
+                            )}
                           >
                             {item.sellerName ?? "Не указан"}
                           </Link>
@@ -768,7 +779,10 @@ export default async function AdminOrderPage({
                         {seller.sellerId ? (
                           <Link
                             className="text-[#1157ff]"
-                            href={`/admin/sellers/${seller.sellerId}`}
+                            href={withAdminBreadcrumbSource(
+                              `/admin/sellers/${seller.sellerId}`,
+                              "orders",
+                            )}
                           >
                             {seller.sellerName}
                           </Link>

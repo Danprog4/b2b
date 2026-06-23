@@ -9,6 +9,7 @@ import {
   paymentsToSeller,
   sellers,
 } from "@/db/schema";
+import { withAdminBreadcrumbSource } from "@/lib/admin/breadcrumbs";
 import { requireUser } from "@/lib/auth/session";
 import { parseMoscowDateInput } from "@/lib/datetime";
 import { getOrderStatusLabel } from "@/lib/orders/status";
@@ -324,7 +325,10 @@ export default async function AdminCommissionsPage({
                   <td className="px-5 py-4">
                     <Link
                       className="font-black text-[#1157ff]"
-                      href={`/admin/orders/${row.orderId}`}
+                      href={withAdminBreadcrumbSource(
+                        `/admin/orders/${row.orderId}`,
+                        "commissions",
+                      )}
                     >
                       {row.orderNumber}
                     </Link>
@@ -335,7 +339,10 @@ export default async function AdminCommissionsPage({
                   <td className="px-5 py-4">
                     <Link
                       className="font-black text-[#1157ff]"
-                      href={`/admin/sellers/${row.sellerId}`}
+                      href={withAdminBreadcrumbSource(
+                        `/admin/sellers/${row.sellerId}`,
+                        "commissions",
+                      )}
                     >
                       {row.sellerName}
                     </Link>

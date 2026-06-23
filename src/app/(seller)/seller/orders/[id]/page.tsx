@@ -7,15 +7,22 @@ import { db } from "@/db";
 import { buyerCompanies, orderItems, orders, sellers } from "@/db/schema";
 import { requireUser } from "@/lib/auth/session";
 import { getOrderStatusLabel } from "@/lib/orders/status";
+import { getSellerBreadcrumbSource } from "@/lib/seller/breadcrumbs";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
 type SellerOrderPageProps = {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export default async function SellerOrderPage({ params }: SellerOrderPageProps) {
+export default async function SellerOrderPage({
+  params,
+  searchParams,
+}: SellerOrderPageProps) {
   const user = await requireUser(["seller"]);
   const { id } = await params;
+  const search = (await searchParams) ?? {};
+  const breadcrumbSource = getSellerBreadcrumbSource(search, "orders");
 
   if (!user.sellerId) {
     notFound();
@@ -98,8 +105,8 @@ export default async function SellerOrderPage({ params }: SellerOrderPageProps) 
             Кабинет продавца
           </Link>
           <span>/</span>
-          <Link className="text-[#1157ff]" href="/seller/orders">
-            Заказы
+          <Link className="text-[#1157ff]" href={breadcrumbSource.href}>
+            {breadcrumbSource.label}
           </Link>
           <span>/</span>
           <span>{order.number}</span>
@@ -107,9 +114,9 @@ export default async function SellerOrderPage({ params }: SellerOrderPageProps) 
 
         <Link
           className="inline-flex text-sm font-bold text-[#1157ff] transition hover:text-[#0b49e0]"
-          href="/seller/orders"
+          href={breadcrumbSource.href}
         >
-          ← К списку заказов
+          ← {breadcrumbSource.label}
         </Link>
 
         <section className="mt-5 rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-100">

@@ -15,6 +15,11 @@ import {
 import { requireUser } from "@/lib/auth/session";
 import { ToastMessage } from "@/components/ui/toast-message";
 import { getPublicFileUrl } from "@/lib/files/urls";
+import {
+  getSellerBreadcrumbSource,
+  getSellerBreadcrumbSourceKey,
+  withSellerBreadcrumbSource,
+} from "@/lib/seller/breadcrumbs";
 import { requestSellerProductUpdateAction } from "@/lib/seller/product-actions";
 import { SellerProductForm } from "../../product-form";
 
@@ -56,6 +61,8 @@ export default async function EditSellerProductPage({
   const { id } = await params;
   const search = (await searchParams) ?? {};
   const error = typeof search.error === "string" ? search.error : null;
+  const breadcrumbSourceKey = getSellerBreadcrumbSourceKey(search, "products");
+  const breadcrumbSource = getSellerBreadcrumbSource(search, "products");
 
   const [product] = await db
     .select({
@@ -193,6 +200,10 @@ export default async function EditSellerProductPage({
         unit: getPayloadString(rejectedPayload, "unit") || product.unit,
       }
     : product;
+  const productHref = withSellerBreadcrumbSource(
+    `/seller/products/${product.id}`,
+    breadcrumbSourceKey,
+  );
 
   return (
     <main className="min-h-screen bg-[#f4f6fb] px-6 py-8 text-slate-900">
@@ -202,11 +213,11 @@ export default async function EditSellerProductPage({
             Кабинет продавца
           </Link>
           <span>/</span>
-          <Link className="text-[#1157ff]" href="/seller#products">
-            Товары
+          <Link className="text-[#1157ff]" href={breadcrumbSource.href}>
+            {breadcrumbSource.label}
           </Link>
           <span>/</span>
-          <Link className="text-[#1157ff]" href={`/seller/products/${product.id}`}>
+          <Link className="text-[#1157ff]" href={productHref}>
             {product.name}
           </Link>
           <span>/</span>
@@ -216,15 +227,15 @@ export default async function EditSellerProductPage({
         <div className="mb-5 flex flex-wrap gap-3">
           <Link
             className="inline-flex text-sm font-bold text-[#1157ff] transition hover:text-[#0b49e0]"
-            href={`/seller/products/${product.id}`}
+            href={productHref}
           >
             ← К карточке товара
           </Link>
           <Link
             className="inline-flex text-sm font-bold text-[#1157ff] transition hover:text-[#0b49e0]"
-            href="/seller#products"
+            href={breadcrumbSource.href}
           >
-            К списку товаров
+            {breadcrumbSource.label}
           </Link>
         </div>
 

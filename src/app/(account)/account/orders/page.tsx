@@ -2,6 +2,7 @@ import { FileText, ShoppingCart } from "lucide-react";
 import Link from "next/link";
 
 import { SubmitButton } from "@/components/ui/submit-button";
+import { withAccountBreadcrumbSource } from "@/lib/account/breadcrumbs";
 import { repeatOrderAction } from "@/lib/orders/actions";
 import { getOrderStatusLabel } from "@/lib/orders/status";
 import { getCurrentBuyerOrders } from "@/lib/orders/queries";
@@ -65,7 +66,13 @@ export default async function AccountOrdersPage() {
                   key={order.id}
                   className="grid gap-4 p-5 transition hover:bg-slate-50 lg:grid-cols-[minmax(0,1fr)_220px_160px]"
                 >
-                  <Link href={`/account/orders/${order.id}`} className="block">
+                  <Link
+                    href={withAccountBreadcrumbSource(
+                      `/account/orders/${order.id}`,
+                      "orders",
+                    )}
+                    className="block"
+                  >
                     <div className="flex items-center gap-3">
                       <FileText className="text-[#1157ff]" size={22} />
                       <h2 className="text-lg font-black text-slate-950">

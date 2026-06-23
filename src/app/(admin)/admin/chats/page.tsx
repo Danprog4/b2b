@@ -1,6 +1,7 @@
 import { MessageSquare } from "lucide-react";
 import Link from "next/link";
 
+import { withAdminBreadcrumbSource } from "@/lib/admin/breadcrumbs";
 import { getAdminChatList } from "@/lib/chat/queries";
 import { formatDateTime } from "@/lib/utils";
 
@@ -72,7 +73,7 @@ export default async function AdminChatsPage() {
               {chats.map((chat) => (
                 <Link
                   className="grid gap-4 p-5 transition hover:bg-blue-50/40 lg:grid-cols-[1fr_260px_auto]"
-                  href={`/admin/chats/${chat.id}`}
+                  href={withAdminBreadcrumbSource(`/admin/chats/${chat.id}`, "chats")}
                   key={chat.id}
                 >
                   <div>

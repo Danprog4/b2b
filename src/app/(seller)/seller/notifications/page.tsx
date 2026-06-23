@@ -11,6 +11,7 @@ import {
   sellerOffers,
 } from "@/db/schema";
 import { requireUser } from "@/lib/auth/session";
+import { withSellerBreadcrumbSource } from "@/lib/seller/breadcrumbs";
 import { formatDateTime } from "@/lib/utils";
 
 export default async function SellerNotificationsPage() {
@@ -82,12 +83,20 @@ export default async function SellerNotificationsPage() {
       : null;
 
     if (order) {
-      return `/seller/orders/${order.id}`;
+      return withSellerBreadcrumbSource(
+        `/seller/orders/${order.id}`,
+        "notifications",
+      );
     }
 
     const product = productRows.find((row) => text.includes(row.name));
 
-    return product ? `/seller/products/${product.id}` : null;
+    return product
+      ? withSellerBreadcrumbSource(
+          `/seller/products/${product.id}`,
+          "notifications",
+        )
+      : null;
   };
 
   return (

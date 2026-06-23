@@ -24,6 +24,10 @@ import {
   updateSellerAction,
   updateSellerPaymentAction,
 } from "@/lib/admin/seller-actions";
+import {
+  getAdminBreadcrumbSource,
+  withAdminBreadcrumbSource,
+} from "@/lib/admin/breadcrumbs";
 import { requireUser } from "@/lib/auth/session";
 import {
   uploadAdminDocumentAction,
@@ -81,6 +85,7 @@ export default async function AdminSellerPage({
   const paymentError = search.paymentError === "1";
   const documentUploaded = search.documentUploaded === "1";
   const documentUpdated = search.documentUpdated === "1";
+  const breadcrumbSource = getAdminBreadcrumbSource(search, "sellers");
   const documentError =
     !documentUploaded && !documentUpdated && typeof search.documentError === "string"
       ? search.documentError
@@ -226,8 +231,8 @@ export default async function AdminSellerPage({
             Админ-панель
           </Link>
           <span>/</span>
-          <Link className="text-[#1157ff]" href="/admin/sellers">
-            Продавцы
+          <Link className="text-[#1157ff]" href={breadcrumbSource.href}>
+            {breadcrumbSource.label}
           </Link>
           <span>/</span>
           <span>{seller.name}</span>
@@ -235,8 +240,11 @@ export default async function AdminSellerPage({
 
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <Link className="text-sm font-bold text-[#1157ff]" href="/admin/sellers">
-              ← Продавцы
+            <Link
+              className="text-sm font-bold text-[#1157ff]"
+              href={breadcrumbSource.href}
+            >
+              ← {breadcrumbSource.label}
             </Link>
             <h1 className="mt-3 text-3xl font-black text-slate-950">
               {seller.name}
@@ -773,7 +781,10 @@ export default async function AdminSellerPage({
                 recentProducts.map((product) => (
                   <Link
                     className="flex items-start justify-between gap-4 py-3 text-sm transition hover:text-[#1157ff]"
-                    href={`/admin/products/${product.id}`}
+                    href={withAdminBreadcrumbSource(
+                      `/admin/products/${product.id}`,
+                      "sellers",
+                    )}
                     key={product.id}
                   >
                     <span className="flex gap-3">
@@ -813,7 +824,10 @@ export default async function AdminSellerPage({
                 recentOrders.map((order) => (
                   <Link
                     className="grid gap-3 py-3 text-sm transition hover:text-[#1157ff] md:grid-cols-[1fr_auto]"
-                    href={`/admin/orders/${order.id}`}
+                    href={withAdminBreadcrumbSource(
+                      `/admin/orders/${order.id}`,
+                      "sellers",
+                    )}
                     key={order.id}
                   >
                     <span className="flex gap-3">

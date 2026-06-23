@@ -26,6 +26,7 @@ import {
   sellers,
   users,
 } from "@/db/schema";
+import { withAdminBreadcrumbSource } from "@/lib/admin/breadcrumbs";
 import { requireUser } from "@/lib/auth/session";
 import { parseMoscowDateInput } from "@/lib/datetime";
 import { getOrderStatusLabel } from "@/lib/orders/status";
@@ -554,12 +555,18 @@ export default async function AdminOrdersPage({
                   </td>
                 </tr>
               ) : null}
-              {ordersWithViewState.map((order) => (
+              {ordersWithViewState.map((order) => {
+                const orderHref = withAdminBreadcrumbSource(
+                  `/admin/orders/${order.id}`,
+                  "orders",
+                );
+
+                return (
                 <tr key={order.id} className="align-top hover:bg-slate-50">
                   <td className="p-0">
                     <Link
                       className="flex px-5 py-4 font-black text-[#1157ff]"
-                      href={`/admin/orders/${order.id}`}
+                      href={orderHref}
                     >
                       <span className="inline-flex items-center gap-2">
                         <FileText size={18} />
@@ -575,7 +582,7 @@ export default async function AdminOrdersPage({
                   <td className="p-0">
                     <Link
                       className="block px-5 py-4 text-slate-600"
-                      href={`/admin/orders/${order.id}`}
+                      href={orderHref}
                     >
                       {formatDateTime(order.createdAt)}
                     </Link>
@@ -583,7 +590,7 @@ export default async function AdminOrdersPage({
                   <td className="p-0">
                     <Link
                       className="block px-5 py-4"
-                      href={`/admin/orders/${order.id}`}
+                      href={orderHref}
                     >
                       <div className="font-bold text-slate-950">
                         {order.companyName}
@@ -599,7 +606,7 @@ export default async function AdminOrdersPage({
                   <td className="p-0">
                     <Link
                       className="block px-5 py-4"
-                      href={`/admin/orders/${order.id}`}
+                      href={orderHref}
                     >
                       <span className="inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-800">
                         {getOrderStatusLabel(order.status)}
@@ -609,7 +616,7 @@ export default async function AdminOrdersPage({
                   <td className="p-0">
                     <Link
                       className="block px-5 py-4 font-black text-slate-950"
-                      href={`/admin/orders/${order.id}`}
+                      href={orderHref}
                     >
                       {order.sellerCount}
                     </Link>
@@ -617,7 +624,7 @@ export default async function AdminOrdersPage({
                   <td className="p-0">
                     <Link
                       className="block px-5 py-4 text-slate-600"
-                      href={`/admin/orders/${order.id}`}
+                      href={orderHref}
                     >
                       {order.invoiceNumber ?? "—"}
                     </Link>
@@ -625,7 +632,7 @@ export default async function AdminOrdersPage({
                   <td className="p-0">
                     <Link
                       className="flex flex-wrap gap-1.5 px-5 py-4 text-slate-600"
-                      href={`/admin/orders/${order.id}`}
+                      href={orderHref}
                     >
                       <DocumentFlag active={order.hasInvoice} label="Счет" />
                       <DocumentFlag active={order.hasContract} label="Договор" />
@@ -637,7 +644,7 @@ export default async function AdminOrdersPage({
                   <td className="p-0">
                     <Link
                       className="block max-w-[260px] px-5 py-4 text-slate-600"
-                      href={`/admin/orders/${order.id}`}
+                      href={orderHref}
                     >
                       <span className="line-clamp-2">
                         {order.comment || "—"}
@@ -647,7 +654,7 @@ export default async function AdminOrdersPage({
                   <td className="p-0">
                     <Link
                       className="block px-5 py-4 font-black"
-                      href={`/admin/orders/${order.id}`}
+                      href={orderHref}
                     >
                       {formatCurrency(order.totalAmount)}
                     </Link>
@@ -655,7 +662,7 @@ export default async function AdminOrdersPage({
                   <td className="p-0">
                     <Link
                       className="block px-5 py-4 text-slate-600"
-                      href={`/admin/orders/${order.id}`}
+                      href={orderHref}
                     >
                       {formatDateTime(order.updatedAt)}
                     </Link>
@@ -663,14 +670,15 @@ export default async function AdminOrdersPage({
                   <td className="p-0">
                     <Link
                       className="inline-flex items-center gap-2 px-5 py-4 font-bold text-[#1157ff]"
-                      href={`/admin/orders/${order.id}`}
+                      href={orderHref}
                     >
                       <ExternalLink size={16} />
                       Открыть
                     </Link>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </section>

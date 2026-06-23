@@ -20,6 +20,7 @@ import {
   documentVersions,
 } from "@/db/schema";
 import { getCompanyDocumentReadiness } from "@/lib/account/company-documents";
+import { withAdminBreadcrumbSource } from "@/lib/admin/breadcrumbs";
 import { requireUser } from "@/lib/auth/session";
 import { getAdminPendingChatCount } from "@/lib/chat/queries";
 import { filterCurrentBuyerCompanyDocuments } from "@/lib/documents/queries";
@@ -451,7 +452,10 @@ export default async function AdminPage() {
                   <Link
                     key={order.id}
                     className="grid gap-3 py-3 text-sm transition hover:text-[#1157ff] md:grid-cols-[1fr_auto]"
-                    href={`/admin/orders/${order.id}`}
+                    href={withAdminBreadcrumbSource(
+                      `/admin/orders/${order.id}`,
+                      "admin",
+                    )}
                   >
                     <span>
                       <span className="font-black">{order.number}</span>
@@ -513,7 +517,10 @@ export default async function AdminPage() {
                     <Link
                       key={company.id}
                       className="block py-3 text-sm transition hover:text-[#1157ff]"
-                      href={`/admin/companies/${company.id}`}
+                      href={withAdminBreadcrumbSource(
+                        `/admin/companies/${company.id}`,
+                        "admin",
+                      )}
                     >
                       <p className="font-black text-slate-950">{company.name}</p>
                       <p className="mt-1 font-semibold text-slate-500">
@@ -541,7 +548,10 @@ export default async function AdminPage() {
                 <Link
                   key={message.id}
                   className="block py-3 text-sm transition hover:text-[#1157ff]"
-                  href={`/admin/chats/${message.chatId}`}
+                  href={withAdminBreadcrumbSource(
+                    `/admin/chats/${message.chatId}`,
+                    "admin",
+                  )}
                 >
                   <p className="font-black text-slate-950">
                     {message.companyName}
@@ -581,7 +591,10 @@ export default async function AdminPage() {
                 companiesMissingRequiredDocuments.map((company) => (
                   <Link
                     className="block py-3 text-sm transition hover:text-[#1157ff]"
-                    href={`/admin/companies/${company.id}`}
+                    href={withAdminBreadcrumbSource(
+                      `/admin/companies/${company.id}`,
+                      "admin",
+                    )}
                     key={company.id}
                   >
                     <p className="font-black text-slate-950">{company.name}</p>

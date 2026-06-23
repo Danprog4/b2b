@@ -14,6 +14,10 @@ import {
   orders,
   users,
 } from "@/db/schema";
+import {
+  getAdminBreadcrumbSource,
+  withAdminBreadcrumbSource,
+} from "@/lib/admin/breadcrumbs";
 import { updateBuyerCompanyAdminAction } from "@/lib/admin/company-actions";
 import { requireUser } from "@/lib/auth/session";
 import { regenerateBuyerCompanyContractAdminAction } from "@/lib/contracts/actions";
@@ -158,6 +162,7 @@ export default async function AdminCompanyPage({
   const saved = search.saved === "1";
   const contractGenerated = search.contractGenerated === "1";
   const contractError = search.contractError === "1";
+  const breadcrumbSource = getAdminBreadcrumbSource(search, "companies");
   const error = getErrorMessage(
     typeof search.error === "string" ? search.error : undefined,
   );
@@ -261,8 +266,8 @@ export default async function AdminCompanyPage({
             Админ-панель
           </Link>
           <span>/</span>
-          <Link className="text-[#1157ff]" href="/admin/companies">
-            Компании
+          <Link className="text-[#1157ff]" href={breadcrumbSource.href}>
+            {breadcrumbSource.label}
           </Link>
           <span>/</span>
           <span>{company.name}</span>
@@ -272,9 +277,9 @@ export default async function AdminCompanyPage({
           <div>
             <Link
               className="text-sm font-bold text-[#1157ff]"
-              href="/admin/companies"
+              href={breadcrumbSource.href}
             >
-              ← Компании
+              ← {breadcrumbSource.label}
             </Link>
             <h1 className="mt-3 text-3xl font-black text-slate-950">
               {company.name}
@@ -630,7 +635,10 @@ export default async function AdminCompanyPage({
                 companyUsers.map((companyUser) => (
                   <Link
                     className="block py-3 text-sm transition hover:text-[#1157ff]"
-                    href={`/admin/users/${companyUser.id}`}
+                    href={withAdminBreadcrumbSource(
+                      `/admin/users/${companyUser.id}`,
+                      "companies",
+                    )}
                     key={companyUser.id}
                   >
                     <span className="block font-black text-slate-950">
@@ -674,7 +682,10 @@ export default async function AdminCompanyPage({
                 recentOrders.map((order) => (
                   <Link
                     className="grid gap-2 py-3 text-sm transition hover:text-[#1157ff]"
-                    href={`/admin/orders/${order.id}`}
+                    href={withAdminBreadcrumbSource(
+                      `/admin/orders/${order.id}`,
+                      "companies",
+                    )}
                     key={order.id}
                   >
                     <span className="flex justify-between gap-3">

@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { db } from "@/db";
 import { buyerCompanies, documents, orders, users } from "@/db/schema";
+import { withAdminBreadcrumbSource } from "@/lib/admin/breadcrumbs";
 import { requireUser } from "@/lib/auth/session";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
@@ -192,13 +193,17 @@ export default async function AdminCompaniesPage({
               ) : null}
               {companyRows.map((company) => {
                 const orderStat = ordersByCompany.get(company.id);
+                const companyHref = withAdminBreadcrumbSource(
+                  `/admin/companies/${company.id}`,
+                  "companies",
+                );
 
                 return (
                   <tr key={company.id} className="align-top hover:bg-slate-50">
                     <td className="p-0">
                       <Link
                         className="flex gap-3 px-5 py-4"
-                        href={`/admin/companies/${company.id}`}
+                        href={companyHref}
                       >
                         <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#1157ff]">
                           <Building2 size={22} />
@@ -217,7 +222,7 @@ export default async function AdminCompaniesPage({
                     <td className="p-0">
                       <Link
                         className="block px-5 py-4 text-slate-600"
-                        href={`/admin/companies/${company.id}`}
+                        href={companyHref}
                       >
                         <span className="block font-bold text-slate-950">
                           {company.contactEmail ?? "Email не указан"}
@@ -230,7 +235,7 @@ export default async function AdminCompaniesPage({
                     <td className="p-0">
                       <Link
                         className="block px-5 py-4 font-black"
-                        href={`/admin/companies/${company.id}`}
+                        href={companyHref}
                       >
                         {usersByCompany.get(company.id)?.userCount ?? 0}
                       </Link>
@@ -238,7 +243,7 @@ export default async function AdminCompaniesPage({
                     <td className="p-0">
                       <Link
                         className="block px-5 py-4"
-                        href={`/admin/companies/${company.id}`}
+                        href={companyHref}
                       >
                         <span className="block font-black">
                           {orderStat?.orderCount ?? 0}
@@ -251,7 +256,7 @@ export default async function AdminCompaniesPage({
                     <td className="p-0">
                       <Link
                         className="block px-5 py-4 font-black"
-                        href={`/admin/companies/${company.id}`}
+                        href={companyHref}
                       >
                         {documentsByCompany.get(company.id)?.documentCount ?? 0}
                       </Link>
@@ -259,7 +264,7 @@ export default async function AdminCompaniesPage({
                     <td className="p-0">
                       <Link
                         className="block px-5 py-4"
-                        href={`/admin/companies/${company.id}`}
+                        href={companyHref}
                       >
                         <span
                           className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${getCompanyStatusClassName(company.status)}`}
@@ -271,7 +276,7 @@ export default async function AdminCompaniesPage({
                     <td className="p-0">
                       <Link
                         className="block px-5 py-4 text-slate-600"
-                        href={`/admin/companies/${company.id}`}
+                        href={companyHref}
                       >
                         {formatDateTime(company.createdAt)}
                       </Link>
@@ -279,7 +284,7 @@ export default async function AdminCompaniesPage({
                     <td className="p-0">
                       <Link
                         className="block px-5 py-4 text-slate-600"
-                        href={`/admin/companies/${company.id}`}
+                        href={companyHref}
                       >
                         {formatDateTime(company.updatedAt)}
                       </Link>

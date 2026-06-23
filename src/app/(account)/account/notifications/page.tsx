@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { db } from "@/db";
 import { notifications, orders } from "@/db/schema";
+import { withAccountBreadcrumbSource } from "@/lib/account/breadcrumbs";
 import { requireUser } from "@/lib/auth/session";
 import { formatDateTime } from "@/lib/utils";
 import { and, desc, eq } from "drizzle-orm";
@@ -45,7 +46,12 @@ export default async function AccountNotificationsPage() {
       ? orderRows.find((row) => row.number === orderNumber)
       : null;
 
-    return order ? `/account/orders/${order.id}` : null;
+    return order
+      ? withAccountBreadcrumbSource(
+          `/account/orders/${order.id}`,
+          "notifications",
+        )
+      : null;
   };
   const unreadIds = items
     .filter((item) => !item.isRead)

@@ -16,6 +16,7 @@ import {
   updateProductAction,
   upsertProductOfferAction,
 } from "@/lib/admin/product-actions";
+import { getAdminBreadcrumbSource } from "@/lib/admin/breadcrumbs";
 import { requireUser } from "@/lib/auth/session";
 import { getPublicFileUrl } from "@/lib/files/urls";
 import { isSellerDeletedOffer } from "@/lib/products/offer-status";
@@ -52,6 +53,7 @@ export default async function AdminProductEditPage({
   const offerSaved = search.offerSaved === "1";
   const offerError = search.offerError;
   const offerWarning = search.offerWarning === "no-published-offers";
+  const breadcrumbSource = getAdminBreadcrumbSource(search, "products");
 
   const [product] = await db
     .select()
@@ -173,8 +175,8 @@ export default async function AdminProductEditPage({
             Админ-панель
           </Link>
           <span>/</span>
-          <Link className="text-[#1157ff]" href="/admin/products">
-            Товары
+          <Link className="text-[#1157ff]" href={breadcrumbSource.href}>
+            {breadcrumbSource.label}
           </Link>
           <span>/</span>
           <span>{product.sku}</span>
@@ -182,8 +184,11 @@ export default async function AdminProductEditPage({
 
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <Link className="text-sm font-bold text-[#1157ff]" href="/admin/products">
-              ← Товары
+            <Link
+              className="text-sm font-bold text-[#1157ff]"
+              href={breadcrumbSource.href}
+            >
+              ← {breadcrumbSource.label}
             </Link>
             <h1 className="mt-3 text-3xl font-black text-slate-950">
               {product.name}

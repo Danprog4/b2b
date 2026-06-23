@@ -12,6 +12,10 @@ import {
   sellers,
   users,
 } from "@/db/schema";
+import {
+  getAdminBreadcrumbSource,
+  withAdminBreadcrumbSource,
+} from "@/lib/admin/breadcrumbs";
 import { updateUserAction } from "@/lib/admin/user-actions";
 import { requireUser } from "@/lib/auth/session";
 import { getOrderStatusLabel } from "@/lib/orders/status";
@@ -88,6 +92,7 @@ export default async function AdminUserPage({
   const { id } = await params;
   const search = (await searchParams) ?? {};
   const saved = search.saved === "1";
+  const breadcrumbSource = getAdminBreadcrumbSource(search, "users");
   const error = getErrorMessage(
     typeof search.error === "string" ? search.error : undefined,
   );
@@ -166,8 +171,8 @@ export default async function AdminUserPage({
             Админ-панель
           </Link>
           <span>/</span>
-          <Link className="text-[#1157ff]" href="/admin/users">
-            Пользователи
+          <Link className="text-[#1157ff]" href={breadcrumbSource.href}>
+            {breadcrumbSource.label}
           </Link>
           <span>/</span>
           <span>{user.email}</span>
@@ -175,8 +180,11 @@ export default async function AdminUserPage({
 
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <Link className="text-sm font-bold text-[#1157ff]" href="/admin/users">
-              ← Пользователи
+            <Link
+              className="text-sm font-bold text-[#1157ff]"
+              href={breadcrumbSource.href}
+            >
+              ← {breadcrumbSource.label}
             </Link>
             <h1 className="mt-3 text-3xl font-black text-slate-950">
               {user.name ?? "Пользователь без имени"}
@@ -294,7 +302,10 @@ export default async function AdminUserPage({
                 <div className="mt-4 text-sm">
                   <Link
                     className="flex items-center gap-2 font-black text-[#1157ff]"
-                    href={`/admin/companies/${user.buyerCompanyId}`}
+                    href={withAdminBreadcrumbSource(
+                      `/admin/companies/${user.buyerCompanyId}`,
+                      "users",
+                    )}
                   >
                     <Building2 size={18} />
                     {user.companyName}
@@ -313,7 +324,10 @@ export default async function AdminUserPage({
                   </p>
                   <Link
                     className="mt-4 inline-flex h-10 items-center gap-2 rounded-lg bg-slate-100 px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-200"
-                    href={`/admin/companies/${user.buyerCompanyId}`}
+                    href={withAdminBreadcrumbSource(
+                      `/admin/companies/${user.buyerCompanyId}`,
+                      "users",
+                    )}
                   >
                     <FileText size={16} />
                     Документы компании
@@ -323,7 +337,10 @@ export default async function AdminUserPage({
                 <div className="mt-4 text-sm">
                   <Link
                     className="flex items-center gap-2 font-black text-[#1157ff]"
-                    href={`/admin/sellers/${user.sellerId}`}
+                    href={withAdminBreadcrumbSource(
+                      `/admin/sellers/${user.sellerId}`,
+                      "users",
+                    )}
                   >
                     <Store size={18} />
                     {user.sellerName}
@@ -337,7 +354,10 @@ export default async function AdminUserPage({
                   </p>
                   <Link
                     className="mt-4 inline-flex h-10 items-center gap-2 rounded-lg bg-slate-100 px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-200"
-                    href={`/admin/sellers/${user.sellerId}`}
+                    href={withAdminBreadcrumbSource(
+                      `/admin/sellers/${user.sellerId}`,
+                      "users",
+                    )}
                   >
                     <FileText size={16} />
                     Документы продавца
@@ -369,7 +389,10 @@ export default async function AdminUserPage({
                 recentOrders.map((order) => (
                   <Link
                     className="grid gap-3 py-3 text-sm transition hover:text-[#1157ff] md:grid-cols-[1fr_auto]"
-                    href={`/admin/orders/${order.id}`}
+                    href={withAdminBreadcrumbSource(
+                      `/admin/orders/${order.id}`,
+                      "users",
+                    )}
                     key={order.id}
                   >
                     <span>

@@ -14,11 +14,17 @@ import {
 } from "@/db/schema";
 import { requireUser } from "@/lib/auth/session";
 import { getPublicFileUrl } from "@/lib/files/urls";
+import {
+  getSellerBreadcrumbSource,
+  getSellerBreadcrumbSourceKey,
+  withSellerBreadcrumbSource,
+} from "@/lib/seller/breadcrumbs";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { SellerProductDeleteButton } from "../product-delete-button";
 
 type SellerProductPageProps = {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
 function getPayloadString(payload: unknown, key: string) {
@@ -98,8 +104,14 @@ function getOfferStatusLabel(status: string, isActiveOnStorefront: boolean) {
   return "Черновик";
 }
 
-export default async function SellerProductPage({ params }: SellerProductPageProps) {
+export default async function SellerProductPage({
+  params,
+  searchParams,
+}: SellerProductPageProps) {
   const user = await requireUser(["seller"]);
+  const search = (await searchParams) ?? {};
+  const breadcrumbSourceKey = getSellerBreadcrumbSourceKey(search, "products");
+  const breadcrumbSource = getSellerBreadcrumbSource(search, "products");
 
   if (!user.sellerId) {
     notFound();
@@ -178,6 +190,10 @@ export default async function SellerProductPage({ params }: SellerProductPagePro
   const isActiveOnStorefront =
     product.offerStatus === "published" &&
     (!product.priorityOfferId || product.offerId === product.priorityOfferId);
+  const editHref = withSellerBreadcrumbSource(
+    `/seller/products/${product.id}/edit`,
+    breadcrumbSourceKey,
+  );
 
   return (
     <main className="min-h-screen bg-[#f4f6fb] px-6 py-8 text-slate-900">
@@ -187,8 +203,8 @@ export default async function SellerProductPage({ params }: SellerProductPagePro
             Кабинет продавца
           </Link>
           <span>/</span>
-          <Link className="text-[#1157ff]" href="/seller#products">
-            Товары
+          <Link className="text-[#1157ff]" href={breadcrumbSource.href}>
+            {breadcrumbSource.label}
           </Link>
           <span>/</span>
           <span>{product.name}</span>
@@ -196,9 +212,9 @@ export default async function SellerProductPage({ params }: SellerProductPagePro
 
         <Link
           className="inline-flex text-sm font-bold text-[#1157ff] transition hover:text-[#0b49e0]"
-          href="/seller#products"
+          href={breadcrumbSource.href}
         >
-          ← К списку товаров
+          ← {breadcrumbSource.label}
         </Link>
 
         <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
@@ -214,7 +230,7 @@ export default async function SellerProductPage({ params }: SellerProductPagePro
           <div className="flex flex-wrap gap-2">
             <Link
               className="inline-flex h-11 items-center gap-2 rounded-lg bg-[#1157ff] px-4 text-sm font-bold text-white transition hover:bg-[#0b49e0]"
-              href={`/seller/products/${product.id}/edit`}
+              href={editHref}
             >
               <Pencil size={17} />
               Изменить
@@ -241,7 +257,7 @@ export default async function SellerProductPage({ params }: SellerProductPagePro
             </p>
             <Link
               className="mt-4 inline-flex h-10 items-center gap-2 rounded-lg bg-red-700 px-4 text-sm font-bold text-white transition hover:bg-red-800"
-              href={`/seller/products/${product.id}/edit`}
+              href={editHref}
             >
               <Pencil size={16} />
               Исправить карточку

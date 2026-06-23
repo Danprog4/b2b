@@ -4,6 +4,10 @@ import { notFound } from "next/navigation";
 
 import { SubmitButton } from "@/components/ui/submit-button";
 import { ToastMessages } from "@/components/ui/toast-message";
+import {
+  getAdminBreadcrumbSource,
+  withAdminBreadcrumbSource,
+} from "@/lib/admin/breadcrumbs";
 import { sendAdminChatMessageAction } from "@/lib/chat/actions";
 import {
   getAdminChat,
@@ -49,6 +53,7 @@ export default async function AdminChatPage({
   const search = (await searchParams) ?? {};
   const sent = getParam(search, "sent") === "1";
   const error = getParam(search, "error");
+  const breadcrumbSource = getAdminBreadcrumbSource(search, "chats");
   const chat = await getAdminChat(id);
 
   if (!chat) {
@@ -69,15 +74,15 @@ export default async function AdminChatPage({
             Админ-панель
           </Link>
           <span>/</span>
-          <Link className="text-[#1157ff]" href="/admin/chats">
-            Чаты
+          <Link className="text-[#1157ff]" href={breadcrumbSource.href}>
+            {breadcrumbSource.label}
           </Link>
           <span>/</span>
           <span>{chat.companyName}</span>
         </div>
 
-        <Link className="text-sm font-bold text-[#1157ff]" href="/admin/chats">
-          ← К списку чатов
+        <Link className="text-sm font-bold text-[#1157ff]" href={breadcrumbSource.href}>
+          ← {breadcrumbSource.label}
         </Link>
 
         <section className="mt-5 rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
@@ -95,7 +100,10 @@ export default async function AdminChatPage({
             </div>
             <Link
               className="rounded-lg bg-slate-100 px-4 py-2 text-sm font-bold text-slate-700 transition hover:text-[#1157ff]"
-              href={`/admin/companies/${chat.companyId}`}
+              href={withAdminBreadcrumbSource(
+                `/admin/companies/${chat.companyId}`,
+                "chats",
+              )}
             >
               Компания
             </Link>

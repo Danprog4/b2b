@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { db } from "@/db";
 import { buyerCompanies, orders, sellers, users } from "@/db/schema";
+import { withAdminBreadcrumbSource } from "@/lib/admin/breadcrumbs";
 import { requireUser } from "@/lib/auth/session";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
@@ -224,13 +225,17 @@ export default async function AdminUsersPage({
               ) : null}
               {userRows.map((row) => {
                 const orderStat = ordersByUser.get(row.id);
+                const userHref = withAdminBreadcrumbSource(
+                  `/admin/users/${row.id}`,
+                  "users",
+                );
 
                 return (
                   <tr key={row.id} className="align-top hover:bg-slate-50">
                     <td className="p-0">
                       <Link
                         className="flex gap-3 px-5 py-4"
-                        href={`/admin/users/${row.id}`}
+                        href={userHref}
                       >
                         <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#1157ff]">
                           <UserRound size={22} />
@@ -253,7 +258,7 @@ export default async function AdminUsersPage({
                     <td className="p-0">
                       <Link
                         className="block px-5 py-4 font-bold"
-                        href={`/admin/users/${row.id}`}
+                        href={userHref}
                       >
                         {getRoleLabel(row.role)}
                       </Link>
@@ -261,7 +266,7 @@ export default async function AdminUsersPage({
                     <td className="p-0">
                       <Link
                         className="block px-5 py-4"
-                        href={`/admin/users/${row.id}`}
+                        href={userHref}
                       >
                         {row.companyName ? (
                           <span className="flex gap-2">
@@ -297,7 +302,7 @@ export default async function AdminUsersPage({
                     <td className="p-0">
                       <Link
                         className="block px-5 py-4"
-                        href={`/admin/users/${row.id}`}
+                        href={userHref}
                       >
                         <span className="block font-black">
                           {orderStat?.orderCount ?? 0}
@@ -310,7 +315,7 @@ export default async function AdminUsersPage({
                     <td className="p-0">
                       <Link
                         className="block px-5 py-4"
-                        href={`/admin/users/${row.id}`}
+                        href={userHref}
                       >
                         <span
                           className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${getStatusClassName(row.status)}`}
@@ -322,7 +327,7 @@ export default async function AdminUsersPage({
                     <td className="p-0">
                       <Link
                         className="block px-5 py-4 text-slate-600"
-                        href={`/admin/users/${row.id}`}
+                        href={userHref}
                       >
                         {row.lastLoginAt ? formatDateTime(row.lastLoginAt) : "Не входил"}
                       </Link>
@@ -330,7 +335,7 @@ export default async function AdminUsersPage({
                     <td className="p-0">
                       <Link
                         className="block px-5 py-4 text-slate-600"
-                        href={`/admin/users/${row.id}`}
+                        href={userHref}
                       >
                         {formatDateTime(row.createdAt)}
                       </Link>
@@ -338,7 +343,7 @@ export default async function AdminUsersPage({
                     <td className="p-0">
                       <Link
                         className="block px-5 py-4 text-slate-600"
-                        href={`/admin/users/${row.id}`}
+                        href={userHref}
                       >
                         {formatDateTime(row.updatedAt)}
                       </Link>

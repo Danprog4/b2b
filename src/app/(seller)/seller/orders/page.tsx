@@ -7,6 +7,7 @@ import { db } from "@/db";
 import { orderItems, orders } from "@/db/schema";
 import { requireUser } from "@/lib/auth/session";
 import { getOrderStatusLabel } from "@/lib/orders/status";
+import { withSellerBreadcrumbSource } from "@/lib/seller/breadcrumbs";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
 export default async function SellerOrdersPage() {
@@ -86,7 +87,10 @@ export default async function SellerOrdersPage() {
             return (
               <Link
                 className="block rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-[#1157ff] hover:bg-blue-50/30"
-                href={`/seller/orders/${order.id}`}
+                href={withSellerBreadcrumbSource(
+                  `/seller/orders/${order.id}`,
+                  "orders",
+                )}
                 key={order.id}
               >
                 <div className="flex flex-wrap items-start justify-between gap-4">

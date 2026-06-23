@@ -6,6 +6,7 @@ import {
   getCurrentBuyerOrderCompanyContract,
   getCurrentBuyerOrderDocuments,
 } from "@/lib/documents/queries";
+import { getAccountBreadcrumbSource } from "@/lib/account/breadcrumbs";
 import { formatFileSize, getDocumentTypeLabel } from "@/lib/documents/types";
 import { getOrderStatusLabel } from "@/lib/orders/status";
 import {
@@ -36,6 +37,7 @@ export default async function AccountOrderPage({
   const editError = search.editError === "status";
   const cancelled = search.cancelled === "1";
   const cancelError = search.cancelError === "status";
+  const breadcrumbSource = getAccountBreadcrumbSource(search, "orders");
   const order = await getCurrentBuyerOrder(id);
 
   if (!order) {
@@ -62,15 +64,18 @@ export default async function AccountOrderPage({
             Личный кабинет
           </Link>
           <span>/</span>
-          <Link className="text-[#1157ff]" href="/account/orders">
-            Заказы
+          <Link className="text-[#1157ff]" href={breadcrumbSource.href}>
+            {breadcrumbSource.label}
           </Link>
           <span>/</span>
           <span>{order.number}</span>
         </div>
 
-        <Link href="/account/orders" className="text-sm font-bold text-[#1157ff]">
-          ← Все заказы
+        <Link
+          href={breadcrumbSource.href}
+          className="text-sm font-bold text-[#1157ff]"
+        >
+          ← {breadcrumbSource.label}
         </Link>
 
         <ToastMessages

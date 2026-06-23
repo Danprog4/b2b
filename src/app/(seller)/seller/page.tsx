@@ -42,6 +42,7 @@ import {
   sellerDocumentTypes,
 } from "@/lib/documents/types";
 import { getPublicFileUrl } from "@/lib/files/urls";
+import { withSellerBreadcrumbSource } from "@/lib/seller/breadcrumbs";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { SellerProductDeleteButton } from "./products/product-delete-button";
 
@@ -566,6 +567,10 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                             storageKey: product.imageStorageKey,
                           })
                         : null;
+                      const productHref = withSellerBreadcrumbSource(
+                        `/seller/products/${product.id}`,
+                        "products",
+                      );
 
                       const hasPendingChanges = Boolean(product.pendingRequestId);
                       const hasRejectedRequest =
@@ -583,7 +588,7 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                           <td className="px-4 py-3">
                             <Link
                               className="flex items-center gap-3 transition hover:text-[#1157ff]"
-                              href={`/seller/products/${product.id}`}
+                              href={productHref}
                             >
                               <span className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-100 text-slate-300">
                                 {imageUrl ? (
@@ -609,7 +614,7 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                           <td className="px-4 py-3 text-slate-600">
                             <Link
                               className="block transition group-hover:text-[#1157ff]"
-                              href={`/seller/products/${product.id}`}
+                              href={productHref}
                             >
                               <span className="block font-bold text-slate-950">
                                 {product.categoryName}
@@ -622,7 +627,7 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                           <td className="px-4 py-3">
                             <Link
                               className="block font-black transition group-hover:text-[#1157ff]"
-                              href={`/seller/products/${product.id}`}
+                              href={productHref}
                             >
                               {formatCurrency(displayPrice)}
                             </Link>
@@ -630,7 +635,7 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                           <td className="px-4 py-3">
                             <Link
                               className="block font-bold text-slate-700 transition group-hover:text-[#1157ff]"
-                              href={`/seller/products/${product.id}`}
+                              href={productHref}
                             >
                               {Number(product.vatRate ?? 22).toFixed(0)}%
                             </Link>
@@ -638,7 +643,7 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                           <td className="px-4 py-3">
                             <Link
                               className="block"
-                              href={`/seller/products/${product.id}`}
+                              href={productHref}
                             >
                               <div className="flex flex-wrap gap-2">
                                 <span
@@ -697,7 +702,10 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                             <div className="flex flex-wrap justify-end gap-2">
                               <Link
                                 className="inline-flex h-9 items-center gap-2 rounded-lg bg-slate-100 px-3 text-sm font-bold text-slate-700 transition hover:bg-slate-200"
-                                href={`/seller/products/${product.id}/edit`}
+                                href={withSellerBreadcrumbSource(
+                                  `/seller/products/${product.id}/edit`,
+                                  "products",
+                                )}
                               >
                                 <Pencil size={15} />
                                 Изменить
