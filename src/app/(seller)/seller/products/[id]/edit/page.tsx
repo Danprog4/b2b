@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, ne } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, ne } from "drizzle-orm";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -41,6 +41,13 @@ function hasPayloadKey(payload: unknown, key: string) {
 function getPayloadString(payload: unknown, key: string) {
   const value = getPayloadRecord(payload)?.[key];
   return typeof value === "string" ? value : "";
+}
+
+function getPayloadStringArray(payload: unknown, key: string) {
+  const value = getPayloadRecord(payload)?.[key];
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
 }
 
 function getPayloadNullableString(payload: unknown, key: string) {
@@ -150,56 +157,101 @@ export default async function EditSellerProductPage({
         .where(and(eq(productImages.productId, product.id), eq(files.isActive, true)))
         .orderBy(asc(productImages.sortOrder), asc(productImages.createdAt)),
     ]);
-  const rejectedPayload =
-    latestChangeRequest?.status === "rejected" ? latestChangeRequest.payload : null;
-  const rejectedMainImageFileId = getPayloadString(
-    rejectedPayload,
-    "mainImageFileId",
+  const latestPayload = latestChangeRequest?.payload ?? null;
+  const latestMainImageFileId = hasPayloadKey(latestPayload, "mainImageFileId")
+    ? getPayloadNullableString(latestPayload, "mainImageFileId")
+    : product.mainImageFileId;
+  const latestGalleryImageFileIds = hasPayloadKey(
+    latestPayload,
+    "galleryImageFileIds",
+  )
+    ? getPayloadStringArray(latestPayload, "galleryImageFileIds")
+    : null;
+  const latestFileIds = Array.from(
+    new Set(
+      [latestMainImageFileId, ...(latestGalleryImageFileIds ?? [])].filter(
+        (fileId): fileId is string => Boolean(fileId),
+      ),
+    ),
   );
-  const [rejectedMainImageFile] = rejectedMainImageFileId
-    ? await db
-        .select({
-          id: files.id,
-          storageKey: files.storageKey,
-          isActive: files.isActive,
-        })
-        .from(files)
-        .where(eq(files.id, rejectedMainImageFileId))
-        .limit(1)
-    : [];
+  const latestFiles =
+    latestFileIds.length > 0
+      ? await db
+          .select({
+            id: files.id,
+            storageKey: files.storageKey,
+            fileName: files.originalName,
+            isActive: files.isActive,
+          })
+          .from(files)
+          .where(inArray(files.id, latestFileIds))
+      : [];
+  const latestFileById = new Map(latestFiles.map((file) => [file.id, file]));
   const currentMainImageUrl = product.mainImageIsActive
     ? getPublicFileUrl({
         id: product.mainImageFileId,
         storageKey: product.mainImageStorageKey,
       })
     : null;
-  const rejectedMainImageUrl = rejectedMainImageFile?.isActive
+  const latestMainImageFile = latestMainImageFileId
+    ? latestFileById.get(latestMainImageFileId)
+    : null;
+  const latestMainImageUrl = latestMainImageFile?.isActive
     ? getPublicFileUrl({
-        id: rejectedMainImageFile.id,
-        storageKey: rejectedMainImageFile.storageKey,
+        id: latestMainImageFile.id,
+        storageKey: latestMainImageFile.storageKey,
       })
     : null;
-  const formProduct = rejectedPayload
+  const formProduct = latestPayload
     ? {
         ...product,
-        name: getPayloadString(rejectedPayload, "name") || product.name,
+        name: getPayloadString(latestPayload, "name") || product.name,
         categoryId:
-          getPayloadString(rejectedPayload, "categoryId") || product.categoryId,
-        subcategoryId: hasPayloadKey(rejectedPayload, "subcategoryId")
-          ? getPayloadNullableString(rejectedPayload, "subcategoryId")
+          getPayloadString(latestPayload, "categoryId") || product.categoryId,
+        subcategoryId: hasPayloadKey(latestPayload, "subcategoryId")
+          ? getPayloadNullableString(latestPayload, "subcategoryId")
           : product.subcategoryId,
-        description: hasPayloadKey(rejectedPayload, "description")
-          ? getPayloadNullableString(rejectedPayload, "description")
+        description: hasPayloadKey(latestPayload, "description")
+          ? getPayloadNullableString(latestPayload, "description")
           : product.description,
         priceWithVat:
-          getPayloadString(rejectedPayload, "priceWithVat") || product.priceWithVat,
-        vatRate: getPayloadString(rejectedPayload, "vatRate") || product.vatRate,
-        size: hasPayloadKey(rejectedPayload, "size")
-          ? getPayloadNullableString(rejectedPayload, "size")
+          getPayloadString(latestPayload, "priceWithVat") || product.priceWithVat,
+        vatRate: getPayloadString(latestPayload, "vatRate") || product.vatRate,
+        size: hasPayloadKey(latestPayload, "size")
+          ? getPayloadNullableString(latestPayload, "size")
           : product.size,
-        unit: getPayloadString(rejectedPayload, "unit") || product.unit,
+        unit: getPayloadString(latestPayload, "unit") || product.unit,
       }
     : product;
+  const galleryImages = latestGalleryImageFileIds
+    ? latestGalleryImageFileIds
+        .map((fileId) => {
+          const file = latestFileById.get(fileId);
+
+          return file
+            ? {
+                id: file.id,
+                fileId: file.id,
+                fileName: file.fileName,
+                url: file.isActive
+                  ? getPublicFileUrl({
+                      id: file.id,
+                      storageKey: file.storageKey,
+                    })
+                  : null,
+              }
+            : null;
+        })
+        .filter((image): image is NonNullable<typeof image> => Boolean(image))
+    : currentGalleryImages.map((image) => ({
+        id: image.id,
+        fileId: image.fileId,
+        fileName: image.fileName,
+        url: getPublicFileUrl({
+          id: image.fileId,
+          storageKey: image.storageKey,
+        }),
+      }));
   const productHref = withSellerBreadcrumbSource(
     `/seller/products/${product.id}`,
     breadcrumbSourceKey,
@@ -218,7 +270,7 @@ export default async function EditSellerProductPage({
           </Link>
           <span>/</span>
           <Link className="text-[#1157ff]" href={productHref}>
-            {product.name}
+            {formProduct.name}
           </Link>
           <span>/</span>
           <span>Редактирование</span>
@@ -255,16 +307,8 @@ export default async function EditSellerProductPage({
               product={{
                 ...formProduct,
                 isPublished: product.offerStatus === "published",
-                mainImageUrl: rejectedMainImageUrl ?? currentMainImageUrl,
-                galleryImages: currentGalleryImages.map((image) => ({
-                  id: image.id,
-                  fileId: image.fileId,
-                  fileName: image.fileName,
-                  url: getPublicFileUrl({
-                    id: image.fileId,
-                    storageKey: image.storageKey,
-                  }),
-                })),
+                mainImageUrl: latestMainImageUrl ?? currentMainImageUrl,
+                galleryImages,
               }}
               subcategories={subcategoryOptions}
               submitText="Отправить изменения"

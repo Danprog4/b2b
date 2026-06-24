@@ -4,8 +4,16 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { db } from "@/db";
-import { buyerCompanies, orderItems, orders, sellers } from "@/db/schema";
+import {
+  buyerCompanies,
+  files,
+  orderItems,
+  orders,
+  products,
+  sellers,
+} from "@/db/schema";
 import { requireUser } from "@/lib/auth/session";
+import { getPublicFileUrl } from "@/lib/files/urls";
 import { getOrderStatusLabel } from "@/lib/orders/status";
 import { getSellerBreadcrumbSource } from "@/lib/seller/breadcrumbs";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
@@ -76,8 +84,13 @@ export default async function SellerOrderPage({
         vatRate: orderItems.vatRate,
         vatAmount: orderItems.vatAmount,
         lineTotal: orderItems.lineTotal,
+        mainImageFileId: files.id,
+        mainImageStorageKey: files.storageKey,
+        mainImageIsActive: files.isActive,
       })
       .from(orderItems)
+      .leftJoin(products, eq(products.id, orderItems.productId))
+      .leftJoin(files, eq(files.id, products.mainImageFileId))
       .where(and(eq(orderItems.orderId, order.id), eq(orderItems.sellerId, seller.id)))
       .orderBy(orderItems.createdAt),
     db
@@ -149,36 +162,54 @@ export default async function SellerOrderPage({
         <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_360px]">
           <section className="self-start overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-100">
             <div className="divide-y divide-slate-100">
-              {items.map((item) => (
-                <article
-                  className="grid items-start gap-4 p-5 md:grid-cols-[80px_1fr_auto]"
-                  key={item.id}
-                >
-                  <div className="flex aspect-square items-center justify-center rounded-lg bg-slate-100">
-                    <Package className="text-slate-300" size={30} />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-black text-slate-950">
-                      {item.productName}
-                    </h2>
-                    <p className="mt-1 text-sm text-slate-500">
-                      {item.sku} · {item.unit}
-                    </p>
-                    <p className="mt-2 text-sm text-slate-500">
-                      НДС {Number(item.vatRate)}%:{" "}
-                      {formatCurrency(item.vatAmount)}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-xl font-black">
-                      {formatCurrency(item.lineTotal)}
+              {items.map((item) => {
+                const imageUrl = item.mainImageIsActive
+                  ? getPublicFileUrl({
+                      id: item.mainImageFileId,
+                      storageKey: item.mainImageStorageKey,
+                    })
+                  : null;
+
+                return (
+                  <article
+                    className="grid items-start gap-4 p-5 md:grid-cols-[80px_1fr_auto]"
+                    key={item.id}
+                  >
+                    <div className="flex aspect-square items-center justify-center overflow-hidden rounded-lg bg-slate-100">
+                      {imageUrl ? (
+                        <img
+                          alt={item.productName}
+                          className="h-full w-full object-cover"
+                          src={imageUrl}
+                        />
+                      ) : (
+                        <Package className="text-slate-300" size={30} />
+                      )}
                     </div>
-                    <div className="mt-1 text-sm font-semibold text-slate-500">
-                      {Number(item.quantity)} × {formatCurrency(item.priceWithVat)}
+                    <div>
+                      <h2 className="text-lg font-black text-slate-950">
+                        {item.productName}
+                      </h2>
+                      <p className="mt-1 text-sm text-slate-500">
+                        {item.sku} · {item.unit}
+                      </p>
+                      <p className="mt-2 text-sm text-slate-500">
+                        НДС {Number(item.vatRate)}%:{" "}
+                        {formatCurrency(item.vatAmount)}
+                      </p>
                     </div>
-                  </div>
-                </article>
-              ))}
+                    <div className="text-right">
+                      <div className="text-xl font-black">
+                        {formatCurrency(item.lineTotal)}
+                      </div>
+                      <div className="mt-1 text-sm font-semibold text-slate-500">
+                        {Number(item.quantity)} ×{" "}
+                        {formatCurrency(item.priceWithVat)}
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           </section>
 

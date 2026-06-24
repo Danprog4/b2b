@@ -16,7 +16,6 @@ import {
 import { requireUser } from "@/lib/auth/session";
 import { writeStorageFile } from "@/lib/files/storage";
 import { getNextProductSku } from "@/lib/numbering/sequences";
-import { insertSellerNotifications } from "@/lib/notifications/helpers";
 import { SELLER_DELETED_OFFER_COMMENT } from "@/lib/products/offer-status";
 import {
   recalculateAutomaticProductPriority,
@@ -619,7 +618,7 @@ export async function upsertProductOfferAction(formData: FormData) {
     !productId ||
     !sellerId ||
     Number(priceWithVat) <= 0 ||
-    !["draft", "on_moderation", "published", "rejected", "hidden"].includes(status)
+    !["on_moderation", "published", "rejected", "hidden"].includes(status)
   ) {
     redirect("/admin/products");
   }
@@ -658,17 +657,6 @@ export async function upsertProductOfferAction(formData: FormData) {
   }
 
   await db.transaction(async (tx) => {
-    const [currentPriorityOffer] = product.priorityOfferId
-      ? await tx
-          .select({
-            id: sellerOffers.id,
-            sellerId: sellerOffers.sellerId,
-          })
-          .from(sellerOffers)
-          .where(eq(sellerOffers.id, product.priorityOfferId))
-          .limit(1)
-      : [];
-
     const [offer] = await tx
       .insert(sellerOffers)
       .values({
@@ -676,7 +664,7 @@ export async function upsertProductOfferAction(formData: FormData) {
         sellerId,
         priceWithVat,
         vatRate,
-        status: status as "draft" | "on_moderation" | "published" | "rejected" | "hidden",
+        status: status as "on_moderation" | "published" | "rejected" | "hidden",
         isPriority: false,
         submittedAt: new Date(),
         moderatedAt: status === "published" || status === "rejected" ? new Date() : null,
@@ -687,7 +675,7 @@ export async function upsertProductOfferAction(formData: FormData) {
         set: {
           priceWithVat,
           vatRate,
-          status: status as "draft" | "on_moderation" | "published" | "rejected" | "hidden",
+          status: status as "on_moderation" | "published" | "rejected" | "hidden",
           moderatedAt: status === "published" || status === "rejected" ? new Date() : null,
           moderatedById: status === "published" || status === "rejected" ? admin.id : null,
           updatedAt: new Date(),
@@ -698,18 +686,6 @@ export async function upsertProductOfferAction(formData: FormData) {
     if (isPriority) {
       await setManualProductPriorityOffer(tx, productId, offer.id);
 
-      if (
-        currentPriorityOffer &&
-        currentPriorityOffer.id !== offer.id &&
-        currentPriorityOffer.sellerId !== sellerId
-      ) {
-        await insertSellerNotifications(tx, {
-          sellerId: currentPriorityOffer.sellerId,
-          type: "product_offer_displaced",
-          title: "Вашу цену перебили",
-          body: `${product.name}: ваше предложение больше не активно на витрине. Обновите цену, если хотите вернуть товар в продажу.`,
-        });
-      }
     } else if (!product.priorityIsManual) {
       await recalculateAutomaticProductPriority(tx, productId);
     } else {
@@ -777,31 +753,7 @@ export async function setPriorityProductOfferAction(formData: FormData) {
       redirect(`/admin/products/${productId}?offerError=1`);
     }
 
-    const [currentPriorityOffer] = product.priorityOfferId
-      ? await tx
-          .select({
-            id: sellerOffers.id,
-            sellerId: sellerOffers.sellerId,
-          })
-          .from(sellerOffers)
-          .where(eq(sellerOffers.id, product.priorityOfferId))
-          .limit(1)
-      : [];
-
     await setManualProductPriorityOffer(tx, productId, offerId);
-
-    if (
-      currentPriorityOffer &&
-      currentPriorityOffer.id !== selectedOffer.id &&
-      currentPriorityOffer.sellerId !== selectedOffer.sellerId
-    ) {
-      await insertSellerNotifications(tx, {
-        sellerId: currentPriorityOffer.sellerId,
-        type: "product_offer_displaced",
-        title: "Вашу цену перебили",
-        body: `${product.name}: ваше предложение больше не активно на витрине. Обновите цену, если хотите вернуть товар в продажу.`,
-      });
-    }
 
     await tx.insert(auditEvents).values({
       actorId: admin.id,

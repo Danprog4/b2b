@@ -274,8 +274,18 @@ export async function getCurrentSellerDocuments() {
     .orderBy(desc(documents.createdAt));
 }
 
-export async function getAdminDocuments() {
+type AdminDocumentsFilters = {
+  sellerId?: string;
+};
+
+export async function getAdminDocuments(filters: AdminDocumentsFilters = {}) {
   await requireUser(["admin"]);
+
+  const conditions = [eq(documents.isActive, true)];
+
+  if (filters.sellerId) {
+    conditions.push(eq(documents.sellerId, filters.sellerId));
+  }
 
   const rows = await db
     .select({
@@ -311,7 +321,7 @@ export async function getAdminDocuments() {
     .leftJoin(orders, eq(orders.id, documents.orderId))
     .leftJoin(buyerCompanies, eq(buyerCompanies.id, documents.buyerCompanyId))
     .leftJoin(sellers, eq(sellers.id, documents.sellerId))
-    .where(eq(documents.isActive, true))
+    .where(and(...conditions))
     .orderBy(desc(documentVersions.createdAt), desc(documents.createdAt));
 
   const currentRows = filterCurrentBuyerCompanyDocuments(rows);

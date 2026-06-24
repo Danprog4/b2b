@@ -30,7 +30,6 @@ type ProductEditPageProps = {
 };
 
 const offerStatusOptions = [
-  { value: "draft", label: "Черновик" },
   { value: "on_moderation", label: "На модерации" },
   { value: "published", label: "Опубликовано" },
   { value: "rejected", label: "Отклонено" },
@@ -38,7 +37,10 @@ const offerStatusOptions = [
 ] as const;
 
 const offerStatusLabels = Object.fromEntries(
-  offerStatusOptions.map((status) => [status.value, status.label]),
+  [
+    ...offerStatusOptions,
+    { value: "draft", label: "Не продается" },
+  ].map((status) => [status.value, status.label]),
 );
 
 export default async function AdminProductEditPage({

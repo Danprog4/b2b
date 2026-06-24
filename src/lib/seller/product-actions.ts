@@ -42,6 +42,24 @@ type SellerProductPayload = {
   galleryImageFileIds?: string[];
 };
 
+function getPayloadRecord(payload: unknown) {
+  return payload && typeof payload === "object"
+    ? (payload as Record<string, unknown>)
+    : null;
+}
+
+function getPayloadString(payload: unknown, key: string) {
+  const value = getPayloadRecord(payload)?.[key];
+  return typeof value === "string" ? value : "";
+}
+
+function getPayloadStringArray(payload: unknown, key: string) {
+  const value = getPayloadRecord(payload)?.[key];
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
 function getString(formData: FormData, key: string) {
   const value = formData.get(key);
   return typeof value === "string" ? value.trim() : "";
@@ -430,7 +448,10 @@ export async function requestSellerProductUpdateAction(formData: FormData) {
   }
 
   const [existingPendingRequest] = await db
-    .select({ id: sellerProductChangeRequests.id })
+    .select({
+      id: sellerProductChangeRequests.id,
+      payload: sellerProductChangeRequests.payload,
+    })
     .from(sellerProductChangeRequests)
     .where(
       and(
@@ -441,22 +462,26 @@ export async function requestSellerProductUpdateAction(formData: FormData) {
     )
     .limit(1);
 
-  if (existingPendingRequest) {
-    redirectWithProductError(
-      returnPath,
-      "У товара уже есть изменения на модерации.",
-    );
-  }
-
   const existingGalleryImageFileIds = await db
     .select({ fileId: productImages.fileId })
     .from(productImages)
     .where(eq(productImages.productId, productId))
     .orderBy(asc(productImages.sortOrder), asc(productImages.createdAt));
-  const existingGalleryFileIds = existingGalleryImageFileIds.map(
+  const publishedGalleryFileIds = existingGalleryImageFileIds.map(
     (image) => image.fileId,
   );
-  const allowedExistingGalleryFileIds = new Set(existingGalleryFileIds);
+  const pendingGalleryFileIds = getPayloadStringArray(
+    existingPendingRequest?.payload,
+    "galleryImageFileIds",
+  );
+  const baseGalleryFileIds =
+    existingPendingRequest && pendingGalleryFileIds.length > 0
+      ? pendingGalleryFileIds
+      : publishedGalleryFileIds;
+  const allowedExistingGalleryFileIds = new Set([
+    ...publishedGalleryFileIds,
+    ...pendingGalleryFileIds,
+  ]);
   const keptExistingGalleryFileIds =
     formData.get("galleryImagesState") === "1"
       ? formData
@@ -465,11 +490,13 @@ export async function requestSellerProductUpdateAction(formData: FormData) {
             (value): value is string =>
               typeof value === "string" && allowedExistingGalleryFileIds.has(value),
           )
-      : existingGalleryFileIds;
+      : baseGalleryFileIds;
 
   const nextPayload: SellerProductPayload = {
     ...payload,
-    mainImageFileId: row.mainImageFileId,
+    mainImageFileId:
+      getPayloadString(existingPendingRequest?.payload, "mainImageFileId") ||
+      row.mainImageFileId,
   };
   if (isUploadedFile(mainImage)) {
     nextPayload.mainImageFileId = await persistProductImageFile({
@@ -492,17 +519,28 @@ export async function requestSellerProductUpdateAction(formData: FormData) {
   ).slice(0, 10);
 
   await db.transaction(async (tx) => {
-    const [request] = await tx
-      .insert(sellerProductChangeRequests)
-      .values({
-        productId,
-        sellerOfferId: row.offerId,
-        sellerId,
-        type: "update",
-        status: "on_moderation",
-        payload: nextPayload,
-      })
-      .returning({ id: sellerProductChangeRequests.id });
+    const [request] = existingPendingRequest
+      ? await tx
+          .update(sellerProductChangeRequests)
+          .set({
+            payload: nextPayload,
+            moderationComment: null,
+            submittedAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(eq(sellerProductChangeRequests.id, existingPendingRequest.id))
+          .returning({ id: sellerProductChangeRequests.id })
+      : await tx
+          .insert(sellerProductChangeRequests)
+          .values({
+            productId,
+            sellerOfferId: row.offerId,
+            sellerId,
+            type: "update",
+            status: "on_moderation",
+            payload: nextPayload,
+          })
+          .returning({ id: sellerProductChangeRequests.id });
 
     const [offer] = await tx
       .select({ status: sellerOffers.status })
@@ -531,7 +569,9 @@ export async function requestSellerProductUpdateAction(formData: FormData) {
 
     await tx.insert(auditEvents).values({
       actorId: user.id,
-      action: "seller_product.update_request",
+      action: existingPendingRequest
+        ? "seller_product.update_request_replace"
+        : "seller_product.update_request",
       entityType: "seller_product_change_request",
       entityId: request.id,
       metadata: {
@@ -542,6 +582,8 @@ export async function requestSellerProductUpdateAction(formData: FormData) {
   });
 
   revalidatePath("/seller");
+  revalidatePath(`/seller/products/${productId}`);
+  revalidatePath(`/seller/products/${productId}/edit`);
   revalidatePath("/admin");
   revalidatePath("/admin/products/moderation");
   revalidatePath("/admin/notifications");

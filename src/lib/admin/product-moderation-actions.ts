@@ -332,33 +332,6 @@ export async function approveProductModerationRequestAction(formData: FormData) 
             : payload.name,
     });
 
-    if (
-      request.type === "offer_create" &&
-      selectedPublishedOffer &&
-      selectedPublishedOffer.id !== sellerOfferId
-    ) {
-      await insertSellerNotifications(tx, {
-        sellerId: request.sellerId,
-        type: "product_offer_displaced",
-        title: "Цена перебита",
-        body: `${payload.name}: предложение опубликовано, но покупатели сейчас видят более выгодную цену другого продавца. Снизьте цену, чтобы выйти на витрину.`,
-      });
-    }
-
-    if (
-      currentPriorityOffer &&
-      selectedPublishedOffer &&
-      currentPriorityOffer.id !== selectedPublishedOffer.id &&
-      currentPriorityOffer.sellerId !== selectedPublishedOffer.sellerId
-    ) {
-      await insertSellerNotifications(tx, {
-        sellerId: currentPriorityOffer.sellerId,
-        type: "product_offer_displaced",
-        title: "Вашу цену перебили",
-        body: `${payload.name}: ваше предложение больше не активно на витрине. Обновите цену, если хотите вернуть товар в продажу.`,
-      });
-    }
-
     await tx.insert(auditEvents).values({
       actorId: admin.id,
       action: "seller_product_moderation.approve",

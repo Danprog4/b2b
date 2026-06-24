@@ -26,10 +26,19 @@ type AdminDocumentsPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
+function getStringParam(
+  params: Record<string, string | string[] | undefined>,
+  key: string,
+) {
+  const value = params[key];
+  return typeof value === "string" && value.trim() ? value.trim() : "";
+}
+
 export default async function AdminDocumentsPage({
   searchParams,
 }: AdminDocumentsPageProps) {
   const params = (await searchParams) ?? {};
+  const sellerId = getStringParam(params, "sellerId");
   const documentUploaded = params.documentUploaded === "1";
   const documentUpdated = params.documentUpdated === "1";
   const documentError =
@@ -37,9 +46,16 @@ export default async function AdminDocumentsPage({
       ? params.documentError
       : null;
   const [documents, options] = await Promise.all([
-    getAdminDocuments(),
+    getAdminDocuments({ sellerId }),
     getAdminDocumentOptions(),
   ]);
+  const selectedSeller = sellerId
+    ? options.sellers.find((seller) => seller.id === sellerId)
+    : null;
+  const selectedTargetObject = selectedSeller ? `seller:${selectedSeller.id}` : "";
+  const currentPath = sellerId
+    ? `/admin/documents?sellerId=${encodeURIComponent(sellerId)}`
+    : "/admin/documents";
 
   return (
     <main className="min-h-screen bg-slate-100 px-6 py-8 text-slate-900">
@@ -85,6 +101,7 @@ export default async function AdminDocumentsPage({
             action={uploadAdminDocumentAction}
             className="mt-4 grid gap-3 rounded-xl bg-slate-50 p-4"
           >
+            <input name="returnPath" type="hidden" value={currentPath} />
             <div className="grid gap-3 xl:grid-cols-[1fr_260px_1fr]">
               <label className="grid gap-2 text-sm font-bold text-slate-700">
                 Название
@@ -114,6 +131,7 @@ export default async function AdminDocumentsPage({
                 <select
                   className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-semibold"
                   name="targetObject"
+                  defaultValue={selectedTargetObject}
                   required
                 >
                   <option value="">Выберите объект</option>
@@ -178,13 +196,52 @@ export default async function AdminDocumentsPage({
 
         <section className="mt-5 rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <h2 className="text-xl font-black text-slate-950">
-              Все документы
-            </h2>
+            <div>
+              <h2 className="text-xl font-black text-slate-950">
+                Все документы
+              </h2>
+              {selectedSeller ? (
+                <p className="mt-1 text-sm font-semibold text-slate-500">
+                  Показаны документы продавца: {selectedSeller.name}
+                </p>
+              ) : null}
+            </div>
             <span className="rounded-lg bg-slate-100 px-3 py-2 text-sm font-bold text-slate-600">
               {documents.length}
             </span>
           </div>
+
+          <form className="mt-4 grid gap-3 rounded-xl bg-slate-50 p-3 md:grid-cols-[minmax(0,1fr)_auto_auto]">
+            <select
+              className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold"
+              defaultValue={sellerId}
+              name="sellerId"
+            >
+              <option value="">Все продавцы</option>
+              {options.sellers.map((seller) => (
+                <option key={seller.id} value={seller.id}>
+                  {seller.name} · ИНН {seller.inn}
+                </option>
+              ))}
+            </select>
+            <button
+              className="h-11 rounded-lg bg-[#1157ff] px-4 text-sm font-bold text-white transition hover:bg-[#0b49e0]"
+              type="submit"
+            >
+              Показать
+            </button>
+            <Link
+              className={`inline-flex h-11 items-center justify-center rounded-lg px-4 text-sm font-bold transition ${
+                sellerId
+                  ? "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  : "pointer-events-none bg-slate-50 text-slate-300"
+              }`}
+              href="/admin/documents"
+              aria-disabled={!sellerId}
+            >
+              Сбросить
+            </Link>
+          </form>
 
           <div className="mt-4 grid gap-3">
             {documents.length === 0 ? (
@@ -232,6 +289,11 @@ export default async function AdminDocumentsPage({
                       action={uploadAdminDocumentVersionAction}
                       className="grid w-full gap-3 rounded-lg bg-white p-3 ring-1 ring-slate-200 xl:grid-cols-[1fr_1fr_auto]"
                     >
+                      <input
+                        name="returnPath"
+                        type="hidden"
+                        value={currentPath}
+                      />
                       <input name="documentId" type="hidden" value={document.id} />
                       <FileUploadField
                         accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xls,.xlsx"
@@ -255,6 +317,11 @@ export default async function AdminDocumentsPage({
                       action={updateDocumentVisibilityAction}
                       className="flex flex-wrap items-center gap-3"
                     >
+                      <input
+                        name="returnPath"
+                        type="hidden"
+                        value={currentPath}
+                      />
                       <input name="documentId" type="hidden" value={document.id} />
                       <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
                         <input
@@ -282,6 +349,11 @@ export default async function AdminDocumentsPage({
                       </SubmitButton>
                     </form>
                     <form action={hideDocumentAction}>
+                      <input
+                        name="returnPath"
+                        type="hidden"
+                        value={currentPath}
+                      />
                       <input name="documentId" type="hidden" value={document.id} />
                       <SubmitButton
                         className="h-10 rounded-lg bg-red-50 px-4 text-sm font-bold text-red-700 transition hover:bg-red-100"

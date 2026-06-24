@@ -632,7 +632,10 @@ export default async function AdminSellerPage({
                 видимости.
               </p>
             </div>
-            <Link className="text-sm font-bold text-[#1157ff]" href="/admin/documents">
+            <Link
+              className="text-sm font-bold text-[#1157ff]"
+              href={`/admin/documents?sellerId=${seller.id}`}
+            >
               Все документы
             </Link>
           </div>

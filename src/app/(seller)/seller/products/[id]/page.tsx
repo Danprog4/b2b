@@ -1,4 +1,4 @@
-import { and, desc, eq, ne } from "drizzle-orm";
+import { and, desc, eq, inArray, ne } from "drizzle-orm";
 import { Clock3, Package, Pencil } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -34,6 +34,21 @@ function getPayloadString(payload: unknown, key: string) {
 
   const value = (payload as Record<string, unknown>)[key];
   return typeof value === "string" ? value : "";
+}
+
+function getPayloadRecord(payload: unknown) {
+  return payload && typeof payload === "object"
+    ? (payload as Record<string, unknown>)
+    : null;
+}
+
+function hasPayloadKey(payload: unknown, key: string) {
+  return Boolean(getPayloadRecord(payload) && key in getPayloadRecord(payload)!);
+}
+
+function getPayloadNullableString(payload: unknown, key: string) {
+  const value = getPayloadString(payload, key).trim();
+  return value || null;
 }
 
 function getRequestTypeLabel(type: string) {
@@ -84,9 +99,9 @@ function getRequestStatusClassName(status: string) {
   return "bg-slate-100 text-slate-500";
 }
 
-function getOfferStatusLabel(status: string, isActiveOnStorefront: boolean) {
+function getOfferStatusLabel(status: string) {
   if (status === "published") {
-    return isActiveOnStorefront ? "Продается" : "Цена перебита";
+    return "Продается";
   }
 
   if (status === "on_moderation") {
@@ -101,7 +116,7 @@ function getOfferStatusLabel(status: string, isActiveOnStorefront: boolean) {
     return "Скрыт";
   }
 
-  return "Черновик";
+  return "Не продается";
 }
 
 export default async function SellerProductPage({
@@ -128,6 +143,8 @@ export default async function SellerProductPage({
       description: products.description,
       size: products.size,
       unit: products.unit,
+      categoryId: products.categoryId,
+      subcategoryId: products.subcategoryId,
       categoryName: categories.name,
       subcategoryName: subcategories.name,
       priceWithVat: sellerOffers.priceWithVat,
@@ -175,21 +192,81 @@ export default async function SellerProductPage({
     )
     .orderBy(desc(sellerProductChangeRequests.submittedAt));
 
-  const imageUrl = product.imageIsActive
-    ? getPublicFileUrl({
-        id: product.imageFileId,
-        storageKey: product.imageStorageKey,
-      })
-    : null;
   const pendingRequest = requests.find(
     (request) => request.status === "on_moderation",
   );
   const latestRequest = requests[0];
+  const latestPayload = latestRequest?.payload ?? null;
+  const displayCategoryId =
+    getPayloadString(latestPayload, "categoryId") || product.categoryId;
+  const displaySubcategoryId = hasPayloadKey(latestPayload, "subcategoryId")
+    ? getPayloadNullableString(latestPayload, "subcategoryId")
+    : product.subcategoryId;
+  const displayCategoryRows =
+    displayCategoryId !== product.categoryId || displaySubcategoryId !== product.subcategoryId
+      ? await db
+          .select({ id: categories.id, name: categories.name })
+          .from(categories)
+          .where(inArray(categories.id, [displayCategoryId]))
+      : [];
+  const displaySubcategoryRows = displaySubcategoryId
+    ? await db
+        .select({ id: subcategories.id, name: subcategories.name })
+        .from(subcategories)
+        .where(inArray(subcategories.id, [displaySubcategoryId]))
+    : [];
+  const displayCategoryName =
+    displayCategoryRows.find((category) => category.id === displayCategoryId)?.name ??
+    product.categoryName;
+  const displaySubcategoryName = displaySubcategoryId
+    ? displaySubcategoryRows.find((subcategory) => subcategory.id === displaySubcategoryId)
+        ?.name ?? product.subcategoryName
+    : null;
+  const latestMainImageFileId = hasPayloadKey(latestPayload, "mainImageFileId")
+    ? getPayloadNullableString(latestPayload, "mainImageFileId")
+    : product.imageFileId;
+  const [latestMainImageFile] =
+    latestMainImageFileId && latestMainImageFileId !== product.imageFileId
+      ? await db
+          .select({
+            id: files.id,
+            storageKey: files.storageKey,
+            isActive: files.isActive,
+          })
+          .from(files)
+          .where(eq(files.id, latestMainImageFileId))
+          .limit(1)
+      : [];
+  const displayImageUrl =
+    latestMainImageFile?.isActive
+      ? getPublicFileUrl({
+          id: latestMainImageFile.id,
+          storageKey: latestMainImageFile.storageKey,
+        })
+      : product.imageIsActive && latestMainImageFileId
+        ? getPublicFileUrl({
+            id: product.imageFileId,
+            storageKey: product.imageStorageKey,
+          })
+        : null;
+  const displayProduct = {
+    ...product,
+    name: getPayloadString(latestPayload, "name") || product.name,
+    description: hasPayloadKey(latestPayload, "description")
+      ? getPayloadNullableString(latestPayload, "description")
+      : product.description,
+    size: hasPayloadKey(latestPayload, "size")
+      ? getPayloadNullableString(latestPayload, "size")
+      : product.size,
+    unit: getPayloadString(latestPayload, "unit") || product.unit,
+    priceWithVat:
+      getPayloadString(latestPayload, "priceWithVat") || product.priceWithVat,
+    vatRate: getPayloadString(latestPayload, "vatRate") || product.vatRate,
+    categoryName: displayCategoryName,
+    subcategoryName: displaySubcategoryName,
+  };
   const latestRejectedRequest =
     latestRequest?.status === "rejected" ? latestRequest : null;
-  const isActiveOnStorefront =
-    product.offerStatus === "published" &&
-    (!product.priorityOfferId || product.offerId === product.priorityOfferId);
   const editHref = withSellerBreadcrumbSource(
     `/seller/products/${product.id}/edit`,
     breadcrumbSourceKey,
@@ -207,7 +284,7 @@ export default async function SellerProductPage({
             {breadcrumbSource.label}
           </Link>
           <span>/</span>
-          <span>{product.name}</span>
+          <span>{displayProduct.name}</span>
         </div>
 
         <Link
@@ -220,11 +297,13 @@ export default async function SellerProductPage({
         <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-3xl font-black text-slate-950">
-              {product.name}
+              {displayProduct.name}
             </h1>
             <p className="mt-2 text-sm font-bold text-slate-500">
-              {product.sku} · {product.categoryName}
-              {product.subcategoryName ? ` · ${product.subcategoryName}` : ""}
+              {product.sku} · {displayProduct.categoryName}
+              {displayProduct.subcategoryName
+                ? ` · ${displayProduct.subcategoryName}`
+                : ""}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -238,7 +317,7 @@ export default async function SellerProductPage({
             <SellerProductDeleteButton
               className="h-11 px-4"
               productId={product.id}
-              productName={product.name}
+              productName={displayProduct.name}
             />
           </div>
         </div>
@@ -267,11 +346,11 @@ export default async function SellerProductPage({
 
         <section className="mt-6 grid gap-5 lg:grid-cols-[320px_1fr]">
           <div className="self-start overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-100">
-            {imageUrl ? (
+            {displayImageUrl ? (
               <img
-                alt={product.name}
+                alt={displayProduct.name}
                 className="h-72 w-full object-cover"
-                src={imageUrl}
+                src={displayImageUrl}
               />
             ) : (
               <div className="flex h-72 items-center justify-center bg-slate-100 text-slate-300">
@@ -284,67 +363,51 @@ export default async function SellerProductPage({
             <div className="flex flex-wrap items-center gap-2">
               <span
                 className={`rounded-full px-3 py-1 text-xs font-bold ${
-                  product.offerStatus === "published"
-                    ? isActiveOnStorefront
-                      ? "bg-emerald-50 text-emerald-700"
-                      : "bg-slate-100 text-slate-600"
+                  pendingRequest
+                    ? "bg-amber-50 text-amber-700"
+                    : product.offerStatus === "published"
+                    ? "bg-emerald-50 text-emerald-700"
                     : product.offerStatus === "rejected"
                       ? "bg-red-50 text-red-700"
                       : "bg-amber-50 text-amber-700"
                 }`}
               >
-                {getOfferStatusLabel(product.offerStatus, isActiveOnStorefront)}
+                {pendingRequest
+                  ? "На модерации"
+                  : getOfferStatusLabel(product.offerStatus)}
               </span>
-              {product.offerStatus === "published" && !isActiveOnStorefront ? (
-                <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-[#1157ff]">
-                  Цену перебили
-                </span>
-              ) : null}
-              {pendingRequest ? (
-                <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
-                  {product.offerStatus === "published"
-                    ? "Есть изменения на модерации"
-                    : "Товар на модерации"}
-                </span>
-              ) : null}
             </div>
-
-            {product.offerStatus === "published" && !isActiveOnStorefront ? (
-              <div className="mt-4 rounded-lg bg-slate-50 px-4 py-3 text-sm font-semibold leading-6 text-slate-600">
-                Покупатели сейчас видят более выгодное предложение по этому
-                товару. Снизьте цену и отправьте правки на модерацию, чтобы
-                снова выйти на витрину.
-              </div>
-            ) : null}
 
             <dl className="mt-5 grid gap-3 text-sm md:grid-cols-2">
               <div className="rounded-lg bg-slate-50 p-3">
                 <dt className="font-bold text-slate-500">Цена сейчас</dt>
                 <dd className="mt-1 text-xl font-black text-slate-950">
-                  {formatCurrency(product.priceWithVat)}
+                  {formatCurrency(displayProduct.priceWithVat)}
                 </dd>
               </div>
               <div className="rounded-lg bg-slate-50 p-3">
                 <dt className="font-bold text-slate-500">НДС</dt>
                 <dd className="mt-1 text-xl font-black text-slate-950">
-                  {Number(product.vatRate ?? 22).toFixed(0)}%
+                  {Number(displayProduct.vatRate ?? 22).toFixed(0)}%
                 </dd>
               </div>
               <div className="rounded-lg bg-slate-50 p-3">
                 <dt className="font-bold text-slate-500">Единица</dt>
-                <dd className="mt-1 font-black text-slate-950">{product.unit}</dd>
+                <dd className="mt-1 font-black text-slate-950">
+                  {displayProduct.unit}
+                </dd>
               </div>
               <div className="rounded-lg bg-slate-50 p-3">
                 <dt className="font-bold text-slate-500">Размер</dt>
                 <dd className="mt-1 font-black text-slate-950">
-                  {product.size ?? "Не указан"}
+                  {displayProduct.size ?? "Не указан"}
                 </dd>
               </div>
             </dl>
 
-            {product.description ? (
+            {displayProduct.description ? (
               <p className="mt-4 rounded-lg bg-slate-50 p-4 text-sm leading-6 text-slate-600">
-                {product.description}
+                {displayProduct.description}
               </p>
             ) : null}
           </div>
@@ -392,7 +455,7 @@ export default async function SellerProductPage({
                         </span>
                       </div>
                       <h3 className="mt-3 font-black text-slate-950">
-                        {name || product.name}
+                        {name || displayProduct.name}
                       </h3>
                       <p className="mt-1 text-sm font-semibold text-slate-500">
                         Отправлено {formatDateTime(request.submittedAt)}

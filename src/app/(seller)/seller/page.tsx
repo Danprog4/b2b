@@ -3,7 +3,6 @@ import {
   Bell,
   Boxes,
   Download,
-  FileText,
   Landmark,
   Package,
   Pencil,
@@ -13,9 +12,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
-import { FileUploadField } from "@/components/ui/file-upload-field";
 import { LogoutButton } from "@/components/logout-button";
-import { SubmitButton } from "@/components/ui/submit-button";
 import { ToastMessages } from "@/components/ui/toast-message";
 import { db } from "@/db";
 import {
@@ -31,16 +28,7 @@ import {
   subcategories,
 } from "@/db/schema";
 import { requireUser } from "@/lib/auth/session";
-import {
-  uploadSellerDocumentAction,
-  uploadSellerDocumentVersionAction,
-} from "@/lib/documents/actions";
 import { getCurrentSellerDocuments } from "@/lib/documents/queries";
-import {
-  formatFileSize,
-  getDocumentTypeLabel,
-  sellerDocumentTypes,
-} from "@/lib/documents/types";
 import { getPublicFileUrl } from "@/lib/files/urls";
 import { withSellerBreadcrumbSource } from "@/lib/seller/breadcrumbs";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
@@ -63,9 +51,9 @@ function getPayloadString(payload: unknown, key: string) {
   return typeof value === "string" ? value : "";
 }
 
-function getOfferStatusLabel(status: string, isActiveOnStorefront: boolean) {
+function getOfferStatusLabel(status: string) {
   if (status === "published") {
-    return isActiveOnStorefront ? "Продается" : "Цена перебита";
+    return "Продается";
   }
 
   if (status === "on_moderation") {
@@ -80,7 +68,7 @@ function getOfferStatusLabel(status: string, isActiveOnStorefront: boolean) {
     return "Скрыт";
   }
 
-  return "Черновик";
+  return "Не продается";
 }
 
 function getOfferStatusClassName(status: string) {
@@ -99,29 +87,13 @@ function getOfferStatusClassName(status: string) {
   return "bg-slate-100 text-slate-500";
 }
 
-function getOfferStatusClassNameForStorefront(
-  status: string,
-  isActiveOnStorefront: boolean,
-) {
-  if (status === "published" && !isActiveOnStorefront) {
-    return "bg-slate-100 text-slate-600";
-  }
-
-  return getOfferStatusClassName(status);
-}
-
 export default async function SellerPage({ searchParams }: SellerPageProps) {
   const user = await requireUser(["seller"]);
   const search = (await searchParams) ?? {};
-  const documentUploaded = search.documentUploaded === "1";
   const productSubmitted = search.productSubmitted === "1";
   const productDeleted = search.productDeleted === "1";
   const productDeleteError =
     typeof search.productDeleteError === "string" ? search.productDeleteError : null;
-  const documentError =
-    !documentUploaded && typeof search.documentError === "string"
-      ? search.documentError
-      : null;
 
   if (!user.sellerId) {
     return (
@@ -316,15 +288,7 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
     (document) => document.type === "seller_company_card",
   );
   const publishedProductsCount = productRows.filter(
-    (product) =>
-      product.offerStatus === "published" &&
-      (!product.priorityOfferId || product.offerId === product.priorityOfferId),
-  ).length;
-  const displacedProductsCount = productRows.filter(
-    (product) =>
-      product.offerStatus === "published" &&
-      Boolean(product.priorityOfferId) &&
-      product.offerId !== product.priorityOfferId,
+    (product) => product.offerStatus === "published",
   ).length;
   const moderationProductsCount = productRows.filter(
     (product) =>
@@ -340,7 +304,7 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
     {
       title: "Товары",
       value: publishedProductsCount,
-      description: `Продается · перебито ${displacedProductsCount} · на модерации ${moderationProductsCount} · отклонено ${rejectedProductsCount}`,
+      description: `Продается · на модерации ${moderationProductsCount} · отклонено ${rejectedProductsCount}`,
       Icon: Boxes,
     },
     {
@@ -357,10 +321,13 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
       Icon: Landmark,
     },
     {
-      title: "Карточка компании",
-      value: sellerCompanyCardDocument ? "Загружена" : "Не загружена",
-      description: "Документ продавца",
+      title: "Документы",
+      value: documents.length,
+      description: sellerCompanyCardDocument
+        ? "Карточка компании загружена"
+        : "Загрузите карточку компании",
       Icon: Paperclip,
+      href: "/seller/documents",
     },
     {
       title: "Уведомления",
@@ -433,7 +400,6 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
               ? [{ message: "Товар отправлен на модерацию." }]
               : []),
             ...(productDeleted ? [{ message: "Товар удален." }] : []),
-            ...(documentUploaded ? [{ message: "Документ сохранен." }] : []),
             ...(productDeleteError
               ? [
                   {
@@ -441,9 +407,6 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                     tone: "error" as const,
                   },
                 ]
-              : []),
-            ...(documentError
-              ? [{ message: documentError, tone: "error" as const }]
               : []),
           ]}
         />
@@ -575,10 +538,6 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                       const hasPendingChanges = Boolean(product.pendingRequestId);
                       const hasRejectedRequest =
                         product.latestRequestStatus === "rejected";
-                      const isActiveOnStorefront =
-                        product.offerStatus === "published" &&
-                        (!product.priorityOfferId ||
-                          product.offerId === product.priorityOfferId);
 
                       return (
                         <tr
@@ -647,22 +606,12 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                             >
                               <div className="flex flex-wrap gap-2">
                                 <span
-                                  className={`rounded-full px-3 py-1 text-xs font-bold ${getOfferStatusClassNameForStorefront(
+                                  className={`rounded-full px-3 py-1 text-xs font-bold ${getOfferStatusClassName(
                                     product.offerStatus,
-                                    isActiveOnStorefront,
                                   )}`}
                                 >
-                                  {getOfferStatusLabel(
-                                    product.offerStatus,
-                                    isActiveOnStorefront,
-                                  )}
+                                  {getOfferStatusLabel(product.offerStatus)}
                                 </span>
-                                {product.offerStatus === "published" &&
-                                !isActiveOnStorefront ? (
-                                  <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-[#1157ff]">
-                                    Цену перебили
-                                  </span>
-                                ) : null}
                                 {hasPendingChanges ? (
                                   <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
                                     {product.offerStatus === "published"
@@ -679,14 +628,6 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                               {product.offerStatus === "published" && hasPendingChanges ? (
                                 <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
                                   Текущая версия остаётся в каталоге до решения админа.
-                                </p>
-                              ) : null}
-                              {product.offerStatus === "published" &&
-                              !isActiveOnStorefront ? (
-                                <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
-                                  Покупатели сейчас видят более выгодное
-                                  предложение по этому товару. Снизьте цену,
-                                  чтобы снова выйти на витрину.
                                 </p>
                               ) : null}
                               {hasRejectedRequest ? (
@@ -803,121 +744,6 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
               </Link>
             </section>
 
-            <section className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
-              <div className="flex items-center gap-2">
-                <Paperclip className="text-[#1157ff]" size={22} />
-                <h2 className="text-xl font-black text-slate-950">Документы</h2>
-              </div>
-
-              <form
-                action={uploadSellerDocumentAction}
-                className="mt-4 grid gap-3 rounded-xl bg-slate-50 p-4"
-              >
-                <label className="grid gap-2 text-sm font-bold text-slate-700">
-                  Название
-                  <input
-                    className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-semibold"
-                    name="title"
-                    placeholder="Например, карточка компании"
-                    required
-                  />
-                </label>
-                <label className="grid gap-2 text-sm font-bold text-slate-700">
-                  Тип
-                  <select
-                    className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-semibold"
-                    name="type"
-                    defaultValue="seller_company_card"
-                  >
-                    {sellerDocumentTypes.map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <FileUploadField
-                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xls,.xlsx"
-                  name="file"
-                  required
-                />
-                <input
-                  className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold"
-                  name="comment"
-                  placeholder="Комментарий к файлу"
-                />
-                <SubmitButton
-                  className="h-11 rounded-lg bg-[#1157ff] text-sm font-bold text-white transition hover:bg-[#0b49e0]"
-                  pendingText="Сохраняем"
-                >
-                  Сохранить
-                </SubmitButton>
-              </form>
-
-              <div className="mt-5 grid gap-3">
-                {documents.length === 0 ? (
-                  <div className="flex min-h-24 items-center justify-center rounded-xl border border-dashed border-slate-200 text-center text-sm font-bold text-slate-500">
-                    Документы продавца пока не загружены.
-                  </div>
-                ) : (
-                  documents.map((document) => (
-                    <article
-                      className="rounded-xl border border-slate-200 p-4"
-                      key={document.id}
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <FileText className="text-[#1157ff]" size={18} />
-                            <h3 className="font-black text-slate-950">
-                              {document.title}
-                            </h3>
-                          </div>
-                          <p className="mt-1 text-sm font-semibold text-slate-500">
-                            {getDocumentTypeLabel(document.type)} ·{" "}
-                            {formatFileSize(document.sizeBytes)}
-                          </p>
-                        </div>
-                        <Link
-                          className="inline-flex h-9 items-center gap-2 rounded-lg bg-slate-100 px-3 text-sm font-bold text-slate-700 transition hover:bg-slate-200"
-                          href={`/documents/${document.versionId}/download`}
-                        >
-                          <Download size={15} />
-                          Скачать
-                        </Link>
-                      </div>
-                      <form
-                        action={uploadSellerDocumentVersionAction}
-                        className="mt-3 grid gap-2 rounded-lg bg-slate-50 p-3"
-                      >
-                        <input
-                          name="documentId"
-                          type="hidden"
-                          value={document.id}
-                        />
-                        <FileUploadField
-                          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xls,.xlsx"
-                          buttonText="Заменить файл"
-                          name="file"
-                          required
-                        />
-                        <input
-                          className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold"
-                          name="comment"
-                          placeholder="Комментарий к файлу"
-                        />
-                        <SubmitButton
-                          className="h-10 rounded-lg bg-slate-900 text-sm font-bold text-white transition hover:bg-slate-800"
-                          pendingText="Сохраняем"
-                        >
-                          Сохранить файл
-                        </SubmitButton>
-                      </form>
-                    </article>
-                  ))
-                )}
-              </div>
-            </section>
           </aside>
         </section>
       </div>

@@ -812,7 +812,7 @@ export async function uploadBuyerCompanyDocumentVersionAction(formData: FormData
 
 export async function uploadSellerDocumentAction(formData: FormData) {
   const user = await requireUser(["seller"]);
-  const returnPath = "/seller";
+  const returnPath = "/seller/documents";
   const type = getString(formData, "type") || "other";
   const title = getString(formData, "title");
   const comment = getString(formData, "comment");
@@ -877,16 +877,17 @@ export async function uploadSellerDocumentAction(formData: FormData) {
   });
 
   revalidatePath("/seller");
+  revalidatePath("/seller/documents");
   revalidatePath("/admin/documents");
   revalidatePath("/admin");
   revalidatePath("/admin/notifications");
 
-  redirect("/seller?documentUploaded=1");
+  redirect("/seller/documents?documentUploaded=1");
 }
 
 export async function uploadSellerDocumentVersionAction(formData: FormData) {
   const user = await requireUser(["seller"]);
-  const returnPath = "/seller";
+  const returnPath = "/seller/documents";
   const documentId = getString(formData, "documentId");
   const comment = getString(formData, "comment");
 
@@ -962,11 +963,12 @@ export async function uploadSellerDocumentVersionAction(formData: FormData) {
   });
 
   revalidatePath("/seller");
+  revalidatePath("/seller/documents");
   revalidatePath("/admin/documents");
   revalidatePath("/admin");
   revalidatePath("/admin/notifications");
 
-  redirect("/seller?documentUploaded=1");
+  redirect("/seller/documents?documentUploaded=1");
 }
 
 export async function uploadAdminDocumentAction(formData: FormData) {
