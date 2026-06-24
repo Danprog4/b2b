@@ -1,6 +1,6 @@
 "use server";
 
-import { and, asc, eq, ne } from "drizzle-orm";
+import { and, asc, desc, eq, ne } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { randomUUID } from "node:crypto";
@@ -262,6 +262,70 @@ function getSellerProductPayload(
   };
 }
 
+function normalizeNullableString(value: string | null | undefined) {
+  const normalized = value?.trim() ?? "";
+  return normalized || null;
+}
+
+function normalizeRequiredString(value: string | null | undefined) {
+  return value?.trim() ?? "";
+}
+
+function normalizePayloadForComparison(payload: SellerProductPayload) {
+  return {
+    name: normalizeRequiredString(payload.name),
+    categoryId: normalizeRequiredString(payload.categoryId),
+    subcategoryId: normalizeNullableString(payload.subcategoryId),
+    description: normalizeNullableString(payload.description),
+    priceWithVat: normalizeMoney(payload.priceWithVat),
+    vatRate: normalizeMoney(payload.vatRate || "22.00", "22.00"),
+    size: normalizeNullableString(payload.size),
+    unit: normalizeRequiredString(payload.unit),
+    mainImageFileId: normalizeNullableString(payload.mainImageFileId),
+    galleryImageFileIds: payload.galleryImageFileIds ?? [],
+  };
+}
+
+function areStringArraysEqual(first: string[], second: string[]) {
+  return (
+    first.length === second.length &&
+    first.every((value, index) => value === second[index])
+  );
+}
+
+function areSellerProductPayloadsEqual(
+  first: SellerProductPayload,
+  second: SellerProductPayload,
+) {
+  const normalizedFirst = normalizePayloadForComparison(first);
+  const normalizedSecond = normalizePayloadForComparison(second);
+
+  return (
+    normalizedFirst.name === normalizedSecond.name &&
+    normalizedFirst.categoryId === normalizedSecond.categoryId &&
+    normalizedFirst.subcategoryId === normalizedSecond.subcategoryId &&
+    normalizedFirst.description === normalizedSecond.description &&
+    normalizedFirst.priceWithVat === normalizedSecond.priceWithVat &&
+    normalizedFirst.vatRate === normalizedSecond.vatRate &&
+    normalizedFirst.size === normalizedSecond.size &&
+    normalizedFirst.unit === normalizedSecond.unit &&
+    normalizedFirst.mainImageFileId === normalizedSecond.mainImageFileId &&
+    areStringArraysEqual(
+      normalizedFirst.galleryImageFileIds,
+      normalizedSecond.galleryImageFileIds,
+    )
+  );
+}
+
+function revalidateSellerProductUpdatePaths(productId: string) {
+  revalidatePath("/seller");
+  revalidatePath(`/seller/products/${productId}`);
+  revalidatePath(`/seller/products/${productId}/edit`);
+  revalidatePath("/admin");
+  revalidatePath("/admin/products/moderation");
+  revalidatePath("/admin/notifications");
+}
+
 export async function createSellerProductAction(formData: FormData) {
   const user = await requireUser(["seller"]);
 
@@ -429,8 +493,18 @@ export async function requestSellerProductUpdateAction(formData: FormData) {
   const [row] = await db
     .select({
       productId: products.id,
+      name: products.name,
+      categoryId: products.categoryId,
+      subcategoryId: products.subcategoryId,
+      description: products.description,
+      priceWithVat: sellerOffers.priceWithVat,
+      vatRate: sellerOffers.vatRate,
+      size: products.size,
+      unit: products.unit,
       mainImageFileId: products.mainImageFileId,
       offerId: sellerOffers.id,
+      offerStatus: sellerOffers.status,
+      offerModerationComment: sellerOffers.moderationComment,
     })
     .from(products)
     .innerJoin(
@@ -450,6 +524,7 @@ export async function requestSellerProductUpdateAction(formData: FormData) {
   const [existingPendingRequest] = await db
     .select({
       id: sellerProductChangeRequests.id,
+      type: sellerProductChangeRequests.type,
       payload: sellerProductChangeRequests.payload,
     })
     .from(sellerProductChangeRequests)
@@ -518,6 +593,93 @@ export async function requestSellerProductUpdateAction(formData: FormData) {
     ]),
   ).slice(0, 10);
 
+  const currentPayload: SellerProductPayload = {
+    name: row.name,
+    categoryId: row.categoryId,
+    subcategoryId: row.subcategoryId,
+    description: row.description,
+    priceWithVat: row.priceWithVat,
+    vatRate: row.vatRate || "22.00",
+    size: row.size,
+    unit: row.unit,
+    mainImageFileId: row.mainImageFileId,
+    galleryImageFileIds: publishedGalleryFileIds,
+  };
+
+  if (areSellerProductPayloadsEqual(nextPayload, currentPayload)) {
+    if (existingPendingRequest?.type !== "update") {
+      redirectWithProductError(
+        returnPath,
+        "Нет изменений для отправки на модерацию.",
+      );
+    }
+
+    const [previousModeratedRequest] = await db
+      .select({
+        status: sellerProductChangeRequests.status,
+        moderationComment: sellerProductChangeRequests.moderationComment,
+      })
+      .from(sellerProductChangeRequests)
+      .where(
+        and(
+          eq(sellerProductChangeRequests.productId, productId),
+          eq(sellerProductChangeRequests.sellerId, sellerId),
+          ne(sellerProductChangeRequests.status, "on_moderation"),
+        ),
+      )
+      .orderBy(desc(sellerProductChangeRequests.submittedAt))
+      .limit(1);
+
+    await db.transaction(async (tx) => {
+      await tx
+        .update(sellerProductChangeRequests)
+        .set({
+          status: "hidden",
+          payload: nextPayload,
+          moderationComment:
+            "Изменения отменены продавцом: версия совпадает с текущей карточкой.",
+          moderatedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(sellerProductChangeRequests.id, existingPendingRequest.id));
+
+      const restoredOfferStatus =
+        previousModeratedRequest?.status === "rejected" ||
+        previousModeratedRequest?.status === "published"
+          ? previousModeratedRequest.status
+          : row.offerStatus;
+
+      if (row.offerStatus !== "published" && restoredOfferStatus !== row.offerStatus) {
+        await tx
+          .update(sellerOffers)
+          .set({
+            status: restoredOfferStatus,
+            moderationComment:
+              restoredOfferStatus === "rejected"
+                ? previousModeratedRequest?.moderationComment ??
+                  row.offerModerationComment
+                : null,
+            updatedAt: new Date(),
+          })
+          .where(eq(sellerOffers.id, row.offerId));
+      }
+
+      await tx.insert(auditEvents).values({
+        actorId: user.id,
+        action: "seller_product.update_request_cancel",
+        entityType: "seller_product_change_request",
+        entityId: existingPendingRequest.id,
+        metadata: {
+          productId,
+          offerId: row.offerId,
+        },
+      });
+    });
+
+    revalidateSellerProductUpdatePaths(productId);
+    redirect("/seller?productUpdateCanceled=1");
+  }
+
   await db.transaction(async (tx) => {
     const [request] = existingPendingRequest
       ? await tx
@@ -581,12 +743,7 @@ export async function requestSellerProductUpdateAction(formData: FormData) {
     });
   });
 
-  revalidatePath("/seller");
-  revalidatePath(`/seller/products/${productId}`);
-  revalidatePath(`/seller/products/${productId}/edit`);
-  revalidatePath("/admin");
-  revalidatePath("/admin/products/moderation");
-  revalidatePath("/admin/notifications");
+  revalidateSellerProductUpdatePaths(productId);
 
   redirect("/seller?productSubmitted=1");
 }

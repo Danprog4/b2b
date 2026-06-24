@@ -91,6 +91,7 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
   const user = await requireUser(["seller"]);
   const search = (await searchParams) ?? {};
   const productSubmitted = search.productSubmitted === "1";
+  const productUpdateCanceled = search.productUpdateCanceled === "1";
   const productDeleted = search.productDeleted === "1";
   const productDeleteError =
     typeof search.productDeleteError === "string" ? search.productDeleteError : null;
@@ -398,6 +399,14 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
           items={[
             ...(productSubmitted
               ? [{ message: "Товар отправлен на модерацию." }]
+              : []),
+            ...(productUpdateCanceled
+              ? [
+                  {
+                    message:
+                      "Изменения отменены: карточка совпадает с текущей версией.",
+                  },
+                ]
               : []),
             ...(productDeleted ? [{ message: "Товар удален." }] : []),
             ...(productDeleteError
