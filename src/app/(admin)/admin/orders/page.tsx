@@ -15,6 +15,7 @@ import {
 import { Download, ExternalLink, FileText, Search, X } from "lucide-react";
 import Link from "next/link";
 
+import { OrderStatusBadge } from "@/components/orders/order-status-badge";
 import { db } from "@/db";
 import {
   auditEvents,
@@ -392,10 +393,10 @@ export default async function AdminOrdersPage({
         </div>
 
         <form
-          className="mt-6 rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200"
+          className="mt-6 overflow-x-auto rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200"
           method="get"
         >
-          <div className="grid gap-3 xl:grid-cols-[1.25fr_180px_220px_180px_160px]">
+          <div className="grid min-w-[1320px] gap-3 xl:grid-cols-[1.25fr_180px_220px_180px_160px]">
             <label className="grid gap-2 text-sm font-bold text-slate-700">
               Поиск
               <div className="relative">
@@ -470,7 +471,7 @@ export default async function AdminOrdersPage({
             </div>
           </div>
 
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+          <div className="mt-4 grid min-w-[1320px] gap-3 md:grid-cols-2 xl:grid-cols-6">
             <label className="grid gap-2 text-sm font-bold text-slate-700">
               Компания
               <input
@@ -608,9 +609,7 @@ export default async function AdminOrdersPage({
                       className="block px-5 py-4"
                       href={orderHref}
                     >
-                      <span className="inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-800">
-                        {getOrderStatusLabel(order.status)}
-                      </span>
+                      <OrderStatusBadge status={order.status} />
                     </Link>
                   </td>
                   <td className="p-0">

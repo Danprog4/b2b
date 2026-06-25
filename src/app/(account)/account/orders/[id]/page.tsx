@@ -2,13 +2,13 @@ import { Clock3, Download, FileText, Paperclip } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { OrderStatusBadge } from "@/components/orders/order-status-badge";
 import {
   getCurrentBuyerOrderCompanyContract,
   getCurrentBuyerOrderDocuments,
 } from "@/lib/documents/queries";
 import { getAccountBreadcrumbSource } from "@/lib/account/breadcrumbs";
 import { formatFileSize, getDocumentTypeLabel } from "@/lib/documents/types";
-import { getOrderStatusLabel } from "@/lib/orders/status";
 import {
   getCurrentBuyerOrder,
   getCurrentBuyerOrderStatusHistory,
@@ -122,9 +122,10 @@ export default async function AccountOrderPage({
                 {order.companyInn}
               </p>
             </div>
-            <span className="rounded-lg bg-blue-50 px-3 py-2 text-sm font-bold text-blue-800">
-              {getOrderStatusLabel(order.status)}
-            </span>
+            <OrderStatusBadge
+              status={order.status}
+              className="rounded-lg px-3 py-2 text-sm"
+            />
           </div>
 
           {order.comment ? (

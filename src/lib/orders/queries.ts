@@ -362,7 +362,7 @@ function buildOrderStatusHistory(
     }
   }
 
-  return entries.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  return entries.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 }
 
 async function getOrderAuditEvents(orderId: string) {

@@ -20,6 +20,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const resubmitted = params.resubmitted === "1";
   const reset = params.reset === "1";
   const next = typeof params.next === "string" ? params.next : "";
+  const registerHref = next
+    ? `/register?next=${encodeURIComponent(next)}`
+    : "/register";
 
   return (
     <main className="min-h-screen bg-[#f4f6fb] px-5 py-10">
@@ -107,7 +110,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
         <p className="mt-6 text-sm text-slate-600">
           Нет аккаунта?{" "}
-          <Link className="font-bold text-[#1157ff]" href="/register">
+          <Link className="font-bold text-[#1157ff]" href={registerHref}>
             Зарегистрировать компанию
           </Link>
         </p>

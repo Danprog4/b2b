@@ -12,6 +12,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { OrderLineCard } from "@/components/orders/order-line-card";
+import { OrderStatusBadge } from "@/components/orders/order-status-badge";
 import { FileUploadField } from "@/components/ui/file-upload-field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { ToastMessages } from "@/components/ui/toast-message";
@@ -316,9 +317,10 @@ export default async function AdminOrderPage({
               Обновлен: {formatDateTime(order.updatedAt)}
             </p>
           </div>
-            <span className="rounded-lg bg-blue-50 px-3 py-2 text-sm font-bold text-blue-800">
-              {getOrderStatusLabel(order.status)}
-            </span>
+            <OrderStatusBadge
+              status={order.status}
+              className="rounded-lg px-3 py-2 text-sm"
+            />
           </div>
         </section>
 

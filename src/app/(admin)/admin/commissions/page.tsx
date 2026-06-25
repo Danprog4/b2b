@@ -2,6 +2,7 @@ import { and, desc, eq, gte, inArray, lte } from "drizzle-orm";
 import { Download, Filter } from "lucide-react";
 import Link from "next/link";
 
+import { OrderStatusBadge } from "@/components/orders/order-status-badge";
 import { db } from "@/db";
 import {
   orderItems,
@@ -198,7 +199,8 @@ export default async function AdminCommissionsPage({
           </div>
         </div>
 
-        <form className="mt-5 grid gap-3 rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200 lg:grid-cols-[1fr_180px_170px_160px_160px_auto]">
+        <form className="mt-5 overflow-x-auto rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <div className="grid min-w-[1120px] gap-3 lg:grid-cols-[1fr_180px_170px_160px_160px_auto]">
           <label className="grid gap-2 text-sm font-bold text-slate-700">
             Продавец
             <select
@@ -268,6 +270,7 @@ export default async function AdminCommissionsPage({
               Фильтр
             </button>
           </div>
+          </div>
         </form>
 
         <section className="mt-5 grid gap-4 md:grid-cols-3">
@@ -299,7 +302,7 @@ export default async function AdminCommissionsPage({
           </Link>
         </section>
 
-        <section className="mt-5 overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+        <section className="mt-5 overflow-x-auto rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
           <table className="w-full min-w-[1120px] border-collapse text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase text-slate-500">
               <tr>
@@ -355,8 +358,8 @@ export default async function AdminCommissionsPage({
                       {row.sku}
                     </span>
                   </td>
-                  <td className="px-5 py-4 font-bold">
-                    {getOrderStatusLabel(row.orderStatus)}
+                  <td className="px-5 py-4">
+                    <OrderStatusBadge status={row.orderStatus} />
                   </td>
                   <td className="px-5 py-4">
                     <span

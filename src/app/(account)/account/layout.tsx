@@ -1,3 +1,4 @@
+import { PublicHeader } from "@/components/public/public-header";
 import { requireUser } from "@/lib/auth/session";
 
 export default async function AccountLayout({
@@ -7,5 +8,10 @@ export default async function AccountLayout({
 }>) {
   await requireUser(["buyer"]);
 
-  return children;
+  return (
+    <>
+      <PublicHeader />
+      {children}
+    </>
+  );
 }

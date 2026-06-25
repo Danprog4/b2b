@@ -420,7 +420,7 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
           ]}
         />
 
-        <section className="mt-5 grid gap-5 2xl:grid-cols-[minmax(0,1fr)_340px]">
+        <section className="mt-5 grid gap-5 2xl:grid-cols-[minmax(0,1fr)_420px]">
           <div className="grid min-w-0 gap-5">
             <section
               className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-100"
@@ -683,28 +683,32 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                 <h2 className="text-xl font-black text-slate-950">Финансы</h2>
               </div>
               <div className="mt-5 grid gap-3 text-sm">
-                <div className="flex justify-between gap-3">
+                <div className="grid grid-cols-[minmax(0,1fr)_max-content] items-start gap-3">
                   <span className="text-slate-500">Оплаченные продажи</span>
-                  <span className="font-black">{formatCurrency(salesAmount)}</span>
+                  <span className="text-right font-black">
+                    {formatCurrency(salesAmount)}
+                  </span>
                 </div>
-                <div className="flex justify-between gap-3">
+                <div className="grid grid-cols-[minmax(0,1fr)_max-content] items-start gap-3">
                   <span className="text-slate-500">К выплате</span>
-                  <span className="font-black">{formatCurrency(salesAmount)}</span>
+                  <span className="text-right font-black">
+                    {formatCurrency(salesAmount)}
+                  </span>
                 </div>
               </div>
               <p className="mt-4 rounded-lg bg-slate-50 px-3 py-2 text-sm leading-6 text-slate-600">
                 Расчет справочный. Выплаты фиксируются вручную администратором.
               </p>
-              <div className="mt-4 grid gap-2 rounded-lg bg-slate-50 px-3 py-3 text-sm leading-6 text-slate-600">
-                <div className="flex justify-between gap-3">
+              <div className="mt-4 grid gap-3 rounded-lg bg-slate-50 px-3 py-3 text-sm leading-6 text-slate-600">
+                <div className="grid gap-1 sm:grid-cols-[minmax(0,1fr)_max-content] sm:items-start sm:gap-4">
                   <span>Расчетный период</span>
-                  <span className="font-bold text-slate-950">
+                  <span className="font-bold text-slate-950 sm:text-right sm:whitespace-nowrap">
                     Оплаченные заказы
                   </span>
                 </div>
-                <div className="flex justify-between gap-3">
+                <div className="grid gap-1 sm:grid-cols-[minmax(0,1fr)_max-content] sm:items-start sm:gap-4">
                   <span>Статус выплат</span>
-                  <span className="font-bold text-slate-950">
+                  <span className="font-bold text-slate-950 sm:text-right sm:whitespace-nowrap">
                     Ручной расчет
                   </span>
                 </div>
@@ -723,12 +727,12 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                       className="rounded-lg bg-slate-50 px-3 py-3 text-sm leading-6 text-slate-600"
                       key={payment.id}
                     >
-                      <div className="flex justify-between gap-3">
+                      <div className="grid gap-1 sm:grid-cols-[minmax(0,1fr)_max-content] sm:items-start sm:gap-3">
                         <span>
                           {formatDateTime(payment.periodFrom)} -{" "}
                           {formatDateTime(payment.periodTo)}
                         </span>
-                        <span className="font-black text-slate-950">
+                        <span className="font-black text-slate-950 sm:text-right sm:whitespace-nowrap">
                           {formatCurrency(Number(payment.payoutAmount))}
                         </span>
                       </div>
@@ -745,7 +749,7 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                 )}
               </div>
               <Link
-                className="mt-4 flex h-11 items-center justify-center gap-2 rounded-lg bg-slate-900 text-sm font-bold text-white transition hover:bg-slate-800"
+                className="mt-4 flex min-h-11 items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-3 text-center text-sm font-bold leading-5 text-white transition hover:bg-slate-800"
                 href="/seller/orders/export"
               >
                 <Download size={16} />

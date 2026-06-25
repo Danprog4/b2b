@@ -3,6 +3,7 @@ import { CreditCard, Download, FileText, Package, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { OrderStatusBadge } from "@/components/orders/order-status-badge";
 import { FileUploadField } from "@/components/ui/file-upload-field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { ToastMessages } from "@/components/ui/toast-message";
@@ -39,7 +40,6 @@ import {
   getDocumentTypeLabel,
   sellerDocumentTypes,
 } from "@/lib/documents/types";
-import { getOrderStatusLabel } from "@/lib/orders/status";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { SellerForm } from "../seller-form";
 
@@ -883,9 +883,9 @@ export default async function AdminSellerPage({
                       <span className="block font-black">
                         {formatCurrency(order.sellerAmount)}
                       </span>
-                      <span className="mt-1 block text-slate-500">
-                        {getOrderStatusLabel(order.status)} · комиссия{" "}
-                        {formatCurrency(order.commissionAmount)}
+                      <span className="mt-2 flex flex-wrap justify-end gap-2 text-slate-500">
+                        <OrderStatusBadge status={order.status} />
+                        <span>комиссия {formatCurrency(order.commissionAmount)}</span>
                       </span>
                     </span>
                   </Link>

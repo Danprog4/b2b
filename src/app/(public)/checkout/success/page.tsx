@@ -10,8 +10,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { OrderStatusBadge } from "@/components/orders/order-status-badge";
 import { getCurrentBuyerOrder } from "@/lib/orders/queries";
-import { getOrderStatusLabel } from "@/lib/orders/status";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
 type CheckoutSuccessPageProps = {
@@ -79,9 +79,10 @@ export default async function CheckoutSuccessPage({
                     : `Заказ ${order.number} создан, счет на оплату формируется и появится в личном кабинете после готовности.`}
               </p>
             </div>
-            <span className="rounded-lg bg-blue-50 px-3 py-2 text-sm font-bold text-blue-800">
-              {getOrderStatusLabel(order.status)}
-            </span>
+            <OrderStatusBadge
+              status={order.status}
+              className="rounded-lg px-3 py-2 text-sm"
+            />
           </div>
 
           <div className="mt-8 grid gap-4 md:grid-cols-3">

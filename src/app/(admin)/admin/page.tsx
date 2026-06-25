@@ -1,697 +1,454 @@
-import { and, count, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, count, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import { Bell } from "lucide-react";
 import Link from "next/link";
 
-import { LogoutButton } from "@/components/logout-button";
 import { db } from "@/db";
-import {
-  buyerCompanies,
-  chats,
-  contracts,
-  documents,
-  emailOutbox,
-  invoices,
-  messages,
-  notifications,
-  orderItems,
-  orders,
-  sellerProductChangeRequests,
-  sellers,
-  systemEvents,
-  documentVersions,
-} from "@/db/schema";
-import { getCompanyDocumentReadiness } from "@/lib/account/company-documents";
-import { withAdminBreadcrumbSource } from "@/lib/admin/breadcrumbs";
+import { notifications, orderItems, orders, users } from "@/db/schema";
 import { requireUser } from "@/lib/auth/session";
-import { getAdminPendingChatCount } from "@/lib/chat/queries";
-import { filterCurrentBuyerCompanyDocuments } from "@/lib/documents/queries";
-import { getDocumentTypeLabel } from "@/lib/documents/types";
-import { getOrderStatusLabel } from "@/lib/orders/status";
-import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
+import { PeriodPicker } from "./period-picker";
 
-const adminModules = [
-  {
-    title: "Заказы",
-    href: "/admin/orders",
-    description: "Обработка заказов, смена статусов, документы и счета.",
-  },
-  {
-    title: "Товары",
-    href: "/admin/products",
-    description: "Создание, редактирование, цены, НДС, фото и активность товаров.",
-  },
-  {
-    title: "Модерация товаров",
-    href: "/admin/products/moderation",
-    description: "Новые товары и изменения продавцов, ожидающие решения.",
-  },
-  {
-    title: "Категории",
-    href: "/admin/categories",
-    description: "Структура каталога: категории, подкатегории и изображения.",
-  },
-  {
-    title: "Пользователи",
-    href: "/admin/users",
-    description: "Аккаунты покупателей, продавцов и администраторов.",
-  },
-  {
-    title: "Компании",
-    href: "/admin/companies",
-    description: "Карточки компаний, реквизиты, документы и связанные пользователи.",
-  },
-  {
-    title: "Заявки на присоединение",
-    href: "/admin/company-join-requests",
-    description: "Подтверждение пользователей, которые хотят подключиться к компании.",
-  },
-  {
-    title: "Продавцы",
-    href: "/admin/sellers",
-    description: "Профили продавцов, документы, заказы и финансовые отчеты.",
-  },
-  {
-    title: "Комиссии",
-    href: "/admin/commissions",
-    description: "Отчет 5% по оплаченным и выданным позициям с фильтрами.",
-  },
-  {
-    title: "Документы",
-    href: "/admin/documents",
-    description: "Загрузка, актуальные файлы, видимость и управление документами.",
-  },
-  {
-    title: "Баннеры",
-    href: "/admin/banners",
-    description: "Промо-блоки главной страницы и их порядок показа.",
-  },
-  {
-    title: "Страницы",
-    href: "/admin/pages",
-    description: "Информационные страницы сайта: публикация и редактирование.",
-  },
-  {
-    title: "Чаты",
-    href: "/admin/chats",
-    description: "Сообщения покупателей, ответы операторов и Telegram-топики.",
-  },
-  {
-    title: "Импорт товаров",
-    href: "/admin/products/import",
-    description: "Массовое создание и обновление товаров через Excel-файл.",
-  },
-  {
-    title: "Экспорт заказов",
-    href: "/admin/orders/export",
-    description: "Выгрузка списка заказов в Excel для учета и сверки.",
-    actionLabel: "Скачать",
-  },
-  {
-    title: "Email-очередь",
-    href: "/admin/email-outbox",
-    description: "Контроль исходящих писем, статусов отправки и ошибок.",
-  },
-  {
-    title: "Уведомления",
-    href: "/admin/notifications",
-    description: "Системные уведомления администратора и история событий.",
-  },
-  {
-    title: "Ошибки системы",
-    href: "/admin/system-events?severity=error",
-    description: "Журнал технических ошибок и событий, требующих внимания.",
-  },
-  {
-    title: "Audit log",
-    href: "/admin/audit-log",
-    description: "Критические действия пользователей, администраторов и системы.",
-  },
-];
+type ChartPoint = {
+  label: string;
+  value: number;
+};
 
-const dashboardStatuses = [
-  ["accepted", "Приняты"],
-  ["paid", "Оплачены"],
-  ["issued", "Выданные"],
-  ["cancelled", "Отменены"],
-] as const;
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
-async function countOrdersByStatus(status: (typeof dashboardStatuses)[number][0]) {
-  const [row] = await db
-    .select({ count: count() })
-    .from(orders)
-    .where(eq(orders.status, status));
+const chartDays = 7;
 
-  return row?.count ?? 0;
+function getDefaultChartStartDate() {
+  return getRangeStartDate(chartDays);
 }
 
-export default async function AdminPage() {
+function getRangeStartDate(days: number) {
+  const date = getDefaultChartEndDate();
+  date.setDate(date.getDate() - (days - 1));
+  date.setHours(0, 0, 0, 0);
+
+  return date;
+}
+
+function getDefaultChartEndDate() {
+  const date = new Date();
+  date.setHours(23, 59, 59, 999);
+
+  return date;
+}
+
+function getParam(search: Awaited<SearchParams>, key: string) {
+  const value = search[key];
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function parseDateInput(value: string, endOfDay = false) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return null;
+  }
+
+  const date = new Date(`${value}T00:00:00`);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  if (endOfDay) {
+    date.setHours(23, 59, 59, 999);
+  }
+
+  return date;
+}
+
+function toDateInputValue(value: Date) {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function getDateKeys(startDate: Date, endDate: Date) {
+  const keys: string[] = [];
+  const cursor = new Date(startDate);
+  cursor.setHours(0, 0, 0, 0);
+  const end = new Date(endDate);
+  end.setHours(0, 0, 0, 0);
+
+  while (cursor <= end) {
+    keys.push(cursor.toISOString().slice(0, 10));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return keys;
+}
+
+function getChartPeriod(searchParams: Awaited<SearchParams>) {
+  const defaultStartDate = getDefaultChartStartDate();
+  const defaultEndDate = getDefaultChartEndDate();
+  const fromParam = getParam(searchParams, "from");
+  const toParam = getParam(searchParams, "to");
+  const parsedStartDate = parseDateInput(fromParam);
+  const parsedEndDate = parseDateInput(toParam, true);
+
+  if (parsedStartDate && parsedEndDate && parsedStartDate <= parsedEndDate) {
+    return {
+      startDate: parsedStartDate,
+      endDate: parsedEndDate,
+    };
+  }
+
+  return {
+    startDate: defaultStartDate,
+    endDate: defaultEndDate,
+  };
+}
+
+function getPeriodLabel(dayCount: number) {
+  return `${dayCount} ${dayCount === 1 ? "день" : "дней"}`;
+}
+
+function getDayLabel(dateKey: string) {
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "2-digit",
+    month: "short",
+  }).format(new Date(`${dateKey}T00:00:00`));
+}
+
+function formatChartValue(value: number, mode: "currency" | "number") {
+  if (mode === "currency") {
+    return new Intl.NumberFormat("ru-RU", {
+      currency: "RUB",
+      notation: "compact",
+      style: "currency",
+      maximumFractionDigits: 1,
+    }).format(value);
+  }
+
+  return new Intl.NumberFormat("ru-RU", {
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function buildChartPoints(
+  dateKeys: string[],
+  rows: { day: string; value: number | string }[],
+) {
+  const valuesByDay = new Map(
+    rows.map((row) => [row.day, Number(row.value) || 0]),
+  );
+
+  return dateKeys.map((dateKey) => ({
+    label: getDayLabel(dateKey),
+    value: valuesByDay.get(dateKey) ?? 0,
+  }));
+}
+
+function LineChart({
+  title,
+  points,
+  periodEndValue,
+  periodLabel,
+  periodStartValue,
+  valueMode,
+  strokeClassName,
+}: {
+  title: string;
+  points: ChartPoint[];
+  periodEndValue: string;
+  periodLabel: string;
+  periodStartValue: string;
+  valueMode: "currency" | "number";
+  strokeClassName: string;
+}) {
+  const width = 980;
+  const height = 300;
+  const paddingX = 54;
+  const paddingTop = 58;
+  const paddingBottom = 46;
+  const plotWidth = width - paddingX * 2;
+  const plotHeight = height - paddingTop - paddingBottom;
+  const realMaxValue = Math.max(...points.map((point) => point.value), 0);
+  const scaleMaxValue = realMaxValue > 0 ? realMaxValue : 1;
+  const coordinates = points.map((point, index) => {
+    const x =
+      paddingX + (plotWidth * index) / Math.max(points.length - 1, 1);
+    const y =
+      paddingTop + plotHeight - (point.value / scaleMaxValue) * plotHeight;
+
+    return { ...point, x, y };
+  });
+  const linePoints = coordinates
+    .map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`)
+    .join(" ");
+  const labelStep = Math.max(1, Math.ceil(points.length / 10));
+  const gridLines = [0, 1, 2, 3].map((index) => {
+    const y = paddingTop + (plotHeight * index) / 3;
+    const value = realMaxValue - (realMaxValue * index) / 3;
+
+    return { y, value };
+  });
+
+  return (
+    <section className="rounded-lg bg-white p-5 shadow-sm ring-1 ring-slate-200">
+      <div className="flex items-center justify-between gap-4">
+        <h2 className="text-lg font-black text-slate-950">{title}</h2>
+        <PeriodPicker
+          endDateValue={periodEndValue}
+          periodLabel={periodLabel}
+          startDateValue={periodStartValue}
+        />
+      </div>
+      <div className="mt-4 rounded-lg bg-slate-100 p-3">
+        <svg
+          aria-label={title}
+          className="h-[300px] w-full overflow-visible"
+          preserveAspectRatio="none"
+          role="img"
+          viewBox={`0 0 ${width} ${height}`}
+        >
+          {gridLines.map((line) => (
+            <g key={line.y}>
+              <line
+                className="stroke-slate-200"
+                strokeWidth="1"
+                x1={paddingX}
+                x2={width - paddingX}
+                y1={line.y}
+                y2={line.y}
+              />
+              <text
+                className="fill-slate-400 text-[11px] font-bold"
+                x={paddingX - 14}
+                y={line.y + 4}
+                textAnchor="end"
+              >
+                {formatChartValue(line.value, valueMode)}
+              </text>
+            </g>
+          ))}
+          <polyline
+            className={strokeClassName}
+            fill="none"
+            points={linePoints}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="4"
+          />
+          {coordinates.map((point, index) => (
+            <g key={point.label}>
+              <circle
+                className="fill-white stroke-slate-950"
+                cx={point.x}
+                cy={point.y}
+                r="5"
+                strokeWidth="3"
+              />
+              {index % labelStep === 0 || index === coordinates.length - 1 ? (
+                <text
+                  className="fill-slate-500 text-[12px] font-bold"
+                  textAnchor="middle"
+                  x={point.x}
+                  y={height - 14}
+                >
+                  {point.label}
+                </text>
+              ) : null}
+            </g>
+          ))}
+        </svg>
+      </div>
+    </section>
+  );
+}
+
+export default async function AdminPage({
+  searchParams,
+}: {
+  searchParams?: SearchParams;
+}) {
   const user = await requireUser(["admin"]);
+  const search = (await searchParams) ?? {};
+  const { startDate: chartStartDate, endDate: chartEndDate } =
+    getChartPeriod(search);
+  const dateKeys = getDateKeys(chartStartDate, chartEndDate);
+  const periodLabel = getPeriodLabel(dateKeys.length);
+  const salesDay = sql<string>`to_char(${orders.createdAt}, 'YYYY-MM-DD')`;
+  const userDay = sql<string>`to_char(${users.createdAt}, 'YYYY-MM-DD')`;
+  const commissionAmountSql = sql<string>`
+    coalesce(
+      sum(
+        case
+          when ${orderItems.commissionAmount}::numeric > 0
+            then ${orderItems.commissionAmount}::numeric
+          else ${orderItems.lineTotal}::numeric * 0.05
+        end
+      ),
+      0
+    )
+  `;
   const [
     notificationCounter,
-    acceptedOrdersCount,
-    paidOrdersCount,
-    issuedOrdersCount,
-    cancelledOrdersCount,
-    latestOrders,
-    latestCompanies,
-    latestMessages,
-    companyDocumentCandidates,
-    latestDocuments,
-    invoiceErrorCounter,
-    emailErrorCounter,
-    telegramErrorCounter,
-    systemErrorCounter,
-    moderationCounter,
-    contractErrorCounter,
-    newDocumentsCounter,
-    pendingChatCount,
     financeSummary,
+    newBuyerCounter,
+    totalOrderCounter,
+    commissionRows,
+    newBuyerRows,
   ] = await Promise.all([
     db
       .select({ count: count() })
       .from(notifications)
       .where(and(eq(notifications.userId, user.id), eq(notifications.isRead, false)))
       .then(([row]) => row),
-    countOrdersByStatus("accepted"),
-    countOrdersByStatus("paid"),
-    countOrdersByStatus("issued"),
-    countOrdersByStatus("cancelled"),
-    db
-      .select({
-        id: orders.id,
-        number: orders.number,
-        status: orders.status,
-        totalAmount: orders.totalAmount,
-        createdAt: orders.createdAt,
-        companyName: buyerCompanies.name,
-      })
-      .from(orders)
-      .innerJoin(buyerCompanies, eq(buyerCompanies.id, orders.buyerCompanyId))
-      .orderBy(desc(orders.createdAt))
-      .limit(5),
-    db
-      .select({
-        id: buyerCompanies.id,
-        name: buyerCompanies.name,
-        inn: buyerCompanies.inn,
-        createdAt: buyerCompanies.createdAt,
-      })
-      .from(buyerCompanies)
-      .orderBy(desc(buyerCompanies.createdAt))
-      .limit(5),
-    db
-      .select({
-        id: messages.id,
-        chatId: chats.id,
-        text: messages.text,
-        senderType: messages.senderType,
-        deliveryStatus: messages.deliveryStatus,
-        createdAt: messages.createdAt,
-        companyName: buyerCompanies.name,
-      })
-      .from(messages)
-      .innerJoin(chats, eq(chats.id, messages.chatId))
-      .innerJoin(buyerCompanies, eq(buyerCompanies.id, chats.buyerCompanyId))
-      .orderBy(desc(messages.createdAt))
-      .limit(5),
-    db
-      .select({
-        id: buyerCompanies.id,
-        name: buyerCompanies.name,
-        inn: buyerCompanies.inn,
-      })
-      .from(buyerCompanies)
-      .orderBy(desc(buyerCompanies.createdAt))
-      .limit(80),
-    db
-      .select({
-        id: documents.id,
-        type: documents.type,
-        title: documents.title,
-        target: documents.target,
-        buyerCompanyId: documents.buyerCompanyId,
-        createdAt: documents.createdAt,
-        uploadedAt: documentVersions.createdAt,
-        buyerCompanyName: buyerCompanies.name,
-        sellerName: sellers.name,
-      })
-      .from(documents)
-      .innerJoin(
-        documentVersions,
-        and(
-          eq(documentVersions.documentId, documents.id),
-          eq(documentVersions.version, documents.currentVersion),
-        ),
-      )
-      .leftJoin(buyerCompanies, eq(buyerCompanies.id, documents.buyerCompanyId))
-      .leftJoin(sellers, eq(sellers.id, documents.sellerId))
-      .where(
-        and(
-          eq(documents.isActive, true),
-          sql`${documents.target} in ('buyer_company', 'seller')`,
-        ),
-      )
-      .orderBy(desc(documentVersions.createdAt), desc(documents.createdAt))
-      .limit(24)
-      .then((rows) => filterCurrentBuyerCompanyDocuments(rows).slice(0, 8)),
-    db
-      .select({ count: count() })
-      .from(invoices)
-      .where(eq(invoices.status, "failed"))
-      .then(([row]) => row),
-    db
-      .select({ count: count() })
-      .from(emailOutbox)
-      .where(eq(emailOutbox.status, "failed"))
-      .then(([row]) => row),
-    db
-      .select({ count: count() })
-      .from(messages)
-      .where(eq(messages.deliveryStatus, "failed"))
-      .then(([row]) => row),
-    db
-      .select({ count: count() })
-      .from(systemEvents)
-      .where(eq(systemEvents.severity, "error"))
-      .then(([row]) => row),
-    db
-      .select({ count: count() })
-      .from(sellerProductChangeRequests)
-      .where(eq(sellerProductChangeRequests.status, "on_moderation"))
-      .then(([row]) => row),
-    db
-      .select({ count: count() })
-      .from(contracts)
-      .where(eq(contracts.status, "failed"))
-      .then(([row]) => row),
-    db
-      .select({
-        id: documents.id,
-        target: documents.target,
-        buyerCompanyId: documents.buyerCompanyId,
-        type: documents.type,
-      })
-      .from(documents)
-      .where(
-        and(
-          eq(documents.isActive, true),
-          inArray(documents.target, ["buyer_company", "seller"]),
-        ),
-      )
-      .then((rows) => ({
-        count: filterCurrentBuyerCompanyDocuments(rows).length,
-      })),
-    getAdminPendingChatCount(),
     db
       .select({
         salesAmount: sql<string>`coalesce(sum(${orderItems.lineTotal}), 0)`,
-        commissionAmount: sql<string>`coalesce(sum(${orderItems.lineTotal} * 0.05), 0)`,
+        commissionAmount: commissionAmountSql,
       })
       .from(orderItems)
       .innerJoin(orders, eq(orders.id, orderItems.orderId))
       .where(inArray(orders.status, ["paid", "issued"]))
       .then(([row]) => row),
+    db
+      .select({ count: count() })
+      .from(users)
+      .where(
+        and(
+          eq(users.role, "buyer"),
+          gte(users.createdAt, chartStartDate),
+          lte(users.createdAt, chartEndDate),
+        ),
+      )
+      .then(([row]) => row),
+    db
+      .select({ count: count() })
+      .from(orders)
+      .then(([row]) => row),
+    db
+      .select({
+        day: salesDay,
+        value: commissionAmountSql,
+      })
+      .from(orderItems)
+      .innerJoin(orders, eq(orders.id, orderItems.orderId))
+      .where(
+        and(
+          inArray(orders.status, ["paid", "issued"]),
+          gte(orders.createdAt, chartStartDate),
+          lte(orders.createdAt, chartEndDate),
+        ),
+      )
+      .groupBy(salesDay)
+      .orderBy(salesDay),
+    db
+      .select({
+        day: userDay,
+        value: count(),
+      })
+      .from(users)
+      .where(
+        and(
+          eq(users.role, "buyer"),
+          gte(users.createdAt, chartStartDate),
+          lte(users.createdAt, chartEndDate),
+        ),
+      )
+      .groupBy(userDay)
+      .orderBy(userDay),
   ]);
   const unreadNotifications = notificationCounter?.count ?? 0;
-  const companyDocumentReadiness = await Promise.all(
-    companyDocumentCandidates.map(async (company) => {
-      const readiness = await getCompanyDocumentReadiness(company.id);
-
-      return {
-        ...company,
-        hasCompanyCard: readiness.uploadedTypes.includes("company_card"),
-        hasCharter: readiness.uploadedTypes.includes("charter"),
-      };
-    }),
-  );
-  const companiesMissingRequiredDocuments = companyDocumentReadiness
-    .filter((company) => !company.hasCompanyCard || !company.hasCharter)
-    .slice(0, 6);
-  const statusCounters = [
-    [dashboardStatuses[0][1], acceptedOrdersCount, "/admin/orders?status=accepted"],
-    [dashboardStatuses[1][1], paidOrdersCount, "/admin/orders?status=paid"],
-    [dashboardStatuses[2][1], issuedOrdersCount, "/admin/orders?status=issued"],
-    [
-      dashboardStatuses[3][1],
-      cancelledOrdersCount,
-      "/admin/orders?status=cancelled",
-    ],
-  ] as const;
-  const errorCounters = [
-    ["Ошибки счетов", invoiceErrorCounter?.count ?? 0, "/admin/orders"],
-    ["Ошибки email", emailErrorCounter?.count ?? 0, "/admin/email-outbox"],
-    [
-      "Ошибки Telegram",
-      telegramErrorCounter?.count ?? 0,
-      "/admin/system-events?type=telegram&severity=error",
-    ],
-    [
-      "Системные ошибки",
-      systemErrorCounter?.count ?? 0,
-      "/admin/system-events?severity=error",
-    ],
-  ] as const;
-  const operationalCounters = [
-    [
-      "Товары на модерации",
-      moderationCounter?.count ?? 0,
-      "/admin/products/moderation",
-    ],
-    [
-      "Ошибки договора",
-      contractErrorCounter?.count ?? 0,
-      "/admin/companies",
-    ],
-    ["Новые документы", newDocumentsCounter?.count ?? 0, "/admin/documents"],
-    [
-      "Сумма продаж",
-      formatCurrency(financeSummary?.salesAmount ?? "0"),
-      "/admin/commissions",
-    ],
-    [
-      "Комиссия 5%",
-      formatCurrency(financeSummary?.commissionAmount ?? "0"),
-      "/admin/commissions",
-    ],
-  ] as const;
+  const salesAmount = financeSummary?.salesAmount ?? "0";
+  const commissionAmount = financeSummary?.commissionAmount ?? "0";
+  const newBuyerUsers = newBuyerCounter?.count ?? 0;
+  const totalOrders = totalOrderCounter?.count ?? 0;
+  const commissionPoints = buildChartPoints(dateKeys, commissionRows);
+  const newBuyerPoints = buildChartPoints(dateKeys, newBuyerRows);
+  const periodStartValue = toDateInputValue(chartStartDate);
+  const periodEndValue = toDateInputValue(chartEndDate);
+  const kpiCards = [
+    {
+      label: "Сумма продаж",
+      value: formatCurrency(salesAmount),
+      href: "/admin/commissions",
+    },
+    {
+      label: "Моя комиссия",
+      value: formatCurrency(commissionAmount),
+      href: "/admin/commissions",
+    },
+    {
+      label: "Новые покупатели",
+      value: newBuyerUsers,
+      href: "/admin/users?role=buyer",
+    },
+    {
+      label: "Все заказы",
+      value: totalOrders,
+      href: "/admin/orders",
+    },
+  ];
 
   return (
     <main className="min-h-screen bg-slate-100 px-6 py-8">
       <div className="mx-auto max-w-[1480px]">
-        <div className="flex items-center justify-between">
+        <div className="flex items-end justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-black text-slate-950">
+            <p className="text-sm font-black uppercase tracking-wide text-[#1157ff]">
+              Dashboard
+            </p>
+            <h1 className="mt-2 text-3xl font-black text-slate-950">
               Админ-панель
             </h1>
-            <p className="mt-2 text-slate-600">
-              Вы вошли как {user.email}. Desktop-only рабочее место для
-              обработки заказов и управления платформой.
-            </p>
           </div>
-          <div className="flex items-center gap-3">
-            <Link
-              className="relative inline-flex h-11 items-center justify-center rounded-lg bg-white px-4 text-sm font-bold text-slate-700 shadow-sm ring-1 ring-slate-200 transition hover:text-[#1157ff]"
-              href="/admin/notifications"
-            >
-              Уведомления
-              {unreadNotifications > 0 ? (
-                <span className="absolute -right-2 -top-2 min-w-5 rounded-full bg-[#1157ff] px-1.5 text-center text-[11px] font-black leading-5 text-white">
-                  +{unreadNotifications > 99 ? "99" : unreadNotifications}
-                </span>
-              ) : null}
-            </Link>
-            <LogoutButton />
-          </div>
+          <Link
+            className="relative inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-white px-4 text-sm font-bold text-slate-700 shadow-sm ring-1 ring-slate-200 transition hover:text-[#1157ff]"
+            href="/admin/notifications"
+          >
+            <Bell size={18} />
+            Уведомления
+            {unreadNotifications > 0 ? (
+              <span className="absolute -right-2 -top-2 min-w-5 rounded-full bg-[#1157ff] px-1.5 text-center text-[11px] font-black leading-5 text-white">
+                +{unreadNotifications > 99 ? "99" : unreadNotifications}
+              </span>
+            ) : null}
+          </Link>
         </div>
 
-        <section className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-6">
-          {statusCounters.map(([label, value, href]) => (
+        <section className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-[repeat(4,minmax(0,1fr))]">
+          {kpiCards.map((card) => (
             <Link
-              key={label}
-              className="rounded-lg bg-white p-5 shadow-sm ring-1 ring-slate-200 transition hover:text-[#1157ff]"
-              href={href}
+              className="min-w-0 rounded-lg bg-white p-4 shadow-sm ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:text-[#1157ff] hover:shadow-md"
+              href={card.href}
+              key={card.label}
             >
-              <p className="text-sm font-bold text-slate-500">{label}</p>
-              <p className="mt-3 text-4xl font-black text-slate-950">{value}</p>
-            </Link>
-          ))}
-        </section>
-
-        <section className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-          {operationalCounters.map(([label, value, href]) => (
-            <Link
-              key={label}
-              className="rounded-lg bg-white p-5 shadow-sm ring-1 ring-slate-200 transition hover:text-[#1157ff]"
-              href={href}
-            >
-              <p className="text-sm font-bold text-slate-500">{label}</p>
-              <p className="mt-3 text-2xl font-black text-slate-950">{value}</p>
-            </Link>
-          ))}
-        </section>
-
-        <section className="mt-6 grid gap-4 xl:grid-cols-[1.1fr_1fr]">
-          <div className="rounded-lg bg-white p-5 shadow-sm ring-1 ring-slate-200">
-            <div className="flex items-center justify-between gap-4">
-              <h2 className="text-xl font-black text-slate-950">
-                Последние заказы
-              </h2>
-              <Link
-                className="text-sm font-bold text-[#1157ff]"
-                href="/admin/orders"
-              >
-                Все заказы
-              </Link>
-            </div>
-            <div className="mt-4 divide-y divide-slate-100">
-              {latestOrders.length === 0 ? (
-                <div className="flex min-h-24 items-center justify-center text-sm font-bold text-slate-500">
-                  Заказов пока нет.
-                </div>
-              ) : (
-                latestOrders.map((order) => (
-                  <Link
-                    key={order.id}
-                    className="grid gap-3 py-3 text-sm transition hover:text-[#1157ff] md:grid-cols-[1fr_auto]"
-                    href={withAdminBreadcrumbSource(
-                      `/admin/orders/${order.id}`,
-                      "admin",
-                    )}
-                  >
-                    <span>
-                      <span className="font-black">{order.number}</span>
-                      <span className="ml-2 text-slate-500">
-                        {order.companyName}
-                      </span>
-                      <span className="mt-1 block text-xs font-bold text-slate-500">
-                        {formatDateTime(order.createdAt)} ·{" "}
-                        {getOrderStatusLabel(order.status)}
-                      </span>
-                    </span>
-                    <span className="font-black">
-                      {formatCurrency(order.totalAmount)}
-                    </span>
-                  </Link>
-                ))
-              )}
-            </div>
-          </div>
-
-          <div className="grid gap-4">
-            <div className="rounded-lg bg-white p-5 shadow-sm ring-1 ring-slate-200">
-              <h2 className="text-xl font-black text-slate-950">
-                Ошибки интеграций
-              </h2>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                {errorCounters.map(([label, value, href]) => (
-                  <Link
-                    key={label}
-                    className="rounded-lg bg-slate-50 p-4 ring-1 ring-slate-100 transition hover:text-[#1157ff]"
-                    href={href}
-                  >
-                    <p className="text-sm font-bold text-slate-500">{label}</p>
-                    <p
-                      className={
-                        value > 0
-                          ? "mt-2 text-3xl font-black text-red-600"
-                          : "mt-2 text-3xl font-black text-slate-950"
-                      }
-                    >
-                      {value}
-                    </p>
-                  </Link>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-lg bg-white p-5 shadow-sm ring-1 ring-slate-200">
-              <h2 className="text-xl font-black text-slate-950">
-                Последние компании
-              </h2>
-              <div className="mt-4 divide-y divide-slate-100">
-                {latestCompanies.length === 0 ? (
-                  <div className="flex min-h-20 items-center justify-center text-sm font-bold text-slate-500">
-                    Компаний пока нет.
-                  </div>
-                ) : (
-                  latestCompanies.map((company) => (
-                    <Link
-                      key={company.id}
-                      className="block py-3 text-sm transition hover:text-[#1157ff]"
-                      href={withAdminBreadcrumbSource(
-                        `/admin/companies/${company.id}`,
-                        "admin",
-                      )}
-                    >
-                      <p className="font-black text-slate-950">{company.name}</p>
-                      <p className="mt-1 font-semibold text-slate-500">
-                        ИНН {company.inn} · {formatDateTime(company.createdAt)}
-                      </p>
-                    </Link>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="mt-6 rounded-lg bg-white p-5 shadow-sm ring-1 ring-slate-200">
-          <h2 className="text-xl font-black text-slate-950">
-            Последние сообщения
-          </h2>
-          <div className="mt-4 divide-y divide-slate-100">
-            {latestMessages.length === 0 ? (
-              <div className="flex min-h-20 items-center justify-center text-sm font-bold text-slate-500">
-                Сообщений пока нет.
-              </div>
-            ) : (
-              latestMessages.map((message) => (
-                <Link
-                  key={message.id}
-                  className="block py-3 text-sm transition hover:text-[#1157ff]"
-                  href={withAdminBreadcrumbSource(
-                    `/admin/chats/${message.chatId}`,
-                    "admin",
-                  )}
-                >
-                  <p className="font-black text-slate-950">
-                    {message.companyName}
-                  </p>
-                  <p className="mt-1 line-clamp-2 text-slate-600">
-                    {message.text ?? "Вложение без текста"}
-                  </p>
-                  <p className="mt-1 font-semibold text-slate-500">
-                    {message.senderType} · {message.deliveryStatus} ·{" "}
-                    {formatDateTime(message.createdAt)}
-                  </p>
-                </Link>
-              ))
-            )}
-          </div>
-        </section>
-
-        <section className="mt-6 grid gap-4 xl:grid-cols-2">
-          <div className="rounded-lg bg-white p-5 shadow-sm ring-1 ring-slate-200">
-            <div className="flex items-center justify-between gap-4">
-              <h2 className="text-xl font-black text-slate-950">
-                Компании без рекомендуемых документов
-              </h2>
-              <Link
-                className="text-sm font-bold text-[#1157ff]"
-                href="/admin/companies"
-              >
-                Все компании
-              </Link>
-            </div>
-            <div className="mt-4 divide-y divide-slate-100">
-              {companiesMissingRequiredDocuments.length === 0 ? (
-                <div className="flex min-h-20 items-center justify-center text-sm font-bold text-emerald-700">
-                  У всех компаний есть рекомендуемые документы.
-                </div>
-              ) : (
-                companiesMissingRequiredDocuments.map((company) => (
-                  <Link
-                    className="block py-3 text-sm transition hover:text-[#1157ff]"
-                    href={withAdminBreadcrumbSource(
-                      `/admin/companies/${company.id}`,
-                      "admin",
-                    )}
-                    key={company.id}
-                  >
-                    <p className="font-black text-slate-950">{company.name}</p>
-                    <p className="mt-1 font-semibold text-slate-500">
-                      ИНН {company.inn}
-                    </p>
-                    <p className="mt-1 text-xs font-bold text-amber-700">
-                      {!company.hasCompanyCard ? "Нет карточки компании" : null}
-                      {!company.hasCompanyCard && !company.hasCharter ? " · " : null}
-                      {!company.hasCharter ? "Нет уставных документов" : null}
-                    </p>
-                  </Link>
-                ))
-              )}
-            </div>
-          </div>
-
-          <div className="rounded-lg bg-white p-5 shadow-sm ring-1 ring-slate-200">
-            <div className="flex items-center justify-between gap-4">
-              <h2 className="text-xl font-black text-slate-950">
-                Новые документы покупателей и продавцов
-              </h2>
-              <Link
-                className="text-sm font-bold text-[#1157ff]"
-                href="/admin/documents"
-              >
-                Все документы
-              </Link>
-            </div>
-            <div className="mt-4 divide-y divide-slate-100">
-              {latestDocuments.length === 0 ? (
-                <div className="flex min-h-20 items-center justify-center text-sm font-bold text-slate-500">
-                  Новых документов пока нет.
-                </div>
-              ) : (
-                latestDocuments.map((document) => (
-                  <Link
-                    className="block py-3 text-sm transition hover:text-[#1157ff]"
-                    href="/admin/documents"
-                    key={document.id}
-                  >
-                    <p className="font-black text-slate-950">{document.title}</p>
-                    <p className="mt-1 font-semibold text-slate-500">
-                      {getDocumentTypeLabel(document.type)} ·{" "}
-                      {document.buyerCompanyName ??
-                        document.sellerName ??
-                        document.target}
-                    </p>
-                    <p className="mt-1 text-xs font-bold text-slate-500">
-                      {formatDateTime(document.createdAt)}
-                    </p>
-                  </Link>
-                ))
-              )}
-            </div>
-          </div>
-        </section>
-
-        <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {adminModules.map((module) => {
-            const badge =
-              module.title === "Уведомления"
-                ? unreadNotifications
-                : module.title === "Заказы"
-                  ? acceptedOrdersCount
-                  : module.title === "Товары" ||
-                      module.title === "Модерация товаров"
-                    ? moderationCounter?.count ?? 0
-                    : module.title === "Чаты"
-                      ? pendingChatCount
-                    : 0;
-
-            return (
-            <section
-              key={module.title}
-              className="relative rounded-lg bg-white p-5 shadow-sm"
-            >
-              {badge > 0 ? (
-                <span className="absolute right-4 top-4 min-w-5 rounded-full bg-[#1157ff] px-1.5 text-center text-[11px] font-black leading-5 text-white">
-                  +{badge > 99 ? "99" : badge}
-                </span>
-              ) : null}
-              <h2 className="text-base font-bold">{module.title}</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-500">
-                {module.description}
+              <p className="truncate text-sm font-bold text-slate-600">
+                {card.label}
               </p>
-              {module.href ? (
-                <Link
-                  className="mt-4 inline-flex rounded-lg bg-[#1157ff] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#0b49e0]"
-                  href={module.href}
-                >
-                  {module.actionLabel ?? "Открыть"}
-                </Link>
-              ) : null}
-            </section>
-            );
-          })}
+              <p className="mt-4 break-words text-3xl font-black tracking-normal text-slate-950">
+                {card.value}
+              </p>
+            </Link>
+          ))}
+        </section>
+
+        <div className="mt-5 grid gap-5">
+          <LineChart
+            periodEndValue={periodEndValue}
+            periodLabel={periodLabel}
+            periodStartValue={periodStartValue}
+            points={commissionPoints}
+            strokeClassName="stroke-[#1157ff]"
+            title="Комиссия"
+            valueMode="currency"
+          />
+          <LineChart
+            periodEndValue={periodEndValue}
+            periodLabel={periodLabel}
+            periodStartValue={periodStartValue}
+            points={newBuyerPoints}
+            strokeClassName="stroke-emerald-600"
+            title="Новые юзеры"
+            valueMode="number"
+          />
         </div>
       </div>
     </main>

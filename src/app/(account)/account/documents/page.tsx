@@ -1,4 +1,4 @@
-import { Download, FileText, Upload } from "lucide-react";
+import { Download, FileText } from "lucide-react";
 import Link from "next/link";
 
 import { FileUploadField } from "@/components/ui/file-upload-field";
@@ -156,7 +156,6 @@ export default async function AccountDocumentsPage({
                 className="h-11 rounded-lg bg-[#1157ff] px-5 text-sm font-bold text-white transition hover:bg-[#0b49e0]"
                 pendingText="Сохраняем"
               >
-                <Upload size={17} />
                 Сохранить
               </SubmitButton>
             </div>

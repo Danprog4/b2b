@@ -9,6 +9,13 @@ export const orderStatusLabels: Record<OrderStatus, string> = {
   cancelled: "Отменен",
 };
 
+export const orderStatusClassNames: Record<OrderStatus, string> = {
+  accepted: "bg-sky-50 text-sky-700 ring-1 ring-sky-200",
+  paid: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
+  issued: "bg-amber-50 text-amber-800 ring-1 ring-amber-200",
+  cancelled: "bg-rose-50 text-rose-700 ring-1 ring-rose-200",
+};
+
 const allowedOrderStatusTransitions: Record<OrderStatus, OrderStatus[]> = {
   accepted: ["paid", "cancelled"],
   paid: ["issued", "cancelled"],
@@ -30,4 +37,10 @@ export function canTransitionOrderStatus(from: string, to: string) {
 
 export function getOrderStatusLabel(status: string) {
   return isOrderStatus(status) ? orderStatusLabels[status] : status;
+}
+
+export function getOrderStatusClassName(status: string) {
+  return isOrderStatus(status)
+    ? orderStatusClassNames[status]
+    : "bg-slate-100 text-slate-600 ring-1 ring-slate-200";
 }

@@ -8,11 +8,12 @@ import {
   InnAutofillButton,
 } from "@/components/company/inn-autofill-button";
 import { PasswordRequirements } from "@/components/auth/password-requirements";
+import { FileUploadField } from "@/components/ui/file-upload-field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { registerBuyerAction } from "@/lib/auth/actions";
 import { isPasswordPolicyValid } from "@/lib/auth/password-policy";
 
-type Step = "account" | "company";
+type Step = "account" | "company" | "documents";
 
 type FormValues = {
   name: string;
@@ -71,7 +72,35 @@ function HiddenRegistrationFields({ values }: { values: FormValues }) {
   );
 }
 
-export function RegisterBuyerForm() {
+function HiddenCompanyFields({ values }: { values: FormValues }) {
+  return (
+    <>
+      <input name="companyType" type="hidden" value={values.companyType} />
+      <input name="inn" type="hidden" value={values.inn} />
+      <input name="companyName" type="hidden" value={values.companyName} />
+      <input name="kpp" type="hidden" value={values.kpp} />
+      <input name="ogrn" type="hidden" value={values.ogrn} />
+      <input name="directorName" type="hidden" value={values.directorName} />
+      <input name="legalAddress" type="hidden" value={values.legalAddress} />
+      <input name="contactEmail" type="hidden" value={values.contactEmail} />
+      <input name="contactPhone" type="hidden" value={values.contactPhone} />
+      <input name="bankName" type="hidden" value={values.bankName} />
+      <input name="bik" type="hidden" value={values.bik} />
+      <input
+        name="checkingAccount"
+        type="hidden"
+        value={values.checkingAccount}
+      />
+      <input
+        name="correspondentAccount"
+        type="hidden"
+        value={values.correspondentAccount}
+      />
+    </>
+  );
+}
+
+export function RegisterBuyerForm({ next = "" }: { next?: string }) {
   const [step, setStep] = useState<Step>("account");
   const [values, setValues] = useState<FormValues>(initialValues);
   const [submittedWithInvalidPassword, setSubmittedWithInvalidPassword] =
@@ -107,6 +136,14 @@ export function RegisterBuyerForm() {
     setStep("company");
   }
 
+  function handleCompanyNext(event: MouseEvent<HTMLButtonElement>) {
+    if (!event.currentTarget.form?.reportValidity()) {
+      return;
+    }
+
+    setStep("documents");
+  }
+
   function handleCompanyFilled(company: AutofilledCompany) {
     setValues((current) => ({
       ...current,
@@ -122,6 +159,8 @@ export function RegisterBuyerForm() {
 
   return (
     <form action={registerBuyerAction} className="mt-6 grid gap-6">
+      <input name="next" type="hidden" value={next} />
+
       <div className="grid gap-3 sm:grid-cols-2">
         <div
           className={
@@ -142,6 +181,16 @@ export function RegisterBuyerForm() {
         >
           <p className="text-xs font-black uppercase">Шаг 2</p>
           <p className="mt-1 text-sm font-bold">Компания и реквизиты</p>
+        </div>
+        <div
+          className={
+            step === "documents"
+              ? "rounded-xl bg-[#1157ff] p-4 text-white sm:col-span-2"
+              : "rounded-xl bg-slate-100 p-4 text-slate-500 sm:col-span-2"
+          }
+        >
+          <p className="text-xs font-black uppercase">Шаг 3</p>
+          <p className="mt-1 text-sm font-bold">Документы компании</p>
         </div>
       </div>
 
@@ -222,7 +271,7 @@ export function RegisterBuyerForm() {
             <ArrowRight size={18} />
           </button>
         </div>
-      ) : (
+      ) : step === "company" ? (
         <div className="grid gap-5">
           <HiddenRegistrationFields values={values} />
 
@@ -448,12 +497,84 @@ export function RegisterBuyerForm() {
               <ArrowLeft size={18} />
               Назад
             </button>
+            <button
+              className="h-12 rounded-lg bg-[#1157ff] px-6 font-bold text-white transition hover:bg-[#0b49e0]"
+              onClick={handleCompanyNext}
+              type="button"
+            >
+              Далее
+              <ArrowRight size={18} />
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="grid gap-5">
+          <HiddenRegistrationFields values={values} />
+          <HiddenCompanyFields values={values} />
+
+          <div className="rounded-xl bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+            <p className="font-black">
+              Для оформления заказа нужны карточка компании и уставные
+              документы.
+            </p>
+            <p className="mt-2 font-semibold">
+              Этот шаг можно пропустить, но без этих документов checkout не
+              позволит подтвердить заказ.
+            </p>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <section className="rounded-xl border border-slate-200 p-4">
+              <h2 className="font-black text-slate-950">Карточка компании</h2>
+              <p className="mt-1 text-sm leading-6 text-slate-500">
+                PDF, DOC, DOCX, JPG, PNG, XLS или XLSX до 50 МБ.
+              </p>
+              <FileUploadField
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xls,.xlsx"
+                buttonText="Выбрать файл"
+                className="mt-4"
+                name="companyCardFile"
+              />
+            </section>
+
+            <section className="rounded-xl border border-slate-200 p-4">
+              <h2 className="font-black text-slate-950">Уставные документы</h2>
+              <p className="mt-1 text-sm leading-6 text-slate-500">
+                Можно загрузить устав, лист записи, выписку или другой
+                подтверждающий файл.
+              </p>
+              <FileUploadField
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xls,.xlsx"
+                buttonText="Выбрать файл"
+                className="mt-4"
+                name="charterFile"
+              />
+            </section>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <button
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-slate-100 px-6 font-bold text-slate-700 transition hover:bg-slate-200"
+              onClick={() => setStep("company")}
+              type="button"
+            >
+              <ArrowLeft size={18} />
+              Назад
+            </button>
             <SubmitButton
               className="h-12 rounded-lg bg-[#1157ff] px-6 font-bold text-white transition hover:bg-[#0b49e0]"
               pendingText="Регистрируем"
             >
               <CheckCircle2 size={18} />
-              Зарегистрироваться
+              Завершить регистрацию
+            </SubmitButton>
+            <SubmitButton
+              className="h-12 rounded-lg bg-slate-100 px-6 font-bold text-slate-700 transition hover:bg-slate-200"
+              name="skipDocuments"
+              pendingText="Регистрируем"
+              value="1"
+            >
+              Пропустить и зарегистрироваться
             </SubmitButton>
           </div>
         </div>

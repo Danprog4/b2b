@@ -3,6 +3,7 @@ import { Building2, FileText, History, Mail, Store, UserRound } from "lucide-rea
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { OrderStatusBadge } from "@/components/orders/order-status-badge";
 import { ToastMessages } from "@/components/ui/toast-message";
 import { db } from "@/db";
 import {
@@ -18,7 +19,6 @@ import {
 } from "@/lib/admin/breadcrumbs";
 import { updateUserAction } from "@/lib/admin/user-actions";
 import { requireUser } from "@/lib/auth/session";
-import { getOrderStatusLabel } from "@/lib/orders/status";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
 type UserPageProps = {
@@ -399,9 +399,9 @@ export default async function AdminUserPage({
                       <span className="block font-black text-slate-950">
                         {order.number}
                       </span>
-                      <span className="mt-1 block text-slate-500">
-                        {formatDateTime(order.createdAt)} ·{" "}
-                        {getOrderStatusLabel(order.status)}
+                      <span className="mt-2 flex flex-wrap items-center gap-2 text-slate-500">
+                        <span>{formatDateTime(order.createdAt)}</span>
+                        <OrderStatusBadge status={order.status} />
                       </span>
                     </span>
                     <span className="font-black">

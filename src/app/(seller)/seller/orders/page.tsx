@@ -3,10 +3,10 @@ import { ReceiptText } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { OrderStatusBadge } from "@/components/orders/order-status-badge";
 import { db } from "@/db";
 import { orderItems, orders } from "@/db/schema";
 import { requireUser } from "@/lib/auth/session";
-import { getOrderStatusLabel } from "@/lib/orders/status";
 import { withSellerBreadcrumbSource } from "@/lib/seller/breadcrumbs";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
@@ -98,10 +98,12 @@ export default async function SellerOrdersPage() {
                     <h2 className="text-lg font-black text-slate-950">
                       {order.number}
                     </h2>
-                    <p className="mt-1 text-sm font-semibold text-slate-500">
-                      {formatDateTime(order.createdAt)} ·{" "}
-                      {getOrderStatusLabel(order.status)}
-                    </p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-semibold text-slate-500">
+                        {formatDateTime(order.createdAt)}
+                      </span>
+                      <OrderStatusBadge status={order.status} />
+                    </div>
                   </div>
                   <div className="text-right">
                     <p className="text-xl font-black text-slate-950">

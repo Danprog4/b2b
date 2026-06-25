@@ -1,4 +1,4 @@
-import { asc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { Plus } from "lucide-react";
 import Link from "next/link";
 
@@ -13,6 +13,7 @@ export default async function AdminContentPagesPage() {
   const rows = await db
     .select()
     .from(contentPages)
+    .where(eq(contentPages.isPublished, true))
     .orderBy(asc(contentPages.title));
 
   return (

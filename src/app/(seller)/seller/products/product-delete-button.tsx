@@ -1,7 +1,9 @@
 "use client";
 
 import { Trash2 } from "lucide-react";
+import { useState } from "react";
 
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { deleteSellerProductAction } from "@/lib/seller/product-actions";
 import { cn } from "@/lib/utils";
@@ -17,30 +19,37 @@ export function SellerProductDeleteButton({
   productId,
   productName,
 }: SellerProductDeleteButtonProps) {
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+
   return (
-    <form
-      action={deleteSellerProductAction}
-      onSubmit={(event) => {
-        if (
-          !window.confirm(
-            `Удалить товар «${productName}»? Он пропадет из продажи и из вашего списка товаров.`,
-          )
-        ) {
-          event.preventDefault();
-        }
-      }}
-    >
+    <form action={deleteSellerProductAction}>
       <input name="productId" type="hidden" value={productId} />
-      <SubmitButton
+      <button
         className={cn(
-          "h-9 rounded-lg bg-red-50 px-3 text-sm font-bold text-red-700 transition hover:bg-red-100",
+          "inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-red-50 px-3 text-sm font-bold text-red-700 transition hover:bg-red-100",
           className,
         )}
-        pendingText="Удаляем"
+        type="button"
+        onClick={() => setIsConfirmOpen(true)}
       >
         <Trash2 size={15} />
         Удалить
-      </SubmitButton>
+      </button>
+
+      <ConfirmDialog
+        description={`Товар «${productName}» пропадет из продажи и из вашего списка товаров.`}
+        isOpen={isConfirmOpen}
+        title="Удалить товар?"
+        onClose={() => setIsConfirmOpen(false)}
+      >
+        <SubmitButton
+          className="h-12 rounded-lg bg-red-600 px-5 font-bold text-white transition hover:bg-red-700"
+          pendingText="Удаляем"
+        >
+          <Trash2 size={18} />
+          Удалить
+        </SubmitButton>
+      </ConfirmDialog>
     </form>
   );
 }

@@ -1,11 +1,10 @@
-import { Download, FileText, Upload } from "lucide-react";
+import { Download, FileText } from "lucide-react";
 import Link from "next/link";
 
 import { FileUploadField } from "@/components/ui/file-upload-field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { ToastMessages } from "@/components/ui/toast-message";
 import {
-  hideDocumentAction,
   updateDocumentVisibilityAction,
   uploadAdminDocumentAction,
   uploadAdminDocumentVersionAction,
@@ -187,7 +186,6 @@ export default async function AdminDocumentsPage({
                 className="h-11 rounded-lg bg-[#1157ff] px-5 text-sm font-bold text-white transition hover:bg-[#0b49e0]"
                 pendingText="Сохраняем"
               >
-                <Upload size={17} />
                 Сохранить
               </SubmitButton>
             </div>
@@ -346,20 +344,6 @@ export default async function AdminDocumentsPage({
                         pendingText="Сохраняем"
                       >
                         Сохранить видимость
-                      </SubmitButton>
-                    </form>
-                    <form action={hideDocumentAction}>
-                      <input
-                        name="returnPath"
-                        type="hidden"
-                        value={currentPath}
-                      />
-                      <input name="documentId" type="hidden" value={document.id} />
-                      <SubmitButton
-                        className="h-10 rounded-lg bg-red-50 px-4 text-sm font-bold text-red-700 transition hover:bg-red-100"
-                        pendingText="Скрываем"
-                      >
-                        Скрыть
                       </SubmitButton>
                     </form>
                   </div>

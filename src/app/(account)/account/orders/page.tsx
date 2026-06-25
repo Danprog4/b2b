@@ -1,10 +1,10 @@
 import { FileText, ShoppingCart } from "lucide-react";
 import Link from "next/link";
 
+import { OrderStatusBadge } from "@/components/orders/order-status-badge";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { withAccountBreadcrumbSource } from "@/lib/account/breadcrumbs";
 import { repeatOrderAction } from "@/lib/orders/actions";
-import { getOrderStatusLabel } from "@/lib/orders/status";
 import { getCurrentBuyerOrders } from "@/lib/orders/queries";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
@@ -96,9 +96,10 @@ export default async function AccountOrdersPage() {
                     </div>
                   </Link>
                   <div className="grid gap-2 text-sm">
-                    <span className="w-fit rounded-lg bg-blue-50 px-3 py-2 font-bold text-blue-800">
-                      {getOrderStatusLabel(order.status)}
-                    </span>
+                    <OrderStatusBadge
+                      status={order.status}
+                      className="rounded-lg px-3 py-2 text-sm"
+                    />
                     <span className="text-slate-500">
                       Товаров:{" "}
                       <span className="font-bold text-slate-700">

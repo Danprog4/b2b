@@ -4,6 +4,7 @@ import { Loader2, Minus, Plus, ShoppingCart } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 
 import { addToCartAction, updateCartItemAction } from "@/lib/cart/actions";
 import { cn } from "@/lib/utils";
@@ -40,6 +41,8 @@ export function AddToCartButton({
   const search = searchParams.toString();
   const currentPath = `${pathname}${search ? `?${search}` : ""}`;
   const cartHref = `/cart?from=${encodeURIComponent(currentPath)}`;
+  const toastPortalElement =
+    typeof document === "undefined" ? null : document.body;
 
   useEffect(() => {
     if (!isToastVisible) {
@@ -206,19 +209,22 @@ export function AddToCartButton({
         </div>
       )}
 
-      {isToastVisible ? (
-        <div className="fixed right-5 top-5 z-50 flex w-[min(360px,calc(100vw-40px))] items-center justify-between gap-4 rounded-xl bg-white px-4 py-3 shadow-2xl ring-1 ring-slate-200">
-          <p className="text-sm font-black text-slate-950">
-            Товар добавлен в корзину
-          </p>
-          <Link
-            className="shrink-0 rounded-lg bg-[#1157ff] px-3 py-2 text-sm font-bold text-white"
-            href={cartHref}
-          >
-            В корзину
-          </Link>
-        </div>
-      ) : null}
+      {isToastVisible && toastPortalElement
+        ? createPortal(
+            <div className="fixed right-5 top-5 z-50 flex w-[min(360px,calc(100vw-40px))] items-center justify-between gap-4 rounded-xl bg-white px-4 py-3 shadow-2xl ring-1 ring-slate-200">
+              <p className="text-sm font-black text-slate-950">
+                Товар добавлен в корзину
+              </p>
+              <Link
+                className="shrink-0 rounded-lg bg-[#1157ff] px-3 py-2 text-sm font-bold text-white"
+                href={cartHref}
+              >
+                В корзину
+              </Link>
+            </div>,
+          toastPortalElement,
+        )
+        : null}
     </>
   );
 }

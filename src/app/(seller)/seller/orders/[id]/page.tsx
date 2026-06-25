@@ -3,6 +3,7 @@ import { Building2, Package, ReceiptText } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { OrderStatusBadge } from "@/components/orders/order-status-badge";
 import { db } from "@/db";
 import {
   buyerCompanies,
@@ -14,7 +15,6 @@ import {
 } from "@/db/schema";
 import { requireUser } from "@/lib/auth/session";
 import { getPublicFileUrl } from "@/lib/files/urls";
-import { getOrderStatusLabel } from "@/lib/orders/status";
 import { getSellerBreadcrumbSource } from "@/lib/seller/breadcrumbs";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
@@ -146,9 +146,10 @@ export default async function SellerOrderPage({
                 {formatDateTime(order.updatedAt)}
               </p>
             </div>
-            <span className="rounded-lg bg-blue-50 px-3 py-2 text-sm font-bold text-blue-800">
-              {getOrderStatusLabel(order.status)}
-            </span>
+            <OrderStatusBadge
+              status={order.status}
+              className="rounded-lg px-3 py-2 text-sm"
+            />
           </div>
 
           {order.comment ? (

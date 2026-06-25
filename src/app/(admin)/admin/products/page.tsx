@@ -1,5 +1,5 @@
-import { asc, desc, eq } from "drizzle-orm";
-import { Clock3, FileSpreadsheet, Package, Plus } from "lucide-react";
+import { and, asc, desc, eq, ilike, isNull, or } from "drizzle-orm";
+import { Clock3, FileSpreadsheet, Package, Plus, Search, X } from "lucide-react";
 import Link from "next/link";
 
 import { db } from "@/db";
@@ -17,10 +17,114 @@ import { getPublicFileUrl } from "@/lib/files/urls";
 import { isSellerDeletedOffer } from "@/lib/products/offer-status";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
-export default async function AdminProductsPage() {
-  await requireUser(["admin"]);
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
-  const rows = await db
+const activityOptions = ["active", "inactive"] as const;
+const offerStatusOptions = [
+  "draft",
+  "on_moderation",
+  "published",
+  "rejected",
+  "hidden",
+  "none",
+] as const;
+
+function getParam(search: Awaited<SearchParams>, key: string) {
+  const value = search[key];
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value,
+  );
+}
+
+function getOfferStatusLabel(status: string) {
+  if (status === "draft") {
+    return "Черновик";
+  }
+
+  if (status === "on_moderation") {
+    return "На модерации";
+  }
+
+  if (status === "published") {
+    return "Опубликовано";
+  }
+
+  if (status === "rejected") {
+    return "Отклонено";
+  }
+
+  if (status === "hidden") {
+    return "Скрыто";
+  }
+
+  if (status === "none") {
+    return "Без предложений";
+  }
+
+  return status;
+}
+
+export default async function AdminProductsPage({
+  searchParams,
+}: {
+  searchParams?: SearchParams;
+}) {
+  await requireUser(["admin"]);
+  const search = (await searchParams) ?? {};
+  const q = getParam(search, "q");
+  const sellerId = getParam(search, "sellerId");
+  const categoryId = getParam(search, "categoryId");
+  const subcategoryId = getParam(search, "subcategoryId");
+  const activity = getParam(search, "activity");
+  const offerStatus = getParam(search, "offerStatus");
+  const whereConditions = [];
+
+  if (q) {
+    whereConditions.push(
+      or(
+        ilike(products.name, `%${q}%`),
+        ilike(products.sku, `%${q}%`),
+        ilike(products.slug, `%${q}%`),
+        ilike(categories.name, `%${q}%`),
+        ilike(subcategories.name, `%${q}%`),
+        ilike(sellers.name, `%${q}%`),
+        ilike(sellers.inn, `%${q}%`),
+      ),
+    );
+  }
+
+  if (isUuid(sellerId)) {
+    whereConditions.push(eq(sellerOffers.sellerId, sellerId));
+  }
+
+  if (isUuid(categoryId)) {
+    whereConditions.push(eq(products.categoryId, categoryId));
+  }
+
+  if (isUuid(subcategoryId)) {
+    whereConditions.push(eq(products.subcategoryId, subcategoryId));
+  }
+
+  if (activityOptions.includes(activity as (typeof activityOptions)[number])) {
+    whereConditions.push(eq(products.isActive, activity === "active"));
+  }
+
+  if (offerStatusOptions.includes(offerStatus as (typeof offerStatusOptions)[number])) {
+    whereConditions.push(
+      offerStatus === "none"
+        ? isNull(sellerOffers.id)
+        : eq(
+            sellerOffers.status,
+            offerStatus as Exclude<(typeof offerStatusOptions)[number], "none">,
+          ),
+    );
+  }
+
+  const productsQuery = db
     .select({
       id: products.id,
       sku: products.sku,
@@ -48,8 +152,34 @@ export default async function AdminProductsPage() {
     .leftJoin(subcategories, eq(products.subcategoryId, subcategories.id))
     .leftJoin(sellerOffers, eq(sellerOffers.productId, products.id))
     .leftJoin(sellers, eq(sellerOffers.sellerId, sellers.id))
-    .leftJoin(files, eq(files.id, products.mainImageFileId))
-    .orderBy(desc(products.updatedAt), asc(products.name));
+    .leftJoin(files, eq(files.id, products.mainImageFileId));
+
+  const [sellerOptions, categoryOptions, subcategoryOptions, rows] =
+    await Promise.all([
+      db
+        .select({ id: sellers.id, name: sellers.name })
+        .from(sellers)
+        .orderBy(sellers.name),
+      db
+        .select({ id: categories.id, name: categories.name })
+        .from(categories)
+        .orderBy(categories.name),
+      db
+        .select({
+          id: subcategories.id,
+          name: subcategories.name,
+          categoryName: categories.name,
+        })
+        .from(subcategories)
+        .innerJoin(categories, eq(categories.id, subcategories.categoryId))
+        .orderBy(categories.name, subcategories.name),
+      whereConditions.length > 0
+        ? productsQuery
+            .where(and(...whereConditions))
+            .orderBy(desc(products.updatedAt), asc(products.name))
+        : productsQuery.orderBy(desc(products.updatedAt), asc(products.name)),
+    ]);
+
   const rowsByProduct = new Map<string, typeof rows>();
 
   for (const row of rows) {
@@ -95,6 +225,9 @@ export default async function AdminProductsPage() {
       selectedOffer,
     };
   });
+  const hasFilters = Boolean(
+    q || sellerId || categoryId || subcategoryId || activity || offerStatus,
+  );
 
   return (
     <main className="min-h-screen bg-slate-100 px-6 py-8 text-slate-900">
@@ -147,7 +280,122 @@ export default async function AdminProductsPage() {
           </div>
         </div>
 
-        <section className="mt-8 overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+        <form
+          className="mt-6 overflow-x-auto rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200"
+          method="get"
+        >
+          <div className="grid min-w-[1580px] gap-3 xl:grid-cols-[1.4fr_240px_220px_240px_180px_190px_auto]">
+            <label className="grid gap-2 text-sm font-bold text-slate-700">
+              Поиск
+              <div className="relative">
+                <Search
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  size={18}
+                />
+                <input
+                  className="h-11 w-full rounded-lg border border-slate-200 pl-10 pr-3 font-semibold outline-none transition focus:border-[#1157ff]"
+                  defaultValue={q}
+                  name="q"
+                  placeholder="Название, SKU, продавец"
+                />
+              </div>
+            </label>
+            <label className="grid gap-2 text-sm font-bold text-slate-700">
+              Продавец
+              <select
+                className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-semibold outline-none transition focus:border-[#1157ff]"
+                defaultValue={sellerId}
+                name="sellerId"
+              >
+                <option value="">Все продавцы</option>
+                {sellerOptions.map((seller) => (
+                  <option key={seller.id} value={seller.id}>
+                    {seller.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-2 text-sm font-bold text-slate-700">
+              Категория
+              <select
+                className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-semibold outline-none transition focus:border-[#1157ff]"
+                defaultValue={categoryId}
+                name="categoryId"
+              >
+                <option value="">Все категории</option>
+                {categoryOptions.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-2 text-sm font-bold text-slate-700">
+              Подкатегория
+              <select
+                className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-semibold outline-none transition focus:border-[#1157ff]"
+                defaultValue={subcategoryId}
+                name="subcategoryId"
+              >
+                <option value="">Все подкатегории</option>
+                {subcategoryOptions.map((subcategory) => (
+                  <option key={subcategory.id} value={subcategory.id}>
+                    {subcategory.categoryName} · {subcategory.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-2 text-sm font-bold text-slate-700">
+              Активность
+              <select
+                className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-semibold outline-none transition focus:border-[#1157ff]"
+                defaultValue={activity}
+                name="activity"
+              >
+                <option value="">Все</option>
+                <option value="active">Активные</option>
+                <option value="inactive">Неактивные</option>
+              </select>
+            </label>
+            <label className="grid gap-2 text-sm font-bold text-slate-700">
+              Предложения
+              <select
+                className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-semibold outline-none transition focus:border-[#1157ff]"
+                defaultValue={offerStatus}
+                name="offerStatus"
+              >
+                <option value="">Все статусы</option>
+                {offerStatusOptions.map((status) => (
+                  <option key={status} value={status}>
+                    {getOfferStatusLabel(status)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="flex items-end gap-2">
+              <button
+                className="inline-flex h-11 items-center justify-center rounded-lg bg-[#1157ff] px-4 text-sm font-bold text-white transition hover:bg-[#0b49e0]"
+                type="submit"
+              >
+                Применить
+              </button>
+              {hasFilters ? (
+                <Link
+                  className="inline-flex size-11 items-center justify-center rounded-lg bg-slate-100 text-slate-600 transition hover:bg-slate-200"
+                  href="/admin/products"
+                  title="Сбросить фильтры"
+                >
+                  <X size={18} />
+                </Link>
+              ) : null}
+            </div>
+          </div>
+          <p className="mt-4 text-sm font-semibold text-slate-500">
+            Найдено товаров: {productRows.length}
+          </p>
+        </form>
+
+        <section className="mt-8 overflow-x-auto rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
           <table className="w-full min-w-[1200px] border-collapse text-left">
             <thead className="bg-slate-50 text-xs uppercase text-slate-500">
               <tr>

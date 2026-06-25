@@ -115,7 +115,7 @@ export default async function AdminSystemEventsPage({
           </p>
         </div>
 
-        <form className="mt-6 grid gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200 lg:grid-cols-[1fr_220px_220px_auto]">
+        <form className="mt-6 grid min-w-0 gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200 lg:grid-cols-[minmax(0,1fr)_220px_220px_auto]">
           <label className="relative">
             <Search
               className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
@@ -160,11 +160,11 @@ export default async function AdminSystemEventsPage({
 
           {events.map((event) => (
             <article
-              className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200"
+              className="min-w-0 rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200"
               key={event.id}
             >
               <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="flex gap-3">
+                <div className="flex min-w-0 gap-3">
                   <span
                     className={`flex size-11 shrink-0 items-center justify-center rounded-lg ${getSeverityClassName(event.severity)}`}
                   >
@@ -174,18 +174,18 @@ export default async function AdminSystemEventsPage({
                       <Info size={22} />
                     )}
                   </span>
-                  <div>
+                  <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <span
                         className={`rounded-full px-3 py-1 text-xs font-bold ${getSeverityClassName(event.severity)}`}
                       >
                         {getSeverityLabel(event.severity)}
                       </span>
-                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
+                      <span className="max-w-full break-all rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
                         {event.type}
                       </span>
                     </div>
-                    <h2 className="mt-3 text-lg font-black text-slate-950">
+                    <h2 className="mt-3 break-words text-lg font-black text-slate-950">
                       {event.message}
                     </h2>
                     <p className="mt-2 text-sm font-semibold text-slate-500">
@@ -195,7 +195,7 @@ export default async function AdminSystemEventsPage({
                 </div>
               </div>
 
-              <pre className="mt-4 max-h-72 overflow-auto rounded-lg bg-slate-950 p-4 text-xs leading-5 text-slate-100">
+              <pre className="mt-4 max-h-72 max-w-full overflow-auto rounded-lg bg-slate-950 p-4 text-xs leading-5 text-slate-100">
                 {stringifyMetadata(event.metadata)}
               </pre>
             </article>

@@ -21,12 +21,19 @@ const errorMessages: Record<string, string> = {
     "Проверьте реквизиты: ИНН/КПП/ОГРН/БИК и счета должны содержать корректное количество цифр.",
   password: PASSWORD_POLICY_ERROR,
   email: "Пользователь с таким email уже зарегистрирован.",
+  document: "Не удалось загрузить документы.",
 };
 
 export default async function RegisterPage({ searchParams }: RegisterPageProps) {
   const params = (await searchParams) ?? {};
   const error = typeof params.error === "string" ? params.error : undefined;
+  const documentError =
+    error === "document" && typeof params.documentError === "string"
+      ? params.documentError
+      : null;
   const retry = params.retry === "company";
+  const next = typeof params.next === "string" ? params.next : "";
+  const loginHref = next ? `/login?next=${encodeURIComponent(next)}` : "/login";
 
   return (
     <main className="min-h-screen bg-[#f4f6fb] px-5 py-10">
@@ -47,7 +54,9 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
               ? [
                   {
                     message:
-                      errorMessages[error] ?? "Не удалось зарегистрироваться.",
+                      documentError ??
+                      errorMessages[error] ??
+                      "Не удалось зарегистрироваться.",
                     tone: "error" as const,
                   },
                 ]
@@ -64,11 +73,11 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
           ]}
         />
 
-        <RegisterBuyerForm />
+        <RegisterBuyerForm next={next} />
 
         <p className="mt-6 text-sm text-slate-600">
           Уже есть аккаунт?{" "}
-          <Link className="font-bold text-[#1157ff]" href="/login">
+          <Link className="font-bold text-[#1157ff]" href={loginHref}>
             Войти
           </Link>
         </p>

@@ -22,14 +22,14 @@ type CheckoutPageProps = {
 export const metadata: Metadata = {
   title: "Оформление заказа — Сити Маркет",
   description:
-    "Оформление B2B-заказа в Сити Маркет с проверкой реквизитов компании и рекомендацией загрузить документы.",
+    "Оформление B2B-заказа в Сити Маркет с проверкой реквизитов и документов компании.",
 };
 
 const errorMessages: Record<string, string> = {
   company: "К аккаунту не привязана компания. Оформление заказа недоступно.",
   company_details: "Заполните обязательные данные компании перед оформлением.",
   company_documents:
-    "Загрузите документы компании, чтобы менеджер мог быстрее обработать заказ.",
+    "Загрузите обязательные документы компании перед оформлением заказа.",
   company_blocked: "Компания заблокирована. Оформление заказа недоступно.",
 };
 
@@ -192,7 +192,7 @@ export default async function CheckoutPage({ searchParams }: CheckoutPageProps) 
               {!areCompanyDocumentsReady ? (
                 <div className="mt-5 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
                   <p className="font-black">
-                    Документы компании помогут быстрее обработать заказ
+                    Загрузите документы компании перед заказом
                   </p>
                   <ul className="mt-3 list-disc space-y-1 pl-5">
                     {missingCompanyDocuments.map((document) => (
@@ -221,6 +221,7 @@ export default async function CheckoutPage({ searchParams }: CheckoutPageProps) 
                   className="h-12 rounded-lg bg-[#1157ff] font-bold text-white transition hover:bg-[#0b49e0] disabled:cursor-not-allowed disabled:bg-slate-300"
                   disabled={
                     !isCompanyReady ||
+                    !areCompanyDocumentsReady ||
                     isCompanyBlocked ||
                     cart.lines.some((line) => !line.isActive)
                   }

@@ -32,12 +32,12 @@ function ToastCard({
   return (
     <div
       className={cn(
-        "flex w-[min(380px,calc(100vw-40px))] items-start gap-3 rounded-xl bg-white px-4 py-3 text-sm font-bold shadow-2xl ring-1",
+        "flex w-[min(380px,calc(100vw-40px))] items-start gap-3 rounded-xl px-4 py-3 text-sm font-bold shadow-2xl ring-1",
         tone === "error"
-          ? "text-red-800 ring-red-100"
+          ? "bg-red-600 text-white ring-red-700/20"
           : tone === "warning"
-            ? "text-amber-800 ring-amber-100"
-            : "text-emerald-800 ring-emerald-100",
+            ? "bg-white text-amber-800 ring-amber-100"
+            : "bg-emerald-600 text-white ring-emerald-700/20",
       )}
       role="status"
     >
@@ -45,10 +45,10 @@ function ToastCard({
         className={cn(
           "mt-0.5 shrink-0",
           tone === "error"
-            ? "text-red-600"
+            ? "text-white"
             : tone === "warning"
               ? "text-amber-600"
-              : "text-emerald-600",
+              : "text-white",
         )}
         size={18}
       />

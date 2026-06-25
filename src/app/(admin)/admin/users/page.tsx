@@ -62,6 +62,38 @@ function getStatusClassName(status: string) {
   return "bg-amber-50 text-amber-700";
 }
 
+function getPageCopy(role: string) {
+  if (role === "buyer") {
+    return {
+      title: "Покупатели",
+      description:
+        "Аккаунты покупателей, их компании, статусы, заказы и привязка к юридическим лицам.",
+    };
+  }
+
+  if (role === "seller") {
+    return {
+      title: "Пользователи продавцов",
+      description:
+        "Аккаунты продавцов, их поставщики, статусы и связь с карточками продавцов.",
+    };
+  }
+
+  if (role === "admin") {
+    return {
+      title: "Администраторы",
+      description:
+        "Административные аккаунты, статусы доступа и последняя активность.",
+    };
+  }
+
+  return {
+    title: "Пользователи",
+    description:
+      "Аккаунты покупателей, продавцов и администраторов, их статус и привязка к юридическим лицам.",
+  };
+}
+
 export default async function AdminUsersPage({
   searchParams,
 }: {
@@ -136,6 +168,7 @@ export default async function AdminUsersPage({
   ]);
 
   const ordersByUser = new Map(orderStats.map((row) => [row.userId, row]));
+  const pageCopy = getPageCopy(role);
 
   return (
     <main className="min-h-screen bg-slate-100 px-6 py-8 text-slate-900">
@@ -149,7 +182,7 @@ export default async function AdminUsersPage({
             Админ-панель
           </Link>
           <span>/</span>
-          <span>Пользователи</span>
+          <span>{pageCopy.title}</span>
         </div>
 
         <div>
@@ -157,11 +190,10 @@ export default async function AdminUsersPage({
             ← Админ-панель
           </Link>
           <h1 className="mt-3 text-3xl font-black text-slate-950">
-            Пользователи
+            {pageCopy.title}
           </h1>
           <p className="mt-2 text-slate-600">
-            Аккаунты покупателей, продавцов и администраторов, их статус и
-            привязка к юридическим лицам.
+            {pageCopy.description}
           </p>
         </div>
 
@@ -201,7 +233,7 @@ export default async function AdminUsersPage({
           </button>
         </form>
 
-        <section className="mt-6 overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+        <section className="mt-6 overflow-x-auto rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
           <table className="w-full min-w-[1360px] border-collapse text-left">
             <thead className="bg-slate-50 text-xs uppercase text-slate-500">
               <tr>

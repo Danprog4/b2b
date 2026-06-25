@@ -99,7 +99,7 @@ export default async function AdminSellersPage() {
           </Link>
         </div>
 
-        <section className="mt-8 overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+        <section className="mt-8 overflow-x-auto rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
           <table className="w-full min-w-[1360px] border-collapse text-left">
             <thead className="bg-slate-50 text-xs uppercase text-slate-500">
               <tr>

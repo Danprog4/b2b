@@ -69,7 +69,7 @@ export default async function AdminEmailOutboxPage() {
           их через подключенный email-провайдер и фиксирует результат.
         </p>
 
-        <section className="mt-8 overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+        <section className="mt-8 overflow-x-auto rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
           <table className="w-full min-w-[1100px] border-collapse text-left">
             <thead className="bg-slate-50 text-xs uppercase text-slate-500">
               <tr>

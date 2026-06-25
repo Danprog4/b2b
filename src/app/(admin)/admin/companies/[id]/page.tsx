@@ -3,6 +3,7 @@ import { Building2, Download, FileText, UserRound } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { OrderStatusBadge } from "@/components/orders/order-status-badge";
 import { ToastMessages } from "@/components/ui/toast-message";
 import { db } from "@/db";
 import {
@@ -23,7 +24,6 @@ import { requireUser } from "@/lib/auth/session";
 import { regenerateBuyerCompanyContractAdminAction } from "@/lib/contracts/actions";
 import { filterCurrentBuyerCompanyDocuments } from "@/lib/documents/queries";
 import { getDocumentTypeLabel } from "@/lib/documents/types";
-import { getOrderStatusLabel } from "@/lib/orders/status";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
 type CompanyPageProps = {
@@ -696,9 +696,10 @@ export default async function AdminCompanyPage({
                         {formatCurrency(order.totalAmount)}
                       </span>
                     </span>
-                    <span className="text-slate-500">
-                      {getOrderStatusLabel(order.status)} · {order.userEmail} ·{" "}
-                      {formatDateTime(order.createdAt)}
+                    <span className="mt-2 flex flex-wrap items-center gap-2 text-slate-500">
+                      <OrderStatusBadge status={order.status} />
+                      <span>{order.userEmail}</span>
+                      <span>{formatDateTime(order.createdAt)}</span>
                     </span>
                   </Link>
                 ))

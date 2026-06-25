@@ -18,6 +18,7 @@ import {
   sellers,
   systemEvents,
 } from "@/db/schema";
+import { getCompanyDocumentReadiness } from "@/lib/account/company-documents";
 import { getCompanyMissingFields } from "@/lib/account/company-validation";
 import { requireUser } from "@/lib/auth/session";
 import { addProductToBuyerCart } from "@/lib/cart/actions";
@@ -160,6 +161,12 @@ export async function createOrderAction(formData: FormData) {
 
   if (company.status === "blocked") {
     redirect("/checkout?error=company_blocked");
+  }
+
+  const documentReadiness = await getCompanyDocumentReadiness(buyerCompanyId);
+
+  if (!documentReadiness.isReady) {
+    redirect("/checkout?error=company_documents");
   }
 
   await db.transaction(async (tx) => {
