@@ -124,22 +124,13 @@ export function SellerForm({
         />
       </label>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2">
         <label className="grid gap-2 text-sm font-bold text-slate-700">
           Контактное лицо
           <input
             className="h-12 rounded-lg border border-slate-200 px-4 font-normal text-slate-950"
             defaultValue={seller?.contactName ?? ""}
             name="contactName"
-          />
-        </label>
-        <label className="grid gap-2 text-sm font-bold text-slate-700">
-          Email
-          <input
-            className="h-12 rounded-lg border border-slate-200 px-4 font-normal text-slate-950"
-            defaultValue={seller?.email ?? ""}
-            name="email"
-            type="email"
           />
         </label>
         <label className="grid gap-2 text-sm font-bold text-slate-700">

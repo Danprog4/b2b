@@ -60,6 +60,7 @@ function getSellerValues(formData: FormData) {
     getString(formData, "commissionRate") || "5",
   );
   const status = getString(formData, "status") || "active";
+  const email = getString(formData, "email") || getString(formData, "sellerUserEmail");
 
   return {
     name,
@@ -69,7 +70,7 @@ function getSellerValues(formData: FormData) {
     legalAddress: getString(formData, "legalAddress") || null,
     bankDetails: getBankDetails(getString(formData, "bankDetails")),
     contactName: getString(formData, "contactName") || null,
-    email: getString(formData, "email") || null,
+    email: email || null,
     phone: getString(formData, "phone") || null,
     commissionRate,
     status,
