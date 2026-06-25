@@ -18,6 +18,18 @@ function getErrorMessage(error: string | undefined) {
     return "Заполните название, ИНН, комиссию и статус.";
   }
 
+  if (error === "account-required") {
+    return "Для создания доступа продавца укажите email и пароль.";
+  }
+
+  if (error === "account-password") {
+    return "Пароль должен быть не короче 8 символов и содержать буквы и цифры.";
+  }
+
+  if (error === "account-email") {
+    return "Пользователь с таким email уже существует.";
+  }
+
   return null;
 }
 

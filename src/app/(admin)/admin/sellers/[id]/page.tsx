@@ -17,6 +17,7 @@ import {
   paymentsToSeller,
   products,
   sellers,
+  users,
 } from "@/db/schema";
 import {
   createSellerPaymentAction,
@@ -60,6 +61,18 @@ function getErrorMessage(error: string | undefined) {
     return "Заполните название, ИНН, комиссию и статус.";
   }
 
+  if (error === "account-required") {
+    return "Для доступа продавца укажите email и пароль. Для существующего аккаунта пароль можно оставить пустым.";
+  }
+
+  if (error === "account-password") {
+    return "Пароль должен быть не короче 8 символов и содержать буквы и цифры.";
+  }
+
+  if (error === "account-email") {
+    return "Пользователь с таким email уже существует.";
+  }
+
   return null;
 }
 
@@ -80,6 +93,8 @@ export default async function AdminSellerPage({
   const search = (await searchParams) ?? {};
   const created = search.created === "1";
   const saved = search.saved === "1";
+  const accountCreated = search.accountCreated === "1";
+  const accountSaved = search.accountSaved === "1";
   const paymentSaved = search.paymentSaved === "1";
   const paymentDeleted = search.paymentDeleted === "1";
   const paymentError = search.paymentError === "1";
@@ -111,6 +126,7 @@ export default async function AdminSellerPage({
     recentOrders,
     sellerPayments,
     sellerDocuments,
+    sellerAccount,
   ] =
     await Promise.all([
       db
@@ -207,6 +223,15 @@ export default async function AdminSellerPage({
         )
         .orderBy(desc(documents.createdAt))
         .limit(10),
+      db
+        .select({
+          id: users.id,
+          email: users.email,
+        })
+        .from(users)
+        .where(and(eq(users.sellerId, seller.id), eq(users.role, "seller")))
+        .limit(1)
+        .then(([row]) => row ?? null),
     ]);
   const paidPaymentsAmount = sellerPayments.reduce(
     (sum, payment) => sum + Number(payment.payoutAmount),
@@ -270,6 +295,15 @@ export default async function AdminSellerPage({
             ...(created || saved
               ? [{ message: created ? "Продавец создан." : "Продавец сохранен." }]
               : []),
+            ...(accountCreated || accountSaved
+              ? [
+                  {
+                    message: accountCreated
+                      ? "Доступ продавца создан."
+                      : "Доступ продавца сохранен.",
+                  },
+                ]
+              : []),
             ...(error ? [{ message: error, tone: "error" as const }] : []),
             ...(paymentSaved || paymentDeleted
               ? [
@@ -308,6 +342,7 @@ export default async function AdminSellerPage({
             <SellerForm
               action={updateSellerAction}
               seller={seller}
+              sellerAccount={sellerAccount}
               submitText="Сохранить продавца"
             />
           </section>

@@ -1,4 +1,5 @@
 import { SubmitButton } from "@/components/ui/submit-button";
+import { PASSWORD_MIN_LENGTH } from "@/lib/auth/password-policy";
 
 type SellerFormProps = {
   action: (formData: FormData) => void | Promise<void>;
@@ -16,6 +17,9 @@ type SellerFormProps = {
     commissionRate: string;
     status: "active" | "inactive";
   };
+  sellerAccount?: {
+    email: string;
+  } | null;
   submitText: string;
 };
 
@@ -23,7 +27,14 @@ function getBankDetailsText(bankDetails?: Record<string, string> | null) {
   return bankDetails?.raw ?? "";
 }
 
-export function SellerForm({ action, seller, submitText }: SellerFormProps) {
+export function SellerForm({
+  action,
+  seller,
+  sellerAccount,
+  submitText,
+}: SellerFormProps) {
+  const defaultSellerUserEmail = sellerAccount?.email ?? seller?.email ?? "";
+
   return (
     <form action={action} className="grid gap-5">
       {seller ? <input name="sellerId" type="hidden" value={seller.id} /> : null}
@@ -152,6 +163,44 @@ export function SellerForm({ action, seller, submitText }: SellerFormProps) {
           <option value="inactive">Неактивен</option>
         </select>
       </label>
+
+      <section className="grid gap-4 rounded-xl bg-slate-50 p-4 ring-1 ring-slate-100">
+        <div>
+          <h2 className="text-lg font-black text-slate-950">
+            Доступ продавца
+          </h2>
+          <p className="mt-1 text-sm font-semibold text-slate-500">
+            {sellerAccount
+              ? "Аккаунт продавца уже создан."
+              : "Заполните email и пароль, чтобы создать аккаунт продавца."}
+          </p>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="grid gap-2 text-sm font-bold text-slate-700">
+            Email для входа
+            <input
+              autoComplete="username"
+              className="h-12 rounded-lg border border-slate-200 bg-white px-4 font-normal text-slate-950"
+              defaultValue={defaultSellerUserEmail}
+              name="sellerUserEmail"
+              placeholder="seller@example.com"
+              type="email"
+            />
+          </label>
+          <label className="grid gap-2 text-sm font-bold text-slate-700">
+            {sellerAccount ? "Новый пароль" : "Пароль"}
+            <input
+              autoComplete="new-password"
+              className="h-12 rounded-lg border border-slate-200 bg-white px-4 font-normal text-slate-950"
+              minLength={PASSWORD_MIN_LENGTH}
+              name="sellerPassword"
+              placeholder={sellerAccount ? "Оставьте пустым без изменений" : ""}
+              type="password"
+            />
+          </label>
+        </div>
+      </section>
 
       <div className="flex justify-end">
         <SubmitButton

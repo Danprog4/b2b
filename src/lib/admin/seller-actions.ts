@@ -5,7 +5,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { db } from "@/db";
-import { auditEvents, paymentsToSeller, sellers } from "@/db/schema";
+import { auditEvents, paymentsToSeller, sellers, users } from "@/db/schema";
+import { hashPassword } from "@/lib/auth/password";
+import { isPasswordPolicyValid } from "@/lib/auth/password-policy";
 import { requireUser } from "@/lib/auth/session";
 import { normalizeInn } from "@/lib/company-normalize";
 import { parseMoscowDateInput } from "@/lib/datetime";
@@ -74,6 +76,13 @@ function getSellerValues(formData: FormData) {
   };
 }
 
+function getSellerAccountValues(formData: FormData) {
+  return {
+    email: getString(formData, "sellerUserEmail").toLowerCase(),
+    password: getString(formData, "sellerPassword"),
+  };
+}
+
 function redirectWithSellerError(sellerId: string | null, error: string) {
   if (sellerId) {
     redirect(`/admin/sellers/${sellerId}?error=${error}`);
@@ -95,9 +104,43 @@ async function assertUniqueInn(inn: string, sellerId: string | null) {
   return !existing;
 }
 
+async function assertUniqueUserEmail(email: string, userId: string | null) {
+  const filters = userId
+    ? and(eq(users.email, email), ne(users.id, userId))
+    : eq(users.email, email);
+  const [existing] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(filters)
+    .limit(1);
+
+  return !existing;
+}
+
+function validateSellerAccountValues(
+  sellerId: string | null,
+  account: ReturnType<typeof getSellerAccountValues>,
+) {
+  if (!account.email && !account.password) {
+    return false;
+  }
+
+  if (!account.email || !account.password) {
+    redirectWithSellerError(sellerId, "account-required");
+  }
+
+  if (!isPasswordPolicyValid(account.password)) {
+    redirectWithSellerError(sellerId, "account-password");
+  }
+
+  return true;
+}
+
 export async function createSellerAction(formData: FormData) {
   const admin = await requireUser(["admin"]);
   const values = getSellerValues(formData);
+  const account = getSellerAccountValues(formData);
+  const shouldCreateAccount = validateSellerAccountValues(null, account);
 
   if (
     !values.name ||
@@ -112,51 +155,89 @@ export async function createSellerAction(formData: FormData) {
     redirectWithSellerError(null, "inn");
   }
 
+  if (shouldCreateAccount && !(await assertUniqueUserEmail(account.email, null))) {
+    redirectWithSellerError(null, "account-email");
+  }
+
   const commissionRate = values.commissionRate ?? "5.00";
   const contractNumber = await getNextSellerContractNumber();
 
-  const [seller] = await db
-    .insert(sellers)
-    .values({
-      name: values.name,
-      inn: values.inn,
-      contractNumber,
-      kpp: nullableValue(values.kpp),
-      ogrn: nullableValue(values.ogrn),
-      legalAddress: nullableValue(values.legalAddress),
-      bankDetails: nullableValue(values.bankDetails),
-      contactName: nullableValue(values.contactName),
-      email: nullableValue(values.email),
-      phone: nullableValue(values.phone),
-      commissionRate,
-      status: values.status as "active" | "inactive",
-    })
-    .returning({ id: sellers.id });
+  const [seller] = await db.transaction(async (tx) => {
+    const [createdSeller] = await tx
+      .insert(sellers)
+      .values({
+        name: values.name,
+        inn: values.inn,
+        contractNumber,
+        kpp: nullableValue(values.kpp),
+        ogrn: nullableValue(values.ogrn),
+        legalAddress: nullableValue(values.legalAddress),
+        bankDetails: nullableValue(values.bankDetails),
+        contactName: nullableValue(values.contactName),
+        email: nullableValue(values.email),
+        phone: nullableValue(values.phone),
+        commissionRate,
+        status: values.status as "active" | "inactive",
+      })
+      .returning({ id: sellers.id });
 
-  await db.insert(auditEvents).values({
-    actorId: admin.id,
-    action: "seller.create",
-    entityType: "seller",
-    entityId: seller.id,
-    metadata: {
-      inn: values.inn,
-      name: values.name,
-      status: values.status,
-      contractNumber,
-    },
+    await tx.insert(auditEvents).values({
+      actorId: admin.id,
+      action: "seller.create",
+      entityType: "seller",
+      entityId: createdSeller.id,
+      metadata: {
+        inn: values.inn,
+        name: values.name,
+        status: values.status,
+        contractNumber,
+        accountCreated: shouldCreateAccount,
+      },
+    });
+
+    if (shouldCreateAccount) {
+      const [createdUser] = await tx
+        .insert(users)
+        .values({
+          name: values.contactName ?? values.name,
+          email: account.email,
+          phone: nullableValue(values.phone),
+          passwordHash: hashPassword(account.password),
+          role: "seller",
+          status: "active",
+          sellerId: createdSeller.id,
+        })
+        .returning({ id: users.id });
+
+      await tx.insert(auditEvents).values({
+        actorId: admin.id,
+        action: "seller_user.create",
+        entityType: "user",
+        entityId: createdUser.id,
+        metadata: {
+          sellerId: createdSeller.id,
+          email: account.email,
+        },
+      });
+    }
+
+    return [createdSeller];
   });
 
   revalidatePath("/admin");
   revalidatePath("/admin/sellers");
   revalidatePath("/admin/products");
 
-  redirect(`/admin/sellers/${seller.id}?created=1`);
+  redirect(
+    `/admin/sellers/${seller.id}?created=1${shouldCreateAccount ? "&accountCreated=1" : ""}`,
+  );
 }
 
 export async function updateSellerAction(formData: FormData) {
   const admin = await requireUser(["admin"]);
   const sellerId = getString(formData, "sellerId");
   const values = getSellerValues(formData);
+  const account = getSellerAccountValues(formData);
 
   if (
     !sellerId ||
@@ -182,36 +263,125 @@ export async function updateSellerAction(formData: FormData) {
     redirectWithSellerError(seller.id, "inn");
   }
 
+  const [sellerUser] = await db
+    .select({
+      id: users.id,
+      email: users.email,
+    })
+    .from(users)
+    .where(and(eq(users.sellerId, seller.id), eq(users.role, "seller")))
+    .limit(1);
+
+  const shouldSaveAccount = Boolean(
+    account.password ||
+      (sellerUser && account.email && account.email !== sellerUser.email),
+  );
+
+  if (shouldSaveAccount) {
+    if (!account.email) {
+      redirectWithSellerError(seller.id, "account-required");
+    }
+
+    if (!sellerUser && !account.password) {
+      redirectWithSellerError(seller.id, "account-required");
+    }
+
+    if (account.password && !isPasswordPolicyValid(account.password)) {
+      redirectWithSellerError(seller.id, "account-password");
+    }
+
+    if (!(await assertUniqueUserEmail(account.email, sellerUser?.id ?? null))) {
+      redirectWithSellerError(seller.id, "account-email");
+    }
+  }
+
   const commissionRate = values.commissionRate ?? "5.00";
 
-  await db
-    .update(sellers)
-    .set({
-      name: values.name,
-      inn: values.inn,
-      kpp: nullableValue(values.kpp),
-      ogrn: nullableValue(values.ogrn),
-      legalAddress: nullableValue(values.legalAddress),
-      bankDetails: nullableValue(values.bankDetails),
-      contactName: nullableValue(values.contactName),
-      email: nullableValue(values.email),
-      phone: nullableValue(values.phone),
-      commissionRate,
-      status: values.status as "active" | "inactive",
-      updatedAt: new Date(),
-    })
-    .where(eq(sellers.id, seller.id));
+  await db.transaction(async (tx) => {
+    await tx
+      .update(sellers)
+      .set({
+        name: values.name,
+        inn: values.inn,
+        kpp: nullableValue(values.kpp),
+        ogrn: nullableValue(values.ogrn),
+        legalAddress: nullableValue(values.legalAddress),
+        bankDetails: nullableValue(values.bankDetails),
+        contactName: nullableValue(values.contactName),
+        email: nullableValue(values.email),
+        phone: nullableValue(values.phone),
+        commissionRate,
+        status: values.status as "active" | "inactive",
+        updatedAt: new Date(),
+      })
+      .where(eq(sellers.id, seller.id));
 
-  await db.insert(auditEvents).values({
-    actorId: admin.id,
-    action: "seller.update",
-    entityType: "seller",
-    entityId: seller.id,
-    metadata: {
-      inn: values.inn,
-      name: values.name,
-      status: values.status,
-    },
+    await tx.insert(auditEvents).values({
+      actorId: admin.id,
+      action: "seller.update",
+      entityType: "seller",
+      entityId: seller.id,
+      metadata: {
+        inn: values.inn,
+        name: values.name,
+        status: values.status,
+      },
+    });
+
+    if (shouldSaveAccount && sellerUser) {
+      await tx
+        .update(users)
+        .set({
+          name: values.contactName ?? values.name,
+          email: account.email,
+          phone: nullableValue(values.phone),
+          ...(account.password
+            ? { passwordHash: hashPassword(account.password) }
+            : {}),
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, sellerUser.id));
+
+      await tx.insert(auditEvents).values({
+        actorId: admin.id,
+        action: account.password
+          ? "seller_user.password_update"
+          : "seller_user.update",
+        entityType: "user",
+        entityId: sellerUser.id,
+        metadata: {
+          sellerId: seller.id,
+          email: account.email,
+          emailChanged: sellerUser.email !== account.email,
+        },
+      });
+    }
+
+    if (shouldSaveAccount && !sellerUser) {
+      const [createdUser] = await tx
+        .insert(users)
+        .values({
+          name: values.contactName ?? values.name,
+          email: account.email,
+          phone: nullableValue(values.phone),
+          passwordHash: hashPassword(account.password),
+          role: "seller",
+          status: "active",
+          sellerId: seller.id,
+        })
+        .returning({ id: users.id });
+
+      await tx.insert(auditEvents).values({
+        actorId: admin.id,
+        action: "seller_user.create",
+        entityType: "user",
+        entityId: createdUser.id,
+        metadata: {
+          sellerId: seller.id,
+          email: account.email,
+        },
+      });
+    }
   });
 
   revalidatePath("/admin");
@@ -220,7 +390,9 @@ export async function updateSellerAction(formData: FormData) {
   revalidatePath("/admin/products");
   revalidatePath("/catalog");
 
-  redirect(`/admin/sellers/${seller.id}?saved=1`);
+  redirect(
+    `/admin/sellers/${seller.id}?saved=1${shouldSaveAccount ? "&accountSaved=1" : ""}`,
+  );
 }
 
 function getPaymentValues(formData: FormData) {
