@@ -21,14 +21,26 @@ export type DashboardChartPoint = {
   value: number;
 };
 
-function formatAxisDate(value: string) {
+type DashboardChartDataPoint = DashboardChartPoint & {
+  timestamp: number;
+};
+
+function getLocalTimestamp(value: string) {
   const [year, month, day] = value.split("-").map(Number);
 
   if (!year || !month || !day) {
-    return value;
+    return Number.NaN;
   }
 
-  const date = new Date(year, month - 1, day);
+  return new Date(year, month - 1, day).getTime();
+}
+
+function formatAxisDate(value: number | string) {
+  const date = new Date(Number(value));
+
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
 
   return date.toLocaleDateString("ru-RU", {
     day: "numeric",
@@ -36,36 +48,46 @@ function formatAxisDate(value: string) {
   });
 }
 
-function buildDateTicks(points: DashboardChartPoint[]) {
+function buildTimeTicks(points: DashboardChartDataPoint[]) {
+  const first = points[0]?.timestamp;
+  const last = points[points.length - 1]?.timestamp;
+
+  if (!Number.isFinite(first) || !Number.isFinite(last)) {
+    return [];
+  }
+
   if (points.length <= 8) {
-    return points.map((point) => point.date);
+    return points.map((point) => point.timestamp);
   }
 
-  const step = Math.ceil((points.length - 1) / 6);
-  const ticks = points
-    .filter((_, index) => index % step === 0)
-    .map((point) => point.date);
-  const lastDate = points[points.length - 1]?.date;
+  const tickCount = points.length <= 16 ? 5 : 6;
+  const step = (last - first) / (tickCount - 1);
 
-  if (lastDate && ticks[ticks.length - 1] !== lastDate) {
-    ticks.push(lastDate);
-  }
+  return Array.from({ length: tickCount }, (_, index) => {
+    if (index === 0) {
+      return first;
+    }
 
-  return ticks;
+    if (index === tickCount - 1) {
+      return last;
+    }
+
+    return first + step * index;
+  });
 }
 
-function formatTooltipDate(value: string) {
-  const [year, month, day] = value.split("-").map(Number);
+function formatTooltipDate(value: number | string) {
+  const date = new Date(Number(value));
 
-  if (!year || !month || !day) {
-    return value;
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
   }
 
   return new Intl.DateTimeFormat("ru-RU", {
     day: "numeric",
     month: "long",
     year: "numeric",
-  }).format(new Date(year, month - 1, day));
+  }).format(date);
 }
 
 function formatChartValue(value: number, mode: "currency" | "number") {
@@ -105,7 +127,11 @@ export function DashboardLineChart({
   valueMode: "currency" | "number";
 }) {
   const totalValue = points.reduce((sum, point) => sum + point.value, 0);
-  const dateTicks = buildDateTicks(points);
+  const chartData = points.map((point) => ({
+    ...point,
+    timestamp: getLocalTimestamp(point.date),
+  }));
+  const timeTicks = buildTimeTicks(chartData);
   const chartConfig = {
     value: {
       label: title,
@@ -137,7 +163,7 @@ export function DashboardLineChart({
         >
           <LineChart
             accessibilityLayer
-            data={points}
+            data={chartData}
             margin={{
               left: 28,
               right: 28,
@@ -145,14 +171,15 @@ export function DashboardLineChart({
           >
             <CartesianGrid vertical={false} />
             <XAxis
-              dataKey="date"
+              dataKey="timestamp"
+              type="number"
+              domain={["dataMin", "dataMax"]}
               tickLine={false}
               axisLine={false}
               tickMargin={8}
-              interval={0}
               padding={{ left: 8, right: 8 }}
-              ticks={dateTicks}
-              tickFormatter={(value) => formatAxisDate(String(value))}
+              ticks={timeTicks}
+              tickFormatter={(value) => formatAxisDate(value)}
             />
             <ChartTooltip
               content={
