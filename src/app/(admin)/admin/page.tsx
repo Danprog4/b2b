@@ -16,6 +16,7 @@ type ChartPoint = {
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 const chartDays = 7;
+const maxChartDays = 30;
 
 function getDefaultChartStartDate() {
   return getRangeStartDate(chartDays);
@@ -82,15 +83,34 @@ function getDateKeys(startDate: Date, endDate: Date) {
   return keys;
 }
 
-function getChartPeriod(searchParams: Awaited<SearchParams>) {
+function getChartPeriod(
+  searchParams: Awaited<SearchParams>,
+  startParamName: string,
+  endParamName: string,
+  fallbackStartParamName?: string,
+  fallbackEndParamName?: string,
+) {
   const defaultStartDate = getDefaultChartStartDate();
   const defaultEndDate = getDefaultChartEndDate();
-  const fromParam = getParam(searchParams, "from");
-  const toParam = getParam(searchParams, "to");
+  const fromParam =
+    getParam(searchParams, startParamName) ||
+    (fallbackStartParamName ? getParam(searchParams, fallbackStartParamName) : "");
+  const toParam =
+    getParam(searchParams, endParamName) ||
+    (fallbackEndParamName ? getParam(searchParams, fallbackEndParamName) : "");
   const parsedStartDate = parseDateInput(fromParam);
   const parsedEndDate = parseDateInput(toParam, true);
 
   if (parsedStartDate && parsedEndDate && parsedStartDate <= parsedEndDate) {
+    const dayCount = getDateKeys(parsedStartDate, parsedEndDate).length;
+
+    if (dayCount > maxChartDays) {
+      return {
+        startDate: getRangeStartDateFromEndDate(parsedEndDate, maxChartDays),
+        endDate: parsedEndDate,
+      };
+    }
+
     return {
       startDate: parsedStartDate,
       endDate: parsedEndDate,
@@ -101,6 +121,14 @@ function getChartPeriod(searchParams: Awaited<SearchParams>) {
     startDate: defaultStartDate,
     endDate: defaultEndDate,
   };
+}
+
+function getRangeStartDateFromEndDate(endDate: Date, days: number) {
+  const date = new Date(endDate);
+  date.setDate(date.getDate() - (days - 1));
+  date.setHours(0, 0, 0, 0);
+
+  return date;
 }
 
 function getPeriodLabel(dayCount: number) {
@@ -143,11 +171,49 @@ function buildChartPoints(
   }));
 }
 
+function buildGridLines({
+  maxValue,
+  mode,
+  paddingTop,
+  plotHeight,
+}: {
+  maxValue: number;
+  mode: "currency" | "number";
+  paddingTop: number;
+  plotHeight: number;
+}) {
+  if (mode === "number") {
+    const topValue = Math.max(1, Math.ceil(maxValue));
+    const step = Math.max(1, Math.ceil(topValue / 3));
+    const values: number[] = [];
+
+    for (let value = topValue; value > 0; value -= step) {
+      values.push(value);
+    }
+
+    values.push(0);
+
+    return values.map((value) => ({
+      value,
+      y: paddingTop + plotHeight - (value / topValue) * plotHeight,
+    }));
+  }
+
+  return [0, 1, 2, 3].map((index) => {
+    const y = paddingTop + (plotHeight * index) / 3;
+    const value = maxValue - (maxValue * index) / 3;
+
+    return { y, value };
+  });
+}
+
 function LineChart({
   title,
   points,
   periodEndValue,
+  periodEndParamName,
   periodLabel,
+  periodStartParamName,
   periodStartValue,
   valueMode,
   strokeClassName,
@@ -155,23 +221,26 @@ function LineChart({
   title: string;
   points: ChartPoint[];
   periodEndValue: string;
+  periodEndParamName: string;
   periodLabel: string;
+  periodStartParamName: string;
   periodStartValue: string;
   valueMode: "currency" | "number";
   strokeClassName: string;
 }) {
   const width = 980;
   const height = 300;
-  const paddingX = 54;
+  const paddingLeft = 86;
+  const paddingRight = 86;
   const paddingTop = 58;
   const paddingBottom = 46;
-  const plotWidth = width - paddingX * 2;
+  const plotWidth = width - paddingLeft - paddingRight;
   const plotHeight = height - paddingTop - paddingBottom;
   const realMaxValue = Math.max(...points.map((point) => point.value), 0);
   const scaleMaxValue = realMaxValue > 0 ? realMaxValue : 1;
   const coordinates = points.map((point, index) => {
     const x =
-      paddingX + (plotWidth * index) / Math.max(points.length - 1, 1);
+      paddingLeft + (plotWidth * index) / Math.max(points.length - 1, 1);
     const y =
       paddingTop + plotHeight - (point.value / scaleMaxValue) * plotHeight;
 
@@ -181,11 +250,11 @@ function LineChart({
     .map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`)
     .join(" ");
   const labelStep = Math.max(1, Math.ceil(points.length / 10));
-  const gridLines = [0, 1, 2, 3].map((index) => {
-    const y = paddingTop + (plotHeight * index) / 3;
-    const value = realMaxValue - (realMaxValue * index) / 3;
-
-    return { y, value };
+  const gridLines = buildGridLines({
+    maxValue: realMaxValue,
+    mode: valueMode,
+    paddingTop,
+    plotHeight,
   });
 
   return (
@@ -194,14 +263,16 @@ function LineChart({
         <h2 className="text-lg font-black text-slate-950">{title}</h2>
         <PeriodPicker
           endDateValue={periodEndValue}
+          endParamName={periodEndParamName}
           periodLabel={periodLabel}
           startDateValue={periodStartValue}
+          startParamName={periodStartParamName}
         />
       </div>
       <div className="mt-4 rounded-lg bg-slate-100 p-3">
         <svg
           aria-label={title}
-          className="h-[300px] w-full overflow-visible"
+          className="h-[300px] w-full overflow-hidden"
           preserveAspectRatio="none"
           role="img"
           viewBox={`0 0 ${width} ${height}`}
@@ -211,14 +282,14 @@ function LineChart({
               <line
                 className="stroke-slate-200"
                 strokeWidth="1"
-                x1={paddingX}
-                x2={width - paddingX}
+                x1={paddingLeft}
+                x2={width - paddingRight}
                 y1={line.y}
                 y2={line.y}
               />
               <text
                 className="fill-slate-400 text-[11px] font-bold"
-                x={paddingX - 14}
+                x={paddingLeft - 12}
                 y={line.y + 4}
                 textAnchor="end"
               >
@@ -269,9 +340,18 @@ export default async function AdminPage({
   const user = await requireUser(["admin"]);
   const search = (await searchParams) ?? {};
   const { startDate: chartStartDate, endDate: chartEndDate } =
-    getChartPeriod(search);
+    getChartPeriod(search, "commissionFrom", "commissionTo", "from", "to");
   const dateKeys = getDateKeys(chartStartDate, chartEndDate);
   const periodLabel = getPeriodLabel(dateKeys.length);
+  const {
+    startDate: newBuyerChartStartDate,
+    endDate: newBuyerChartEndDate,
+  } = getChartPeriod(search, "usersFrom", "usersTo");
+  const newBuyerDateKeys = getDateKeys(
+    newBuyerChartStartDate,
+    newBuyerChartEndDate,
+  );
+  const newBuyerPeriodLabel = getPeriodLabel(newBuyerDateKeys.length);
   const salesDay = sql<string>`to_char(${orders.createdAt}, 'YYYY-MM-DD')`;
   const userDay = sql<string>`to_char(${users.createdAt}, 'YYYY-MM-DD')`;
   const commissionAmountSql = sql<string>`
@@ -314,8 +394,8 @@ export default async function AdminPage({
       .where(
         and(
           eq(users.role, "buyer"),
-          gte(users.createdAt, chartStartDate),
-          lte(users.createdAt, chartEndDate),
+          gte(users.createdAt, newBuyerChartStartDate),
+          lte(users.createdAt, newBuyerChartEndDate),
         ),
       )
       .then(([row]) => row),
@@ -348,8 +428,8 @@ export default async function AdminPage({
       .where(
         and(
           eq(users.role, "buyer"),
-          gte(users.createdAt, chartStartDate),
-          lte(users.createdAt, chartEndDate),
+          gte(users.createdAt, newBuyerChartStartDate),
+          lte(users.createdAt, newBuyerChartEndDate),
         ),
       )
       .groupBy(userDay)
@@ -361,9 +441,11 @@ export default async function AdminPage({
   const newBuyerUsers = newBuyerCounter?.count ?? 0;
   const totalOrders = totalOrderCounter?.count ?? 0;
   const commissionPoints = buildChartPoints(dateKeys, commissionRows);
-  const newBuyerPoints = buildChartPoints(dateKeys, newBuyerRows);
+  const newBuyerPoints = buildChartPoints(newBuyerDateKeys, newBuyerRows);
   const periodStartValue = toDateInputValue(chartStartDate);
   const periodEndValue = toDateInputValue(chartEndDate);
+  const newBuyerPeriodStartValue = toDateInputValue(newBuyerChartStartDate);
+  const newBuyerPeriodEndValue = toDateInputValue(newBuyerChartEndDate);
   const kpiCards = [
     {
       label: "Сумма продаж",
@@ -433,7 +515,9 @@ export default async function AdminPage({
         <div className="mt-5 grid gap-5">
           <LineChart
             periodEndValue={periodEndValue}
+            periodEndParamName="commissionTo"
             periodLabel={periodLabel}
+            periodStartParamName="commissionFrom"
             periodStartValue={periodStartValue}
             points={commissionPoints}
             strokeClassName="stroke-[#1157ff]"
@@ -441,9 +525,11 @@ export default async function AdminPage({
             valueMode="currency"
           />
           <LineChart
-            periodEndValue={periodEndValue}
-            periodLabel={periodLabel}
-            periodStartValue={periodStartValue}
+            periodEndValue={newBuyerPeriodEndValue}
+            periodEndParamName="usersTo"
+            periodLabel={newBuyerPeriodLabel}
+            periodStartParamName="usersFrom"
+            periodStartValue={newBuyerPeriodStartValue}
             points={newBuyerPoints}
             strokeClassName="stroke-emerald-600"
             title="Новые юзеры"

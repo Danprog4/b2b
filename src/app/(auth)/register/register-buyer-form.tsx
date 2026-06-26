@@ -586,12 +586,12 @@ export function RegisterBuyerForm({ next = "" }: { next?: string }) {
 
           <div className="rounded-xl bg-amber-50 p-4 text-sm leading-6 text-amber-900">
             <p className="font-black">
-              Для оформления заказа нужны карточка компании и уставные
+              Для оформления заказов нужны карточка компании и уставные
               документы.
             </p>
             <p className="mt-2 font-semibold">
-              Этот шаг можно пропустить, но без этих документов checkout не
-              позволит подтвердить заказ.
+              Этот шаг можно пропустить: документы можно добавить позже в
+              личном кабинете во вкладке «Компания».
             </p>
           </div>
 
@@ -635,6 +635,7 @@ export function RegisterBuyerForm({ next = "" }: { next?: string }) {
             </button>
             <SubmitButton
               className="h-12 rounded-lg bg-[#1157ff] px-6 font-bold text-white transition hover:bg-[#0b49e0]"
+              pendingMode="clicked"
               pendingText="Регистрируем"
             >
               <CheckCircle2 size={18} />
@@ -643,6 +644,7 @@ export function RegisterBuyerForm({ next = "" }: { next?: string }) {
             <SubmitButton
               className="h-12 rounded-lg bg-slate-100 px-6 font-bold text-slate-700 transition hover:bg-slate-200"
               name="skipDocuments"
+              pendingMode="clicked"
               pendingText="Регистрируем"
               value="1"
             >

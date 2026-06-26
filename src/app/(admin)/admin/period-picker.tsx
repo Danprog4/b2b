@@ -1,7 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+
+const maxPeriodDays = 30;
 
 function getDateInputValue(value: Date) {
   const year = value.getFullYear();
@@ -11,31 +14,43 @@ function getDateInputValue(value: Date) {
   return `${year}-${month}-${day}`;
 }
 
-function getPeriodHref(days: number) {
+function getPeriodHref(
+  days: number,
+  searchParams: URLSearchParams,
+  startParamName: string,
+  endParamName: string,
+) {
   const endDate = new Date();
   endDate.setHours(23, 59, 59, 999);
   const startDate = new Date(endDate);
   startDate.setDate(endDate.getDate() - (days - 1));
   startDate.setHours(0, 0, 0, 0);
-  const params = new URLSearchParams({
-    from: getDateInputValue(startDate),
-    to: getDateInputValue(endDate),
-  });
+  const params = new URLSearchParams(searchParams);
+  params.set(startParamName, getDateInputValue(startDate));
+  params.set(endParamName, getDateInputValue(endDate));
 
   return `/admin?${params.toString()}`;
 }
 
 export function PeriodPicker({
   endDateValue,
+  endParamName,
   periodLabel,
+  startParamName,
   startDateValue,
 }: {
   endDateValue: string;
+  endParamName: string;
   periodLabel: string;
+  startParamName: string;
   startDateValue: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const searchParams = useSearchParams();
+  const preservedParams = new URLSearchParams(searchParams);
+  preservedParams.delete(startParamName);
+  preservedParams.delete(endParamName);
 
   useEffect(() => {
     if (!isOpen) {
@@ -88,7 +103,12 @@ export function PeriodPicker({
           {[7, 14, 30].map((days) => (
             <Link
               className="inline-flex h-9 items-center justify-center rounded-lg bg-slate-100 text-sm font-black text-slate-700 transition hover:bg-[#1157ff] hover:text-white"
-              href={getPeriodHref(days)}
+              href={getPeriodHref(
+                days,
+                new URLSearchParams(searchParams),
+                startParamName,
+                endParamName,
+              )}
               key={days}
               onClick={() => setIsOpen(false)}
             >
@@ -98,12 +118,18 @@ export function PeriodPicker({
         </div>
 
         <form className="mt-4 grid gap-3" method="get">
+          {Array.from(preservedParams.entries()).map(([key, value]) => (
+            <input key={`${key}-${value}`} name={key} type="hidden" value={value} />
+          ))}
+          <p className="text-[11px] font-semibold leading-4 text-slate-400">
+            Максимальный период для графиков — {maxPeriodDays} дней.
+          </p>
           <label className="grid gap-2 text-sm font-bold text-slate-700">
             Дата от
             <input
               className="h-10 rounded-lg border border-slate-200 px-3 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
               defaultValue={startDateValue}
-              name="from"
+              name={startParamName}
               type="date"
             />
           </label>
@@ -112,7 +138,7 @@ export function PeriodPicker({
             <input
               className="h-10 rounded-lg border border-slate-200 px-3 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
               defaultValue={endDateValue}
-              name="to"
+              name={endParamName}
               type="date"
             />
           </label>
