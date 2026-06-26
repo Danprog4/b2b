@@ -61,12 +61,19 @@ function formatTooltipDate(value: string) {
 
 function formatChartValue(value: number, mode: "currency" | "number") {
   if (mode === "currency") {
-    return new Intl.NumberFormat("ru-RU", {
-      currency: "RUB",
-      notation: "compact",
-      style: "currency",
-      maximumFractionDigits: 1,
-    }).format(value);
+    if (Math.abs(value) >= 1000) {
+      const compactValue = value / 1000;
+
+      return `${new Intl.NumberFormat("ru-RU", {
+        maximumFractionDigits: 1,
+      })
+        .format(compactValue)
+        .replace(",", ".")}к ₽`;
+    }
+
+    return `${new Intl.NumberFormat("ru-RU", {
+      maximumFractionDigits: 0,
+    }).format(value)} ₽`;
   }
 
   return new Intl.NumberFormat("ru-RU", {
@@ -78,7 +85,7 @@ function getYAxisWidth(value: number, mode: "currency" | "number") {
   const formattedValue = formatChartValue(value, mode);
 
   if (mode === "currency") {
-    return formattedValue.includes("тыс") ? 72 : 48;
+    return formattedValue.includes("к") ? 56 : 48;
   }
 
   return formattedValue.length > 3 ? 52 : 36;
