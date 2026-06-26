@@ -393,29 +393,29 @@ export default async function AdminOrdersPage({
         </div>
 
         <form
-          className="mt-6 overflow-x-auto rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200"
+          className="mt-5 overflow-x-auto rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200"
           method="get"
         >
-          <div className="grid min-w-[1320px] gap-3 xl:grid-cols-[1.25fr_180px_220px_180px_160px]">
-            <label className="grid gap-2 text-sm font-bold text-slate-700">
+          <div className="grid min-w-[900px] gap-2 xl:grid-cols-[minmax(180px,1fr)_150px_170px_150px_auto]">
+            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
               Поиск
               <div className="relative">
                 <Search
-                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                  size={18}
+                  className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
+                  size={16}
                 />
                 <input
-                  className="h-11 w-full rounded-lg border border-slate-200 pl-10 pr-3 font-semibold outline-none transition focus:border-[#1157ff]"
+                  className="h-9 w-full rounded-lg border border-slate-200 pl-8 pr-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
                   defaultValue={query}
                   name="q"
                   placeholder="Заказ, компания, ИНН, email"
                 />
               </div>
             </label>
-            <label className="grid gap-2 text-sm font-bold text-slate-700">
+            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
               Статус
               <select
-                className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-semibold outline-none transition focus:border-[#1157ff]"
+                className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
                 defaultValue={status}
                 name="status"
               >
@@ -427,10 +427,10 @@ export default async function AdminOrdersPage({
                 ))}
               </select>
             </label>
-            <label className="grid gap-2 text-sm font-bold text-slate-700">
+            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
               Продавец
               <select
-                className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-semibold outline-none transition focus:border-[#1157ff]"
+                className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
                 defaultValue={sellerId}
                 name="sellerId"
               >
@@ -442,10 +442,10 @@ export default async function AdminOrdersPage({
                 ))}
               </select>
             </label>
-            <label className="grid gap-2 text-sm font-bold text-slate-700">
+            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
               Документы
               <select
-                className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-semibold outline-none transition focus:border-[#1157ff]"
+                className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
                 defaultValue={documentsFilter}
                 name="documents"
               >
@@ -456,13 +456,13 @@ export default async function AdminOrdersPage({
             </label>
             <div className="flex items-end gap-2">
               <button
-                className="inline-flex h-11 flex-1 items-center justify-center rounded-lg bg-[#1157ff] px-4 text-sm font-bold text-white transition hover:bg-[#0b49e0]"
+                className="inline-flex h-9 flex-1 items-center justify-center rounded-lg bg-[#1157ff] px-3 text-sm font-bold text-white transition hover:bg-[#0b49e0]"
                 type="submit"
               >
                 Применить
               </button>
               <Link
-                className="inline-flex size-11 items-center justify-center rounded-lg bg-slate-100 text-slate-600 transition hover:bg-slate-200"
+                className="inline-flex size-9 items-center justify-center rounded-lg bg-slate-100 text-slate-600 transition hover:bg-slate-200"
                 href="/admin/orders"
                 title="Сбросить фильтры"
               >
@@ -471,57 +471,57 @@ export default async function AdminOrdersPage({
             </div>
           </div>
 
-          <div className="mt-4 grid min-w-[1320px] gap-3 md:grid-cols-2 xl:grid-cols-6">
-            <label className="grid gap-2 text-sm font-bold text-slate-700">
+          <div className="mt-3 grid min-w-[900px] gap-2 md:grid-cols-2 xl:grid-cols-6">
+            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
               Компания
               <input
-                className="h-11 rounded-lg border border-slate-200 px-3 font-semibold outline-none transition focus:border-[#1157ff]"
+                className="h-9 rounded-lg border border-slate-200 px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
                 defaultValue={company}
                 name="company"
                 placeholder="Название"
               />
             </label>
-            <label className="grid gap-2 text-sm font-bold text-slate-700">
+            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
               ИНН
               <input
-                className="h-11 rounded-lg border border-slate-200 px-3 font-semibold outline-none transition focus:border-[#1157ff]"
+                className="h-9 rounded-lg border border-slate-200 px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
                 defaultValue={inn}
                 name="inn"
                 placeholder="7702..."
               />
             </label>
-            <label className="grid gap-2 text-sm font-bold text-slate-700">
+            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
               Дата от
               <input
-                className="h-11 rounded-lg border border-slate-200 px-3 font-semibold outline-none transition focus:border-[#1157ff]"
+                className="h-9 rounded-lg border border-slate-200 px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
                 defaultValue={dateFrom}
                 name="dateFrom"
                 type="date"
               />
             </label>
-            <label className="grid gap-2 text-sm font-bold text-slate-700">
+            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
               Дата до
               <input
-                className="h-11 rounded-lg border border-slate-200 px-3 font-semibold outline-none transition focus:border-[#1157ff]"
+                className="h-9 rounded-lg border border-slate-200 px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
                 defaultValue={dateTo}
                 name="dateTo"
                 type="date"
               />
             </label>
-            <label className="grid gap-2 text-sm font-bold text-slate-700">
+            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
               Сумма от
               <input
-                className="h-11 rounded-lg border border-slate-200 px-3 font-semibold outline-none transition focus:border-[#1157ff]"
+                className="h-9 rounded-lg border border-slate-200 px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
                 defaultValue={amountFrom}
                 inputMode="numeric"
                 name="amountFrom"
                 placeholder="0"
               />
             </label>
-            <label className="grid gap-2 text-sm font-bold text-slate-700">
+            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
               Сумма до
               <input
-                className="h-11 rounded-lg border border-slate-200 px-3 font-semibold outline-none transition focus:border-[#1157ff]"
+                className="h-9 rounded-lg border border-slate-200 px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
                 defaultValue={amountTo}
                 inputMode="numeric"
                 name="amountTo"

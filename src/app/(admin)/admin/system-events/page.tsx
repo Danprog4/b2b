@@ -115,27 +115,27 @@ export default async function AdminSystemEventsPage({
           </p>
         </div>
 
-        <form className="mt-6 grid min-w-0 gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200 lg:grid-cols-[minmax(0,1fr)_220px_220px_auto]">
+        <form className="mt-5 grid min-w-0 gap-2 rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200 lg:grid-cols-[minmax(180px,1fr)_180px_180px_auto]">
           <label className="relative">
             <Search
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-              size={18}
+              className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
+              size={16}
             />
             <input
-              className="h-11 w-full rounded-lg border border-slate-200 pl-10 pr-4 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
+              className="h-9 w-full rounded-lg border border-slate-200 pl-8 pr-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
               defaultValue={q}
               name="q"
               placeholder="Поиск по сообщению или типу"
             />
           </label>
           <input
-            className="h-11 rounded-lg border border-slate-200 px-4 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
+            className="h-9 rounded-lg border border-slate-200 px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
             defaultValue={type}
             name="type"
             placeholder="Тип события"
           />
           <select
-            className="h-11 rounded-lg border border-slate-200 px-4 text-sm font-bold outline-none transition focus:border-[#1157ff]"
+            className="h-9 rounded-lg border border-slate-200 px-2.5 text-sm font-bold outline-none transition focus:border-[#1157ff]"
             defaultValue={severity}
             name="severity"
           >
@@ -146,7 +146,7 @@ export default async function AdminSystemEventsPage({
               </option>
             ))}
           </select>
-          <button className="h-11 rounded-lg bg-[#1157ff] px-5 text-sm font-bold text-white transition hover:bg-[#0b49e0]">
+          <button className="h-9 rounded-lg bg-[#1157ff] px-3 text-sm font-bold text-white transition hover:bg-[#0b49e0]">
             Найти
           </button>
         </form>

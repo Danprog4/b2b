@@ -6,12 +6,7 @@ import { db } from "@/db";
 import { notifications, orderItems, orders, users } from "@/db/schema";
 import { requireUser } from "@/lib/auth/session";
 import { formatCurrency } from "@/lib/utils";
-import { PeriodPicker } from "./period-picker";
-
-type ChartPoint = {
-  label: string;
-  value: number;
-};
+import { DashboardBarChart } from "./dashboard-bar-chart";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -76,7 +71,7 @@ function getDateKeys(startDate: Date, endDate: Date) {
   end.setHours(0, 0, 0, 0);
 
   while (cursor <= end) {
-    keys.push(cursor.toISOString().slice(0, 10));
+    keys.push(toDateInputValue(cursor));
     cursor.setDate(cursor.getDate() + 1);
   }
 
@@ -142,21 +137,6 @@ function getDayLabel(dateKey: string) {
   }).format(new Date(`${dateKey}T00:00:00`));
 }
 
-function formatChartValue(value: number, mode: "currency" | "number") {
-  if (mode === "currency") {
-    return new Intl.NumberFormat("ru-RU", {
-      currency: "RUB",
-      notation: "compact",
-      style: "currency",
-      maximumFractionDigits: 1,
-    }).format(value);
-  }
-
-  return new Intl.NumberFormat("ru-RU", {
-    maximumFractionDigits: 0,
-  }).format(value);
-}
-
 function buildChartPoints(
   dateKeys: string[],
   rows: { day: string; value: number | string }[],
@@ -169,167 +149,6 @@ function buildChartPoints(
     label: getDayLabel(dateKey),
     value: valuesByDay.get(dateKey) ?? 0,
   }));
-}
-
-function buildGridLines({
-  maxValue,
-  mode,
-  paddingTop,
-  plotHeight,
-}: {
-  maxValue: number;
-  mode: "currency" | "number";
-  paddingTop: number;
-  plotHeight: number;
-}) {
-  if (mode === "number") {
-    const topValue = Math.max(1, Math.ceil(maxValue));
-    const step = Math.max(1, Math.ceil(topValue / 3));
-    const values: number[] = [];
-
-    for (let value = topValue; value > 0; value -= step) {
-      values.push(value);
-    }
-
-    values.push(0);
-
-    return values.map((value) => ({
-      value,
-      y: paddingTop + plotHeight - (value / topValue) * plotHeight,
-    }));
-  }
-
-  return [0, 1, 2, 3].map((index) => {
-    const y = paddingTop + (plotHeight * index) / 3;
-    const value = maxValue - (maxValue * index) / 3;
-
-    return { y, value };
-  });
-}
-
-function LineChart({
-  title,
-  points,
-  periodEndValue,
-  periodEndParamName,
-  periodLabel,
-  periodStartParamName,
-  periodStartValue,
-  valueMode,
-  strokeClassName,
-}: {
-  title: string;
-  points: ChartPoint[];
-  periodEndValue: string;
-  periodEndParamName: string;
-  periodLabel: string;
-  periodStartParamName: string;
-  periodStartValue: string;
-  valueMode: "currency" | "number";
-  strokeClassName: string;
-}) {
-  const width = 980;
-  const height = 300;
-  const paddingLeft = 86;
-  const paddingRight = 86;
-  const paddingTop = 58;
-  const paddingBottom = 46;
-  const plotWidth = width - paddingLeft - paddingRight;
-  const plotHeight = height - paddingTop - paddingBottom;
-  const realMaxValue = Math.max(...points.map((point) => point.value), 0);
-  const scaleMaxValue = realMaxValue > 0 ? realMaxValue : 1;
-  const coordinates = points.map((point, index) => {
-    const x =
-      paddingLeft + (plotWidth * index) / Math.max(points.length - 1, 1);
-    const y =
-      paddingTop + plotHeight - (point.value / scaleMaxValue) * plotHeight;
-
-    return { ...point, x, y };
-  });
-  const linePoints = coordinates
-    .map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`)
-    .join(" ");
-  const labelStep = Math.max(1, Math.ceil(points.length / 10));
-  const gridLines = buildGridLines({
-    maxValue: realMaxValue,
-    mode: valueMode,
-    paddingTop,
-    plotHeight,
-  });
-
-  return (
-    <section className="rounded-lg bg-white p-5 shadow-sm ring-1 ring-slate-200">
-      <div className="flex items-center justify-between gap-4">
-        <h2 className="text-lg font-black text-slate-950">{title}</h2>
-        <PeriodPicker
-          endDateValue={periodEndValue}
-          endParamName={periodEndParamName}
-          periodLabel={periodLabel}
-          startDateValue={periodStartValue}
-          startParamName={periodStartParamName}
-        />
-      </div>
-      <div className="mt-4 rounded-lg bg-slate-100 p-3">
-        <svg
-          aria-label={title}
-          className="h-[300px] w-full overflow-hidden"
-          preserveAspectRatio="none"
-          role="img"
-          viewBox={`0 0 ${width} ${height}`}
-        >
-          {gridLines.map((line) => (
-            <g key={line.y}>
-              <line
-                className="stroke-slate-200"
-                strokeWidth="1"
-                x1={paddingLeft}
-                x2={width - paddingRight}
-                y1={line.y}
-                y2={line.y}
-              />
-              <text
-                className="fill-slate-400 text-[11px] font-bold"
-                x={paddingLeft - 12}
-                y={line.y + 4}
-                textAnchor="end"
-              >
-                {formatChartValue(line.value, valueMode)}
-              </text>
-            </g>
-          ))}
-          <polyline
-            className={strokeClassName}
-            fill="none"
-            points={linePoints}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="4"
-          />
-          {coordinates.map((point, index) => (
-            <g key={point.label}>
-              <circle
-                className="fill-white stroke-slate-950"
-                cx={point.x}
-                cy={point.y}
-                r="5"
-                strokeWidth="3"
-              />
-              {index % labelStep === 0 || index === coordinates.length - 1 ? (
-                <text
-                  className="fill-slate-500 text-[12px] font-bold"
-                  textAnchor="middle"
-                  x={point.x}
-                  y={height - 14}
-                >
-                  {point.label}
-                </text>
-              ) : null}
-            </g>
-          ))}
-        </svg>
-      </div>
-    </section>
-  );
 }
 
 export default async function AdminPage({
@@ -352,8 +171,8 @@ export default async function AdminPage({
     newBuyerChartEndDate,
   );
   const newBuyerPeriodLabel = getPeriodLabel(newBuyerDateKeys.length);
-  const salesDay = sql<string>`to_char(${orders.createdAt}, 'YYYY-MM-DD')`;
-  const userDay = sql<string>`to_char(${users.createdAt}, 'YYYY-MM-DD')`;
+  const salesDay = sql<string>`to_char(${orders.createdAt} at time zone 'Asia/Almaty', 'YYYY-MM-DD')`;
+  const userDay = sql<string>`to_char(${users.createdAt} at time zone 'Asia/Almaty', 'YYYY-MM-DD')`;
   const commissionAmountSql = sql<string>`
     coalesce(
       sum(
@@ -458,7 +277,7 @@ export default async function AdminPage({
       href: "/admin/commissions",
     },
     {
-      label: "Новые покупатели",
+      label: "Новые юзеры",
       value: newBuyerUsers,
       href: "/admin/users?role=buyer",
     },
@@ -512,26 +331,26 @@ export default async function AdminPage({
           ))}
         </section>
 
-        <div className="mt-5 grid gap-5">
-          <LineChart
+        <div className="mt-5 grid gap-5 lg:grid-cols-2">
+          <DashboardBarChart
+            accentColor="#1157ff"
             periodEndValue={periodEndValue}
             periodEndParamName="commissionTo"
             periodLabel={periodLabel}
             periodStartParamName="commissionFrom"
             periodStartValue={periodStartValue}
             points={commissionPoints}
-            strokeClassName="stroke-[#1157ff]"
             title="Комиссия"
             valueMode="currency"
           />
-          <LineChart
+          <DashboardBarChart
+            accentColor="#059669"
             periodEndValue={newBuyerPeriodEndValue}
             periodEndParamName="usersTo"
             periodLabel={newBuyerPeriodLabel}
             periodStartParamName="usersFrom"
             periodStartValue={newBuyerPeriodStartValue}
             points={newBuyerPoints}
-            strokeClassName="stroke-emerald-600"
             title="Новые юзеры"
             valueMode="number"
           />

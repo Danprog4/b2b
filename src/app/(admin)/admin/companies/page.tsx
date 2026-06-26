@@ -145,15 +145,15 @@ export default async function AdminCompaniesPage({
           </p>
         </div>
 
-        <form className="mt-6 grid gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200 lg:grid-cols-[1fr_220px_auto]">
+        <form className="mt-5 grid gap-2 rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200 lg:grid-cols-[minmax(180px,1fr)_180px_auto]">
           <input
-            className="h-11 rounded-lg border border-slate-200 px-4 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
+            className="h-9 rounded-lg border border-slate-200 px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
             defaultValue={q}
             name="q"
             placeholder="Название, ИНН, КПП, email или телефон"
           />
           <select
-            className="h-11 rounded-lg border border-slate-200 px-4 text-sm font-bold outline-none transition focus:border-[#1157ff]"
+            className="h-9 rounded-lg border border-slate-200 px-2.5 text-sm font-bold outline-none transition focus:border-[#1157ff]"
             defaultValue={status}
             name="status"
           >
@@ -164,7 +164,7 @@ export default async function AdminCompaniesPage({
               </option>
             ))}
           </select>
-          <button className="h-11 rounded-lg bg-[#1157ff] px-5 text-sm font-bold text-white transition hover:bg-[#0b49e0]">
+          <button className="h-9 rounded-lg bg-[#1157ff] px-3 text-sm font-bold text-white transition hover:bg-[#0b49e0]">
             Найти
           </button>
         </form>

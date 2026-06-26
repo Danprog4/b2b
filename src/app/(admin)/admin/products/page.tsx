@@ -281,29 +281,29 @@ export default async function AdminProductsPage({
         </div>
 
         <form
-          className="mt-6 overflow-x-auto rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200"
+          className="mt-5 overflow-x-auto rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200"
           method="get"
         >
-          <div className="grid min-w-[1580px] gap-3 xl:grid-cols-[1.4fr_240px_220px_240px_180px_190px_auto]">
-            <label className="grid gap-2 text-sm font-bold text-slate-700">
+          <div className="grid min-w-[1120px] gap-2 xl:grid-cols-[minmax(180px,1fr)_170px_180px_190px_130px_160px_auto]">
+            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
               Поиск
               <div className="relative">
                 <Search
-                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                  size={18}
+                  className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
+                  size={16}
                 />
                 <input
-                  className="h-11 w-full rounded-lg border border-slate-200 pl-10 pr-3 font-semibold outline-none transition focus:border-[#1157ff]"
+                  className="h-9 w-full rounded-lg border border-slate-200 pl-8 pr-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
                   defaultValue={q}
                   name="q"
                   placeholder="Название, SKU, продавец"
                 />
               </div>
             </label>
-            <label className="grid gap-2 text-sm font-bold text-slate-700">
+            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
               Продавец
               <select
-                className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-semibold outline-none transition focus:border-[#1157ff]"
+                className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
                 defaultValue={sellerId}
                 name="sellerId"
               >
@@ -315,10 +315,10 @@ export default async function AdminProductsPage({
                 ))}
               </select>
             </label>
-            <label className="grid gap-2 text-sm font-bold text-slate-700">
+            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
               Категория
               <select
-                className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-semibold outline-none transition focus:border-[#1157ff]"
+                className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
                 defaultValue={categoryId}
                 name="categoryId"
               >
@@ -330,10 +330,10 @@ export default async function AdminProductsPage({
                 ))}
               </select>
             </label>
-            <label className="grid gap-2 text-sm font-bold text-slate-700">
+            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
               Подкатегория
               <select
-                className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-semibold outline-none transition focus:border-[#1157ff]"
+                className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
                 defaultValue={subcategoryId}
                 name="subcategoryId"
               >
@@ -345,10 +345,10 @@ export default async function AdminProductsPage({
                 ))}
               </select>
             </label>
-            <label className="grid gap-2 text-sm font-bold text-slate-700">
+            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
               Активность
               <select
-                className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-semibold outline-none transition focus:border-[#1157ff]"
+                className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
                 defaultValue={activity}
                 name="activity"
               >
@@ -357,10 +357,10 @@ export default async function AdminProductsPage({
                 <option value="inactive">Неактивные</option>
               </select>
             </label>
-            <label className="grid gap-2 text-sm font-bold text-slate-700">
+            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
               Предложения
               <select
-                className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-semibold outline-none transition focus:border-[#1157ff]"
+                className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
                 defaultValue={offerStatus}
                 name="offerStatus"
               >
@@ -374,14 +374,14 @@ export default async function AdminProductsPage({
             </label>
             <div className="flex items-end gap-2">
               <button
-                className="inline-flex h-11 items-center justify-center rounded-lg bg-[#1157ff] px-4 text-sm font-bold text-white transition hover:bg-[#0b49e0]"
+                className="inline-flex h-9 items-center justify-center rounded-lg bg-[#1157ff] px-3 text-sm font-bold text-white transition hover:bg-[#0b49e0]"
                 type="submit"
               >
                 Применить
               </button>
               {hasFilters ? (
                 <Link
-                  className="inline-flex size-11 items-center justify-center rounded-lg bg-slate-100 text-slate-600 transition hover:bg-slate-200"
+                  className="inline-flex size-9 items-center justify-center rounded-lg bg-slate-100 text-slate-600 transition hover:bg-slate-200"
                   href="/admin/products"
                   title="Сбросить фильтры"
                 >

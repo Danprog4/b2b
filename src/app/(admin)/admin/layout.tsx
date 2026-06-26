@@ -39,10 +39,10 @@ type AdminNavGroup = {
 
 const navGroups: AdminNavGroup[] = [
   {
-    label: "Пользователи",
+    label: "Юзеры",
     icon: UsersRound,
     items: [
-      { label: "Все пользователи", href: "/admin/users", icon: UserRound },
+      { label: "Все юзеры", href: "/admin/users", icon: UserRound },
       { label: "Покупатели", href: "/admin/users?role=buyer", icon: UsersRound },
       { label: "Продавцы", href: "/admin/sellers", icon: Store },
       {
@@ -134,7 +134,7 @@ function SidebarGroup({ group }: { group: AdminNavGroup }) {
   const Icon = group.icon;
 
   return (
-    <details className="group" open>
+    <details className="group">
       <summary className="flex min-h-11 cursor-pointer list-none items-center gap-3 rounded-lg px-3 py-2 text-sm font-black text-slate-950 transition hover:bg-slate-100 [&::-webkit-details-marker]:hidden">
         <ChevronRight
           className="shrink-0 text-slate-400 transition group-open:rotate-90"

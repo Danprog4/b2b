@@ -199,77 +199,77 @@ export default async function AdminCommissionsPage({
           </div>
         </div>
 
-        <form className="mt-5 overflow-x-auto rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-          <div className="grid min-w-[1120px] gap-3 lg:grid-cols-[1fr_180px_170px_160px_160px_auto]">
-          <label className="grid gap-2 text-sm font-bold text-slate-700">
-            Продавец
-            <select
-              className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-semibold"
-              name="sellerId"
-              defaultValue={sellerId}
-            >
-              <option value="">Все продавцы</option>
-              {sellersList.map((seller) => (
-                <option key={seller.id} value={seller.id}>
-                  {seller.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="grid gap-2 text-sm font-bold text-slate-700">
-            Статус заказа
-            <select
-              className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-semibold"
-              name="status"
-              defaultValue={status}
-            >
-              <option value="">Оплачен + выдан</option>
-              {orderStatusOptions.map((option) => (
-                <option key={option} value={option}>
-                  {getOrderStatusLabel(option)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="grid gap-2 text-sm font-bold text-slate-700">
-            Статус выплаты
-            <select
-              className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-semibold"
-              name="payoutStatus"
-              defaultValue={payoutStatus}
-            >
-              <option value="">Все</option>
-              {payoutStatusOptions.map((option) => (
-                <option key={option} value={option}>
-                  {getPayoutStatusLabel(option)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="grid gap-2 text-sm font-bold text-slate-700">
-            С даты
-            <input
-              className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-semibold"
-              name="dateFrom"
-              type="date"
-              defaultValue={toDateInputValue(dateFromValue)}
-            />
-          </label>
-          <label className="grid gap-2 text-sm font-bold text-slate-700">
-            По дату
-            <input
-              className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-semibold"
-              name="dateTo"
-              type="date"
-              defaultValue={toDateInputValue(dateToValue)}
-            />
-          </label>
-          <div className="flex items-end">
-            <button className="inline-flex h-11 items-center gap-2 rounded-lg bg-[#1157ff] px-5 text-sm font-bold text-white transition hover:bg-[#0b49e0]">
-              <Check size={17} />
-              Применить
-            </button>
-          </div>
+        <form className="mt-5 overflow-x-auto rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+          <div className="grid min-w-[900px] gap-2 lg:grid-cols-[minmax(180px,1fr)_150px_140px_140px_140px_auto]">
+            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
+              Продавец
+              <select
+                className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold"
+                name="sellerId"
+                defaultValue={sellerId}
+              >
+                <option value="">Все продавцы</option>
+                {sellersList.map((seller) => (
+                  <option key={seller.id} value={seller.id}>
+                    {seller.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
+              Статус заказа
+              <select
+                className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold"
+                name="status"
+                defaultValue={status}
+              >
+                <option value="">Оплачен + выдан</option>
+                {orderStatusOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {getOrderStatusLabel(option)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
+              Статус выплаты
+              <select
+                className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold"
+                name="payoutStatus"
+                defaultValue={payoutStatus}
+              >
+                <option value="">Все</option>
+                {payoutStatusOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {getPayoutStatusLabel(option)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
+              С даты
+              <input
+                className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold"
+                name="dateFrom"
+                type="date"
+                defaultValue={toDateInputValue(dateFromValue)}
+              />
+            </label>
+            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
+              По дату
+              <input
+                className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold"
+                name="dateTo"
+                type="date"
+                defaultValue={toDateInputValue(dateToValue)}
+              />
+            </label>
+            <div className="flex items-end">
+              <button className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1157ff] px-3 text-sm font-bold text-white transition hover:bg-[#0b49e0]">
+                <Check size={16} />
+                Применить
+              </button>
+            </div>
           </div>
         </form>
 
