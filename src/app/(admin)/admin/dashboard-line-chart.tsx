@@ -5,6 +5,7 @@ import {
   Line,
   LineChart,
   XAxis,
+  YAxis,
 } from "recharts";
 
 import {
@@ -73,6 +74,16 @@ function formatChartValue(value: number, mode: "currency" | "number") {
   }).format(value);
 }
 
+function getYAxisWidth(value: number, mode: "currency" | "number") {
+  const formattedValue = formatChartValue(value, mode);
+
+  if (mode === "currency") {
+    return formattedValue.includes("тыс") ? 72 : 48;
+  }
+
+  return formattedValue.length > 3 ? 52 : 36;
+}
+
 export function DashboardLineChart({
   accentColor,
   title,
@@ -95,6 +106,8 @@ export function DashboardLineChart({
   valueMode: "currency" | "number";
 }) {
   const totalValue = points.reduce((sum, point) => sum + point.value, 0);
+  const maxValue = Math.max(...points.map((point) => point.value), 0);
+  const yAxisWidth = getYAxisWidth(maxValue, valueMode);
   const chartKey = `${points[0]?.date ?? "empty"}-${points[points.length - 1]?.date ?? "empty"}-${points.length}`;
   const chartConfig = {
     value: {
@@ -130,11 +143,19 @@ export function DashboardLineChart({
             data={points}
             key={chartKey}
             margin={{
-              left: 12,
-              right: 12,
+              left: 0,
+              right: 28,
             }}
           >
             <CartesianGrid vertical={false} />
+            <YAxis
+              allowDecimals={valueMode !== "number"}
+              axisLine={false}
+              tickLine={false}
+              tickMargin={8}
+              tickFormatter={(value) => formatChartValue(Number(value), valueMode)}
+              width={yAxisWidth}
+            />
             <XAxis
               dataKey="date"
               tickLine={false}
