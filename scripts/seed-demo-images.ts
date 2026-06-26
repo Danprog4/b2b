@@ -1,5 +1,7 @@
 import "dotenv/config";
 
+import { readFile } from "node:fs/promises";
+
 import { and, asc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
@@ -20,7 +22,8 @@ type ImageAsset = {
   type: EntityType;
   slug: string;
   title: string;
-  url: string;
+  url?: string;
+  filePath?: string;
   storagePrefix: string;
 };
 
@@ -88,14 +91,14 @@ const assets: ImageAsset[] = [
     type: "category",
     slug: "produkty-pitaniya",
     title: "Продукты питания",
-    url: `https://images.unsplash.com/photo-1614735241165-6756e1df61ab?${imageParams}`,
+    filePath: "scripts/seed-assets/categories/produkty-pitaniya.jpg",
     storagePrefix: "seed-assets/categories",
   },
   {
     type: "category",
     slug: "bytovaya-himiya",
     title: "Бытовая химия",
-    url: `https://images.unsplash.com/photo-1563453392212-326f5e854473?${imageParams}`,
+    url: `https://images.unsplash.com/photo-1626379481874-3dc5678fa8ca?${imageParams}`,
     storagePrefix: "seed-assets/categories",
   },
   {
@@ -278,7 +281,18 @@ function getOriginalName(asset: ImageAsset) {
   return `${asset.slug}.jpg`;
 }
 
-async function downloadImage(asset: ImageAsset) {
+async function downloadImage(asset: Pick<ImageAsset, "filePath" | "title" | "url">) {
+  if (asset.filePath) {
+    return {
+      bytes: new Uint8Array(await readFile(asset.filePath)),
+      mimeType: asset.filePath.endsWith(".png") ? "image/png" : "image/jpeg",
+    };
+  }
+
+  if (!asset.url) {
+    throw new Error(`Missing image source for ${asset.title}`);
+  }
+
   const response = await fetch(asset.url);
 
   if (!response.ok) {
@@ -301,13 +315,15 @@ async function downloadImage(asset: ImageAsset) {
 async function getOrCreateRemoteFile({
   storageKey,
   originalName,
+  filePath,
   title,
   url,
 }: {
   storageKey: string;
   originalName: string;
+  filePath?: string;
   title: string;
-  url: string;
+  url?: string;
 }) {
   const [existingFile] = await db
     .select({ id: files.id })
@@ -320,11 +336,9 @@ async function getOrCreateRemoteFile({
   }
 
   const { bytes, mimeType } = await downloadImage({
-    type: "product",
-    slug: storageKey,
+    filePath,
     title,
     url,
-    storagePrefix: "",
   });
   const { sizeBytes } = await writeStorageFile(storageKey, bytes, {
     contentType: mimeType,
@@ -364,6 +378,7 @@ async function getOrCreateFile(asset: ImageAsset) {
   return getOrCreateRemoteFile({
     storageKey: getStorageKey(asset),
     originalName: getOriginalName(asset),
+    filePath: asset.filePath,
     title: asset.title,
     url: asset.url,
   });

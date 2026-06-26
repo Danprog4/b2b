@@ -87,7 +87,7 @@ export default async function Home() {
       </section>
 
       {categories.length > 0 ? (
-        <section className="scroll-reveal mx-auto max-w-[1480px] px-5 pb-4 pt-0">
+        <section className="scroll-reveal mx-auto max-w-[1480px] px-5 pb-6 pt-4 md:pb-8 md:pt-6">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-2xl font-black">Категории</h2>
           </div>
@@ -115,7 +115,7 @@ export default async function Home() {
         </section>
       ) : null}
 
-      <section className="scroll-reveal mx-auto max-w-[1480px] px-5 pb-12">
+      <section className="scroll-reveal mx-auto max-w-[1480px] px-5 pb-12 pt-4 md:pt-6">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-2xl font-black">Новые товары</h2>
           <Link className="text-sm font-bold text-[#1157ff]" href="/catalog">
