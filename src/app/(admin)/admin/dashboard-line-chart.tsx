@@ -21,25 +21,21 @@ export type DashboardChartPoint = {
   value: number;
 };
 
-type DashboardChartDataPoint = DashboardChartPoint & {
-  timestamp: number;
-};
-
-function getLocalTimestamp(value: string) {
+function parseLocalDate(value: string) {
   const [year, month, day] = value.split("-").map(Number);
 
   if (!year || !month || !day) {
-    return Number.NaN;
+    return null;
   }
 
-  return new Date(year, month - 1, day).getTime();
+  return new Date(year, month - 1, day);
 }
 
-function formatAxisDate(value: number | string) {
-  const date = new Date(Number(value));
+function formatAxisDate(value: string) {
+  const date = parseLocalDate(value);
 
-  if (Number.isNaN(date.getTime())) {
-    return String(value);
+  if (!date) {
+    return value;
   }
 
   return date.toLocaleDateString("ru-RU", {
@@ -48,39 +44,11 @@ function formatAxisDate(value: number | string) {
   });
 }
 
-function buildTimeTicks(points: DashboardChartDataPoint[]) {
-  const first = points[0]?.timestamp;
-  const last = points[points.length - 1]?.timestamp;
+function formatTooltipDate(value: string) {
+  const date = parseLocalDate(value);
 
-  if (!Number.isFinite(first) || !Number.isFinite(last)) {
-    return [];
-  }
-
-  if (points.length <= 8) {
-    return points.map((point) => point.timestamp);
-  }
-
-  const tickCount = points.length <= 16 ? 5 : 6;
-  const step = (last - first) / (tickCount - 1);
-
-  return Array.from({ length: tickCount }, (_, index) => {
-    if (index === 0) {
-      return first;
-    }
-
-    if (index === tickCount - 1) {
-      return last;
-    }
-
-    return first + step * index;
-  });
-}
-
-function formatTooltipDate(value: number | string) {
-  const date = new Date(Number(value));
-
-  if (Number.isNaN(date.getTime())) {
-    return String(value);
+  if (!date) {
+    return value;
   }
 
   return new Intl.DateTimeFormat("ru-RU", {
@@ -127,11 +95,7 @@ export function DashboardLineChart({
   valueMode: "currency" | "number";
 }) {
   const totalValue = points.reduce((sum, point) => sum + point.value, 0);
-  const chartData = points.map((point) => ({
-    ...point,
-    timestamp: getLocalTimestamp(point.date),
-  }));
-  const timeTicks = buildTimeTicks(chartData);
+  const chartKey = `${points[0]?.date ?? "empty"}-${points[points.length - 1]?.date ?? "empty"}-${points.length}`;
   const chartConfig = {
     value: {
       label: title,
@@ -140,7 +104,7 @@ export function DashboardLineChart({
   } satisfies ChartConfig;
 
   return (
-    <section className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+    <section className="rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
       <div className="flex items-start justify-between gap-4 px-5 py-4">
         <div>
           <h2 className="text-base font-black text-slate-950">{title}</h2>
@@ -163,23 +127,21 @@ export function DashboardLineChart({
         >
           <LineChart
             accessibilityLayer
-            data={chartData}
+            data={points}
+            key={chartKey}
             margin={{
-              left: 28,
-              right: 28,
+              left: 12,
+              right: 12,
             }}
           >
             <CartesianGrid vertical={false} />
             <XAxis
-              dataKey="timestamp"
-              type="number"
-              domain={["dataMin", "dataMax"]}
+              dataKey="date"
               tickLine={false}
               axisLine={false}
               tickMargin={8}
-              padding={{ left: 8, right: 8 }}
-              ticks={timeTicks}
-              tickFormatter={(value) => formatAxisDate(value)}
+              minTickGap={32}
+              tickFormatter={(value) => formatAxisDate(String(value))}
             />
             <ChartTooltip
               content={
