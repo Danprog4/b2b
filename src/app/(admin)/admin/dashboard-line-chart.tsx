@@ -1,11 +1,10 @@
 "use client";
 
 import {
-  Bar,
-  BarChart,
   CartesianGrid,
+  Line,
+  LineChart,
   XAxis,
-  YAxis,
 } from "recharts";
 
 import {
@@ -17,9 +16,57 @@ import {
 import { PeriodPicker } from "./period-picker";
 
 export type DashboardChartPoint = {
+  date: string;
   label: string;
   value: number;
 };
+
+function formatAxisDate(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+
+  if (!year || !month || !day) {
+    return value;
+  }
+
+  const date = new Date(year, month - 1, day);
+
+  return date.toLocaleDateString("ru-RU", {
+    day: "numeric",
+    month: "short",
+  });
+}
+
+function buildDateTicks(points: DashboardChartPoint[]) {
+  if (points.length <= 8) {
+    return points.map((point) => point.date);
+  }
+
+  const step = Math.ceil((points.length - 1) / 6);
+  const ticks = points
+    .filter((_, index) => index % step === 0)
+    .map((point) => point.date);
+  const lastDate = points[points.length - 1]?.date;
+
+  if (lastDate && ticks[ticks.length - 1] !== lastDate) {
+    ticks.push(lastDate);
+  }
+
+  return ticks;
+}
+
+function formatTooltipDate(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+
+  if (!year || !month || !day) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(new Date(year, month - 1, day));
+}
 
 function formatChartValue(value: number, mode: "currency" | "number") {
   if (mode === "currency") {
@@ -36,7 +83,7 @@ function formatChartValue(value: number, mode: "currency" | "number") {
   }).format(value);
 }
 
-export function DashboardBarChart({
+export function DashboardLineChart({
   accentColor,
   title,
   points,
@@ -58,7 +105,7 @@ export function DashboardBarChart({
   valueMode: "currency" | "number";
 }) {
   const totalValue = points.reduce((sum, point) => sum + point.value, 0);
-  const visibleTickGap = points.length > 14 ? 28 : 18;
+  const dateTicks = buildDateTicks(points);
   const chartConfig = {
     value: {
       label: title,
@@ -84,32 +131,33 @@ export function DashboardBarChart({
         />
       </div>
       <div className="mx-4 mb-4 rounded-xl bg-gradient-to-b from-slate-50 to-white p-3 ring-1 ring-slate-100">
-        <ChartContainer config={chartConfig} className="h-[360px] w-full">
-          <BarChart
+        <ChartContainer
+          config={chartConfig}
+          className="aspect-auto h-[250px] w-full"
+        >
+          <LineChart
             accessibilityLayer
             data={points}
-            margin={{ top: 24, right: 18, bottom: 12, left: 0 }}
+            margin={{
+              left: 28,
+              right: 28,
+            }}
           >
             <CartesianGrid vertical={false} />
             <XAxis
-              axisLine={false}
-              dataKey="label"
-              minTickGap={visibleTickGap}
+              dataKey="date"
               tickLine={false}
-              tickMargin={12}
-            />
-            <YAxis
-              allowDecimals={valueMode !== "number"}
               axisLine={false}
-              tickFormatter={(value) => formatChartValue(Number(value), valueMode)}
-              tickLine={false}
-              tickMargin={10}
-              tickCount={4}
-              width={72}
+              tickMargin={8}
+              interval={0}
+              padding={{ left: 8, right: 8 }}
+              ticks={dateTicks}
+              tickFormatter={(value) => formatAxisDate(String(value))}
             />
             <ChartTooltip
               content={
                 <ChartTooltipContent
+                  className="w-[150px]"
                   formatter={(value) => (
                     <span className="font-mono font-semibold tabular-nums text-slate-950">
                       {formatChartValue(Number(value), valueMode)}
@@ -117,18 +165,20 @@ export function DashboardBarChart({
                   )}
                   indicator="dot"
                   labelClassName="text-slate-500"
+                  labelFormatter={(value) => formatTooltipDate(String(value))}
                   nameKey="value"
                 />
               }
-              cursor={{ fill: "rgba(15, 23, 42, 0.05)" }}
+              cursor={{ stroke: accentColor, strokeDasharray: "4 4" }}
             />
-            <Bar
+            <Line
               dataKey="value"
-              fill="var(--color-value)"
-              maxBarSize={34}
-              radius={[4, 4, 0, 0]}
+              type="monotone"
+              stroke="var(--color-value)"
+              strokeWidth={2}
+              dot={false}
             />
-          </BarChart>
+          </LineChart>
         </ChartContainer>
       </div>
     </section>

@@ -6,7 +6,7 @@ import { db } from "@/db";
 import { notifications, orderItems, orders, users } from "@/db/schema";
 import { requireUser } from "@/lib/auth/session";
 import { formatCurrency } from "@/lib/utils";
-import { DashboardBarChart } from "./dashboard-bar-chart";
+import { DashboardLineChart } from "./dashboard-line-chart";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -131,10 +131,9 @@ function getPeriodLabel(dayCount: number) {
 }
 
 function getDayLabel(dateKey: string) {
-  return new Intl.DateTimeFormat("ru-RU", {
-    day: "2-digit",
-    month: "short",
-  }).format(new Date(`${dateKey}T00:00:00`));
+  const [, month, day] = dateKey.split("-");
+
+  return `${day}.${month}`;
 }
 
 function buildChartPoints(
@@ -146,6 +145,7 @@ function buildChartPoints(
   );
 
   return dateKeys.map((dateKey) => ({
+    date: dateKey,
     label: getDayLabel(dateKey),
     value: valuesByDay.get(dateKey) ?? 0,
   }));
@@ -332,7 +332,7 @@ export default async function AdminPage({
         </section>
 
         <div className="mt-5 grid gap-5 lg:grid-cols-2">
-          <DashboardBarChart
+          <DashboardLineChart
             accentColor="#1157ff"
             periodEndValue={periodEndValue}
             periodEndParamName="commissionTo"
@@ -343,7 +343,7 @@ export default async function AdminPage({
             title="Комиссия"
             valueMode="currency"
           />
-          <DashboardBarChart
+          <DashboardLineChart
             accentColor="#059669"
             periodEndValue={newBuyerPeriodEndValue}
             periodEndParamName="usersTo"
