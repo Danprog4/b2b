@@ -53,6 +53,17 @@ function withNext(path: string, nextPath: string | null) {
   )}`;
 }
 
+function getCompanyJoinRequestSentPath(variant?: "already" | "resubmitted") {
+  const params = new URLSearchParams();
+
+  if (variant) {
+    params.set(variant, "1");
+  }
+
+  const query = params.toString();
+  return `/register/request-sent${query ? `?${query}` : ""}`;
+}
+
 async function getPendingCompanyJoinRequest(userId: string) {
   const [request] = await db
     .select({ id: companyJoinRequests.id })
@@ -468,7 +479,7 @@ export async function registerBuyerAction(formData: FormData) {
     ),
   };
 
-  if (!email || !password || !inn || !companyName || !phone) {
+  if (!email || !password || !inn || !phone) {
     redirect(withNext("/register?error=required", nextPath));
   }
 
@@ -496,7 +507,7 @@ export async function registerBuyerAction(formData: FormData) {
     const pendingRequest = await getPendingCompanyJoinRequest(existingUser.id);
 
     if (pendingRequest) {
-      redirect(withNext("/login?pending=company", nextPath));
+      redirect(getCompanyJoinRequestSentPath("already"));
     }
 
     const latestRequest = await getLatestCompanyJoinRequest(existingUser.id);
@@ -550,7 +561,7 @@ export async function registerBuyerAction(formData: FormData) {
         });
       });
 
-      redirect(withNext("/login?pending=company&resubmitted=1", nextPath));
+      redirect(getCompanyJoinRequestSentPath("resubmitted"));
     }
 
     await db.transaction(async (tx) => {
@@ -587,10 +598,14 @@ export async function registerBuyerAction(formData: FormData) {
       });
     });
 
-    redirect(withNext("/login?pending=company", nextPath));
+    redirect(getCompanyJoinRequestSentPath());
   }
 
   const type = companyType === "ip" ? "ip" : "ooo";
+  if (!companyName) {
+    redirect(withNext("/register?error=required", nextPath));
+  }
+
   const missingCompanyFields = getCompanyMissingFields({
     type,
     name: companyName,

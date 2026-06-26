@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
 import { type ChangeEvent, type MouseEvent, useState } from "react";
 
 import {
@@ -14,6 +14,11 @@ import { registerBuyerAction } from "@/lib/auth/actions";
 import { isPasswordPolicyValid } from "@/lib/auth/password-policy";
 
 type Step = "account" | "company" | "documents";
+
+type ExistingCompanyResponse = {
+  exists?: boolean;
+  error?: string;
+};
 
 type FormValues = {
   name: string;
@@ -103,6 +108,12 @@ function HiddenCompanyFields({ values }: { values: FormValues }) {
 export function RegisterBuyerForm({ next = "" }: { next?: string }) {
   const [step, setStep] = useState<Step>("account");
   const [values, setValues] = useState<FormValues>(initialValues);
+  const [companyCheckStatus, setCompanyCheckStatus] = useState<
+    "idle" | "loading" | "error"
+  >("idle");
+  const [companyCheckMessage, setCompanyCheckMessage] = useState<string | null>(
+    null,
+  );
   const [submittedWithInvalidPassword, setSubmittedWithInvalidPassword] =
     useState(false);
   const showPasswordInvalid =
@@ -136,8 +147,63 @@ export function RegisterBuyerForm({ next = "" }: { next?: string }) {
     setStep("company");
   }
 
-  function handleCompanyNext(event: MouseEvent<HTMLButtonElement>) {
-    if (!event.currentTarget.form?.reportValidity()) {
+  async function handleCompanyNext(event: MouseEvent<HTMLButtonElement>) {
+    const form = event.currentTarget.form;
+    const innField = form?.elements.namedItem("inn");
+
+    if (!(innField instanceof HTMLInputElement) || !innField.reportValidity()) {
+      return;
+    }
+
+    const inn = innField.value.replace(/\D/g, "");
+
+    if (![10, 12].includes(inn.length)) {
+      setCompanyCheckStatus("error");
+      setCompanyCheckMessage("Введите ИНН из 10 или 12 цифр.");
+      return;
+    }
+
+    setCompanyCheckStatus("loading");
+    setCompanyCheckMessage(null);
+
+    try {
+      const params = new URLSearchParams({ inn });
+      const response = await fetch(
+        `/api/companies/existing?${params.toString()}`,
+      );
+      const payload = (await response.json()) as ExistingCompanyResponse;
+
+      if (!response.ok) {
+        setCompanyCheckStatus("error");
+        setCompanyCheckMessage(
+          payload.error === "invalid_inn"
+            ? "Введите ИНН из 10 или 12 цифр."
+            : "Не удалось проверить компанию по ИНН.",
+        );
+        return;
+      }
+
+      if (payload.exists) {
+        const submitter = document.createElement("button");
+        submitter.type = "submit";
+        submitter.name = "existingCompanyJoin";
+        submitter.value = "1";
+        submitter.formNoValidate = true;
+        submitter.hidden = true;
+        form?.append(submitter);
+        form?.requestSubmit(submitter);
+        window.setTimeout(() => submitter.remove(), 0);
+        return;
+      }
+    } catch {
+      setCompanyCheckStatus("error");
+      setCompanyCheckMessage("Не удалось проверить компанию по ИНН.");
+      return;
+    }
+
+    setCompanyCheckStatus("idle");
+
+    if (!form?.reportValidity()) {
       return;
     }
 
@@ -182,16 +248,12 @@ export function RegisterBuyerForm({ next = "" }: { next?: string }) {
           <p className="text-xs font-black uppercase">Шаг 2</p>
           <p className="mt-1 text-sm font-bold">Компания и реквизиты</p>
         </div>
-        <div
-          className={
-            step === "documents"
-              ? "rounded-xl bg-[#1157ff] p-4 text-white sm:col-span-2"
-              : "rounded-xl bg-slate-100 p-4 text-slate-500 sm:col-span-2"
-          }
-        >
-          <p className="text-xs font-black uppercase">Шаг 3</p>
-          <p className="mt-1 text-sm font-bold">Документы компании</p>
-        </div>
+        {step === "documents" ? (
+          <div className="rounded-xl bg-[#1157ff] p-4 text-white sm:col-span-2">
+            <p className="text-xs font-black uppercase">Шаг 3</p>
+            <p className="mt-1 text-sm font-bold">Документы компании</p>
+          </div>
+        ) : null}
       </div>
 
       {step === "account" ? (
@@ -498,14 +560,24 @@ export function RegisterBuyerForm({ next = "" }: { next?: string }) {
               Назад
             </button>
             <button
-              className="h-12 rounded-lg bg-[#1157ff] px-6 font-bold text-white transition hover:bg-[#0b49e0]"
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-[#1157ff] px-6 font-bold text-white transition hover:bg-[#0b49e0] disabled:cursor-not-allowed disabled:opacity-70"
+              disabled={companyCheckStatus === "loading"}
               onClick={handleCompanyNext}
               type="button"
             >
-              Далее
-              <ArrowRight size={18} />
+              {companyCheckStatus === "loading" ? (
+                <Loader2 className="animate-spin" size={18} />
+              ) : (
+                <ArrowRight size={18} />
+              )}
+              {companyCheckStatus === "loading" ? "Проверяем" : "Далее"}
             </button>
           </div>
+          {companyCheckMessage ? (
+            <p className="text-sm font-bold text-red-700">
+              {companyCheckMessage}
+            </p>
+          ) : null}
         </div>
       ) : (
         <div className="grid gap-5">

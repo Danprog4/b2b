@@ -11,7 +11,10 @@ import {
   systemEvents,
 } from "@/db/schema";
 import { getCompanyMissingFields } from "@/lib/account/company-validation";
-import { generateBuyerContractPdf } from "@/lib/contracts/pdf";
+import {
+  buyerContractDocxMimeType,
+  generateBuyerContractDocx,
+} from "@/lib/contracts/docx";
 import { getAppPath, queueBuyerCompanyEmails } from "@/lib/email/queue";
 import { writeStorageFile } from "@/lib/files/storage";
 import { getNextBuyerContractNumber } from "@/lib/numbering/sequences";
@@ -202,7 +205,7 @@ export async function generateBuyerCompanyContract(
     .where(eq(contracts.id, contract.id));
 
   try {
-    const pdfBytes = await generateBuyerContractPdf({
+    const contractBytes = await generateBuyerContractDocx({
       contractNumber: contract.number,
       generatedAt: now,
       buyerType: company.type,
@@ -216,18 +219,18 @@ export async function generateBuyerCompanyContract(
       buyerContactPhone: company.contactPhone,
       buyerBankDetails: company.bankDetails,
     });
-    const storageKey = `contracts/${contract.number}.pdf`;
-    const storedFile = await writeStorageFile(storageKey, pdfBytes, {
-      contentType: "application/pdf",
+    const storageKey = `contracts/${contract.number}.docx`;
+    const storedFile = await writeStorageFile(storageKey, contractBytes, {
+      contentType: buyerContractDocxMimeType,
     });
 
     await db.transaction(async (tx) => {
       const [file] = await tx
         .insert(files)
         .values({
-          originalName: `Договор ${contract.number}.pdf`,
+          originalName: `Договор ${contract.number}.docx`,
           storageKey,
-          mimeType: "application/pdf",
+          mimeType: buyerContractDocxMimeType,
           sizeBytes: storedFile.sizeBytes,
           access: "private",
           uploadedById: actorId,
