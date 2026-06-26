@@ -5,12 +5,10 @@ import { FileUploadField } from "@/components/ui/file-upload-field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { ToastMessages } from "@/components/ui/toast-message";
 import { sendBuyerChatMessageAction } from "@/lib/chat/actions";
-import {
-  getCurrentBuyerChatMessages,
-  markCurrentBuyerChatNotificationsRead,
-} from "@/lib/chat/queries";
+import { getCurrentBuyerChatMessages } from "@/lib/chat/queries";
 import { formatFileSize } from "@/lib/documents/types";
 import { formatDateTime } from "@/lib/utils";
+import { BuyerChatReadMarker } from "./chat-read-marker";
 
 type ChatPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -59,10 +57,10 @@ export default async function AccountChatPage({ searchParams }: ChatPageProps) {
   const sent = getParam(params, "sent") === "1";
   const error = getParam(params, "error");
   const chat = await getCurrentBuyerChatMessages();
-  await markCurrentBuyerChatNotificationsRead();
 
   return (
     <main className="min-h-screen bg-[#f4f6fb] px-6 py-8 text-slate-900">
+      <BuyerChatReadMarker />
       <div className="mx-auto max-w-5xl">
         <div className="mb-5 flex flex-wrap gap-2 text-sm font-bold text-slate-500">
           <Link className="text-[#1157ff]" href="/">

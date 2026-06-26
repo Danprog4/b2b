@@ -193,6 +193,31 @@ export async function sendBuyerChatMessageAction(formData: FormData) {
   redirect("/account/chat?sent=1");
 }
 
+export async function markCurrentBuyerChatNotificationsReadAction() {
+  const user = await requireUser(["buyer"]);
+
+  const updated = await db
+    .update(notifications)
+    .set({ isRead: true })
+    .where(
+      and(
+        eq(notifications.userId, user.id),
+        eq(notifications.isRead, false),
+        eq(notifications.type, "chat_message_answered"),
+      ),
+    )
+    .returning({ id: notifications.id });
+
+  if (updated.length > 0) {
+    revalidatePath("/account", "layout");
+    revalidatePath("/account");
+    revalidatePath("/account/chat");
+    revalidatePath("/account/notifications");
+  }
+
+  return updated.length;
+}
+
 export async function sendAdminChatMessageAction(formData: FormData) {
   const admin = await requireUser(["admin"]);
   const chatId = getString(formData, "chatId");
@@ -286,4 +311,30 @@ export async function sendAdminChatMessageAction(formData: FormData) {
   revalidatePath("/account/notifications");
 
   redirect(`/admin/chats/${chat.id}?sent=1`);
+}
+
+export async function markAdminChatNotificationsReadAction(buyerCompanyId: string) {
+  const user = await requireUser(["admin"]);
+
+  const updated = await db
+    .update(notifications)
+    .set({ isRead: true })
+    .where(
+      and(
+        eq(notifications.userId, user.id),
+        eq(notifications.buyerCompanyId, buyerCompanyId),
+        eq(notifications.isRead, false),
+        eq(notifications.type, "chat_message_created"),
+      ),
+    )
+    .returning({ id: notifications.id });
+
+  if (updated.length > 0) {
+    revalidatePath("/admin", "layout");
+    revalidatePath("/admin");
+    revalidatePath("/admin/chats");
+    revalidatePath("/admin/notifications");
+  }
+
+  return updated.length;
 }

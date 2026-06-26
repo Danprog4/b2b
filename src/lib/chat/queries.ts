@@ -76,21 +76,6 @@ export async function getBuyerPendingChatCount() {
   return row?.count ?? 0;
 }
 
-export async function markCurrentBuyerChatNotificationsRead() {
-  const user = await requireUser(["buyer"]);
-
-  await db
-    .update(notifications)
-    .set({ isRead: true })
-    .where(
-      and(
-        eq(notifications.userId, user.id),
-        eq(notifications.isRead, false),
-        eq(notifications.type, "chat_message_answered"),
-      ),
-    );
-}
-
 export async function getAdminChatList() {
   const user = await requireUser(["admin"]);
   const unreadChatNotifications = await db
@@ -263,20 +248,4 @@ export async function getAdminChat(chatId: string) {
     ...chat,
     messages: rows,
   };
-}
-
-export async function markAdminChatNotificationsRead(buyerCompanyId: string) {
-  const user = await requireUser(["admin"]);
-
-  await db
-    .update(notifications)
-    .set({ isRead: true })
-    .where(
-      and(
-        eq(notifications.userId, user.id),
-        eq(notifications.buyerCompanyId, buyerCompanyId),
-        eq(notifications.isRead, false),
-        eq(notifications.type, "chat_message_created"),
-      ),
-    );
 }

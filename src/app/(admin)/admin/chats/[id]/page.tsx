@@ -9,12 +9,10 @@ import {
   withAdminBreadcrumbSource,
 } from "@/lib/admin/breadcrumbs";
 import { sendAdminChatMessageAction } from "@/lib/chat/actions";
-import {
-  getAdminChat,
-  markAdminChatNotificationsRead,
-} from "@/lib/chat/queries";
+import { getAdminChat } from "@/lib/chat/queries";
 import { formatFileSize } from "@/lib/documents/types";
 import { formatDateTime } from "@/lib/utils";
+import { AdminChatReadMarker } from "./chat-read-marker";
 
 type AdminChatPageProps = {
   params: Promise<{ id: string }>;
@@ -60,10 +58,9 @@ export default async function AdminChatPage({
     notFound();
   }
 
-  await markAdminChatNotificationsRead(chat.companyId);
-
   return (
     <main className="min-h-screen bg-slate-100 px-6 py-8 text-slate-900">
+      <AdminChatReadMarker buyerCompanyId={chat.companyId} />
       <div className="mx-auto max-w-[1180px]">
         <div className="mb-5 flex flex-wrap gap-2 text-sm font-bold text-slate-500">
           <Link className="text-[#1157ff]" href="/">

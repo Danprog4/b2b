@@ -1,5 +1,5 @@
 import { and, desc, eq, gte, inArray, lte } from "drizzle-orm";
-import { Download, Filter } from "lucide-react";
+import { Check, Download } from "lucide-react";
 import Link from "next/link";
 
 import { OrderStatusBadge } from "@/components/orders/order-status-badge";
@@ -266,8 +266,8 @@ export default async function AdminCommissionsPage({
           </label>
           <div className="flex items-end">
             <button className="inline-flex h-11 items-center gap-2 rounded-lg bg-[#1157ff] px-5 text-sm font-bold text-white transition hover:bg-[#0b49e0]">
-              <Filter size={17} />
-              Фильтр
+              <Check size={17} />
+              Применить
             </button>
           </div>
           </div>
