@@ -200,11 +200,11 @@ export default async function AdminCommissionsPage({
         </div>
 
         <form className="mt-5 overflow-x-auto rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-          <div className="grid min-w-[900px] gap-2 lg:grid-cols-[minmax(180px,1fr)_150px_140px_140px_140px_auto]">
-            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
+          <div className="grid min-w-[1030px] items-end gap-3 xl:grid-cols-[minmax(170px,1fr)_minmax(204px,1.15fr)_minmax(145px,0.8fr)_150px_150px_162px]">
+            <label className="grid min-w-0 gap-1.5 text-xs font-bold text-slate-700">
               Продавец
               <select
-                className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold"
+                className="h-9 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold"
                 name="sellerId"
                 defaultValue={sellerId}
               >
@@ -216,10 +216,10 @@ export default async function AdminCommissionsPage({
                 ))}
               </select>
             </label>
-            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
+            <label className="grid min-w-0 gap-1.5 text-xs font-bold text-slate-700">
               Статус заказа
               <select
-                className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold"
+                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold"
                 name="status"
                 defaultValue={status}
               >
@@ -231,10 +231,10 @@ export default async function AdminCommissionsPage({
                 ))}
               </select>
             </label>
-            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
+            <label className="grid min-w-0 gap-1.5 text-xs font-bold text-slate-700">
               Статус выплаты
               <select
-                className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold"
+                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold"
                 name="payoutStatus"
                 defaultValue={payoutStatus}
               >
@@ -246,26 +246,26 @@ export default async function AdminCommissionsPage({
                 ))}
               </select>
             </label>
-            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
+            <label className="grid min-w-0 gap-1.5 text-xs font-bold text-slate-700">
               С даты
               <input
-                className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold"
+                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold"
                 name="dateFrom"
                 type="date"
                 defaultValue={toDateInputValue(dateFromValue)}
               />
             </label>
-            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
+            <label className="grid min-w-0 gap-1.5 text-xs font-bold text-slate-700">
               По дату
               <input
-                className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold"
+                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold"
                 name="dateTo"
                 type="date"
                 defaultValue={toDateInputValue(dateToValue)}
               />
             </label>
-            <div className="flex items-end">
-              <button className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1157ff] px-3 text-sm font-bold text-white transition hover:bg-[#0b49e0]">
+            <div className="flex min-w-0 items-end">
+              <button className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-[#1157ff] px-3 text-sm font-bold text-white transition hover:bg-[#0b49e0]">
                 <Check size={16} />
                 Применить
               </button>

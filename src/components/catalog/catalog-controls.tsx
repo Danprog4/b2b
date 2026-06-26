@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, SlidersHorizontal, X } from "lucide-react";
+import { ChevronDown, Search, SlidersHorizontal, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -70,6 +70,18 @@ function catalogHref(params: Record<string, string | undefined>) {
   return `${path}${query ? `?${query}` : ""}`;
 }
 
+function getSubcategoriesByCategory(subcategories: Subcategory[]) {
+  const subcategoriesByCategory = new Map<string, Subcategory[]>();
+
+  for (const subcategory of subcategories) {
+    const current = subcategoriesByCategory.get(subcategory.categorySlug) ?? [];
+    current.push(subcategory);
+    subcategoriesByCategory.set(subcategory.categorySlug, current);
+  }
+
+  return subcategoriesByCategory;
+}
+
 function CategoryLinks({
   categories,
   subcategories,
@@ -93,6 +105,8 @@ function CategoryLinks({
 > & {
   onNavigate?: () => void;
 }) {
+  const subcategoriesByCategory = getSubcategoriesByCategory(subcategories);
+
   return (
     <>
       <nav className="mt-4 grid gap-1">
@@ -112,63 +126,81 @@ function CategoryLinks({
         >
           Все товары
         </Link>
-        {categories.map((category) => (
-          <Link
-            className={`block rounded-lg px-3 py-2 text-sm font-bold ${
-              category.slug === categorySlug
-                ? "bg-[#eaf1ff] text-[#1157ff]"
-                : "text-slate-700 hover:bg-slate-50"
-            }`}
-            href={catalogHref({
-              category: category.slug,
-              q,
-              sort,
-              minPrice: minPriceValue,
-              maxPrice: maxPriceValue,
-            })}
-            key={category.id}
-            onClick={onNavigate}
-          >
-            <span className="block truncate">{category.name}</span>
-          </Link>
-        ))}
-      </nav>
+        {categories.map((category) => {
+          const nested = subcategoriesByCategory.get(category.slug) ?? [];
+          const isOpen =
+            category.slug === categorySlug ||
+            nested.some((subcategory) => subcategory.slug === subcategorySlug);
 
-      {subcategories.length > 0 ? (
-        <div className="mt-6 border-t border-slate-100 pt-5">
-          <h2 className="text-sm font-black uppercase tracking-wide text-slate-500">
-            Подкатегории
-          </h2>
-          <nav className="mt-4 grid gap-1">
-            {subcategories.map((subcategory) => (
+          return (
+            <div key={category.id}>
               <Link
-                className={`block rounded-lg px-3 py-2 text-sm font-bold ${
-                  subcategory.slug === subcategorySlug
+                className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold ${
+                  category.slug === categorySlug
                     ? "bg-[#eaf1ff] text-[#1157ff]"
                     : "text-slate-700 hover:bg-slate-50"
                 }`}
                 href={catalogHref({
-                  category: subcategory.categorySlug,
-                  subcategory: subcategory.slug,
+                  category: category.slug,
                   q,
                   sort,
                   minPrice: minPriceValue,
                   maxPrice: maxPriceValue,
                 })}
-                key={subcategory.id}
                 onClick={onNavigate}
               >
-                {!categorySlug ? (
-                  <span className="block truncate text-xs font-semibold text-slate-400">
-                    {subcategory.categoryName}
-                  </span>
+                <span className="min-w-0 flex-1 truncate">{category.name}</span>
+                {nested.length > 0 ? (
+                  <ChevronDown
+                    aria-hidden
+                    className={`shrink-0 text-slate-400 transition ${
+                      isOpen ? "rotate-180" : ""
+                    }`}
+                    size={16}
+                  />
                 ) : null}
-                <span className="block truncate">{subcategory.name}</span>
               </Link>
-            ))}
-          </nav>
-        </div>
-      ) : null}
+              {nested.length > 0 ? (
+                <div
+                  className={`grid transition-[grid-template-rows,opacity] duration-200 ease-out ${
+                    isOpen
+                      ? "grid-rows-[1fr] opacity-100"
+                      : "grid-rows-[0fr] opacity-0"
+                  }`}
+                >
+                  <div className="overflow-hidden">
+                    <div className="ml-3 mt-1 grid gap-1 border-l border-slate-100 pl-2">
+                      {nested.map((subcategory) => (
+                        <Link
+                          className={`block rounded-md px-3 py-2 text-sm font-bold ${
+                            subcategory.slug === subcategorySlug
+                              ? "bg-[#eaf1ff] text-[#1157ff]"
+                              : "text-slate-600 hover:bg-slate-50 hover:text-slate-950"
+                          }`}
+                          href={catalogHref({
+                            category: subcategory.categorySlug,
+                            subcategory: subcategory.slug,
+                            q,
+                            sort,
+                            minPrice: minPriceValue,
+                            maxPrice: maxPriceValue,
+                          })}
+                          key={subcategory.id}
+                          onClick={onNavigate}
+                        >
+                          <span className="block truncate">
+                            {subcategory.name}
+                          </span>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+      </nav>
     </>
   );
 }
@@ -190,6 +222,8 @@ function MobileCategoryPicker({
   onSelectCategory: (categorySlug: string) => void;
   onSelectSubcategory: (subcategory: Subcategory) => void;
 }) {
+  const subcategoriesByCategory = getSubcategoriesByCategory(subcategories);
+
   return (
     <>
       <nav className="mt-4 grid gap-1">
@@ -204,51 +238,73 @@ function MobileCategoryPicker({
         >
           Все товары
         </button>
-        {categories.map((category) => (
-          <button
-            className={`block rounded-lg px-3 py-2 text-left text-sm font-bold ${
-              category.slug === draftCategorySlug && !draftSubcategorySlug
-                ? "bg-[#eaf1ff] text-[#1157ff]"
-                : "text-slate-700 hover:bg-slate-50"
-            }`}
-            key={category.id}
-            type="button"
-            onClick={() => onSelectCategory(category.slug)}
-          >
-            <span className="block truncate">{category.name}</span>
-          </button>
-        ))}
-      </nav>
+        {categories.map((category) => {
+          const nested = subcategoriesByCategory.get(category.slug) ?? [];
+          const isOpen =
+            category.slug === draftCategorySlug ||
+            nested.some(
+              (subcategory) =>
+                subcategory.slug === draftSubcategorySlug &&
+                subcategory.categorySlug === draftCategorySlug,
+            );
 
-      {subcategories.length > 0 ? (
-        <div className="mt-6 border-t border-slate-100 pt-5">
-          <h2 className="text-sm font-black uppercase tracking-wide text-slate-500">
-            Подкатегории
-          </h2>
-          <nav className="mt-4 grid gap-1">
-            {subcategories.map((subcategory) => (
+          return (
+            <div key={category.id}>
               <button
-                className={`block rounded-lg px-3 py-2 text-left text-sm font-bold ${
-                  subcategory.slug === draftSubcategorySlug &&
-                  subcategory.categorySlug === draftCategorySlug
+                className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-bold ${
+                  category.slug === draftCategorySlug && !draftSubcategorySlug
                     ? "bg-[#eaf1ff] text-[#1157ff]"
                     : "text-slate-700 hover:bg-slate-50"
                 }`}
-                key={subcategory.id}
                 type="button"
-                onClick={() => onSelectSubcategory(subcategory)}
+                onClick={() => onSelectCategory(category.slug)}
               >
-                {!draftCategorySlug ? (
-                  <span className="block truncate text-xs font-semibold text-slate-400">
-                    {subcategory.categoryName}
-                  </span>
+                <span className="min-w-0 flex-1 truncate">{category.name}</span>
+                {nested.length > 0 ? (
+                  <ChevronDown
+                    aria-hidden
+                    className={`shrink-0 text-slate-400 transition ${
+                      isOpen ? "rotate-180" : ""
+                    }`}
+                    size={16}
+                  />
                 ) : null}
-                <span className="block truncate">{subcategory.name}</span>
               </button>
-            ))}
-          </nav>
-        </div>
-      ) : null}
+              {nested.length > 0 ? (
+                <div
+                  className={`grid transition-[grid-template-rows,opacity] duration-200 ease-out ${
+                    isOpen
+                      ? "grid-rows-[1fr] opacity-100"
+                      : "grid-rows-[0fr] opacity-0"
+                  }`}
+                >
+                  <div className="overflow-hidden">
+                    <div className="ml-3 mt-1 grid gap-1 border-l border-slate-100 pl-2">
+                      {nested.map((subcategory) => (
+                        <button
+                          className={`block rounded-md px-3 py-2 text-left text-sm font-bold ${
+                            subcategory.slug === draftSubcategorySlug &&
+                            subcategory.categorySlug === draftCategorySlug
+                              ? "bg-[#eaf1ff] text-[#1157ff]"
+                              : "text-slate-600 hover:bg-slate-50 hover:text-slate-950"
+                          }`}
+                          key={subcategory.id}
+                          type="button"
+                          onClick={() => onSelectSubcategory(subcategory)}
+                        >
+                          <span className="block truncate">
+                            {subcategory.name}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+      </nav>
     </>
   );
 }
@@ -305,15 +361,6 @@ export function CatalogControls({
   const pathCategory = useMemo(() => getPathCategory(pathname), [pathname]);
   const currentCategorySlug = categorySlug ?? pathCategory.category;
   const currentSubcategorySlug = subcategorySlug ?? pathCategory.subcategory;
-  const visibleMobileSubcategories = useMemo(
-    () =>
-      draftCategorySlug
-        ? mobileSubcategories.filter(
-            (subcategory) => subcategory.categorySlug === draftCategorySlug,
-          )
-        : mobileSubcategories,
-    [draftCategorySlug, mobileSubcategories],
-  );
   const hasDraftCategoryChanges =
     (draftCategorySlug ?? "") !== (currentCategorySlug ?? "") ||
     (draftSubcategorySlug ?? "") !== (currentSubcategorySlug ?? "");
@@ -654,7 +701,7 @@ export function CatalogControls({
                   categories={categories}
                   draftCategorySlug={draftCategorySlug}
                   draftSubcategorySlug={draftSubcategorySlug}
-                  subcategories={visibleMobileSubcategories}
+                  subcategories={mobileSubcategories}
                   onSelectAll={() => {
                     setDraftCategorySlug(undefined);
                     setDraftSubcategorySlug(undefined);

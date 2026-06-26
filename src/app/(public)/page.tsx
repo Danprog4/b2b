@@ -2,14 +2,13 @@ import {
   Building2,
   ClipboardCheck,
   FileText,
-  ImageIcon,
   ShieldCheck,
 } from "lucide-react";
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 
 import { ProductCard } from "@/components/catalog/product-card";
+import { CategoryCardImage } from "@/components/public/category-card-image";
 import { HomeBannerCarousel } from "@/components/public/home-banner-carousel";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getActiveCategories, getCatalogProducts } from "@/lib/catalog/queries";
@@ -92,40 +91,26 @@ export default async function Home() {
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-2xl font-black">Категории</h2>
           </div>
-          <div className="-mx-5 overflow-x-auto px-5 pb-2 md:mx-0 md:px-0">
-            <div className="flex w-max gap-3 md:gap-4">
-              {categories.map((category) => (
-                <Link
-                  className="group flex h-[180px] w-[304px] shrink-0 flex-col overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-100 transition hover:-translate-y-0.5 hover:shadow-md hover:ring-[#1157ff]/25"
-                  href={`/catalog/${category.slug}`}
-                  key={category.id}
-                >
-                  <div className="relative flex min-h-24 flex-1 items-center justify-center bg-[#f0f3f9]">
-                    {category.imageUrl ? (
-                      <Image
-                        alt={category.name}
-                        className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
-                        fill
-                        sizes="304px"
-                        src={category.imageUrl}
-                        unoptimized
-                      />
-                    ) : (
-                      <ImageIcon
-                        aria-hidden
-                        className="text-slate-300"
-                        size={30}
-                      />
-                    )}
-                  </div>
-                  <div className="flex h-[64px] items-center px-4">
-                    <h2 className="line-clamp-2 text-base font-black leading-5 text-slate-950 group-hover:text-[#1157ff]">
-                      {category.name}
-                    </h2>
-                  </div>
-                </Link>
-              ))}
-            </div>
+          <div className="grid gap-3 sm:grid-cols-2 md:gap-4 xl:grid-cols-4">
+            {categories.map((category) => (
+              <Link
+                className="group flex h-[180px] min-w-0 flex-col overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-100 transition hover:-translate-y-0.5 hover:shadow-md hover:ring-[#1157ff]/25"
+                href={`/catalog/${category.slug}`}
+                key={category.id}
+              >
+                <div className="relative flex min-h-24 flex-1 items-center justify-center bg-[#f0f3f9]">
+                  <CategoryCardImage
+                    alt={category.name}
+                    src={category.imageUrl}
+                  />
+                </div>
+                <div className="flex h-[64px] items-center px-4">
+                  <h2 className="line-clamp-2 text-base font-black leading-5 text-slate-950 group-hover:text-[#1157ff]">
+                    {category.name}
+                  </h2>
+                </div>
+              </Link>
+            ))}
           </div>
         </section>
       ) : null}

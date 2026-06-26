@@ -24,6 +24,7 @@ import type { ComponentType, ReactNode } from "react";
 
 import { LogoutButton } from "@/components/logout-button";
 import { requireUser } from "@/lib/auth/session";
+import { cn } from "@/lib/utils";
 
 type AdminNavItem = {
   label: string;
@@ -39,10 +40,10 @@ type AdminNavGroup = {
 
 const navGroups: AdminNavGroup[] = [
   {
-    label: "Юзеры",
+    label: "Пользователи",
     icon: UsersRound,
     items: [
-      { label: "Все юзеры", href: "/admin/users", icon: UserRound },
+      { label: "Все пользователи", href: "/admin/users", icon: UserRound },
       { label: "Покупатели", href: "/admin/users?role=buyer", icon: UsersRound },
       { label: "Продавцы", href: "/admin/sellers", icon: Store },
       {
@@ -116,15 +117,26 @@ const navGroups: AdminNavGroup[] = [
   },
 ];
 
-function SidebarLink({ item }: { item: AdminNavItem }) {
+function SidebarLink({
+  item,
+  className = "font-semibold",
+  iconSize = 17,
+}: {
+  item: AdminNavItem;
+  className?: string;
+  iconSize?: number;
+}) {
   const Icon = item.icon ?? ChevronRight;
 
   return (
     <Link
-      className="flex min-h-10 items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-[#1157ff]"
+      className={cn(
+        "flex min-h-10 items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-[#1157ff]",
+        className,
+      )}
       href={item.href}
     >
-      <Icon className="shrink-0" size={17} />
+      <Icon className="shrink-0" size={iconSize} />
       <span className="truncate">{item.label}</span>
     </Link>
   );
@@ -135,7 +147,7 @@ function SidebarGroup({ group }: { group: AdminNavGroup }) {
 
   return (
     <details className="group">
-      <summary className="flex min-h-11 cursor-pointer list-none items-center gap-3 rounded-lg px-3 py-2 text-sm font-black text-slate-950 transition hover:bg-slate-100 [&::-webkit-details-marker]:hidden">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center gap-3 rounded-lg px-3 py-2 text-sm font-[650] text-slate-950 transition hover:bg-slate-100 [&::-webkit-details-marker]:hidden">
         <ChevronRight
           className="shrink-0 text-slate-400 transition group-open:rotate-90"
           size={17}
@@ -180,6 +192,8 @@ export default async function AdminLayout({
 
           <nav className="flex-1 space-y-3 overflow-y-auto px-3 py-5">
             <SidebarLink
+              className="min-h-11 font-[650] text-slate-950"
+              iconSize={18}
               item={{
                 label: "Дашборд",
                 href: "/admin",

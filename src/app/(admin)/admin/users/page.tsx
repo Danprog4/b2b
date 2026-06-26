@@ -73,7 +73,7 @@ function getPageCopy(role: string) {
 
   if (role === "seller") {
     return {
-      title: "Юзеры продавцов",
+      title: "Пользователи продавцов",
       description:
         "Аккаунты продавцов, их поставщики, статусы и связь с карточками продавцов.",
     };
@@ -88,7 +88,7 @@ function getPageCopy(role: string) {
   }
 
   return {
-    title: "Юзеры",
+    title: "Пользователи",
     description:
       "Аккаунты покупателей, продавцов и администраторов, их статус и привязка к юридическим лицам.",
   };
@@ -251,7 +251,7 @@ export default async function AdminUsersPage({
               {userRows.length === 0 ? (
                 <tr>
                   <td className="px-5 py-8 text-center text-slate-500" colSpan={8}>
-                    Юзеры не найдены.
+                    Пользователи не найдены.
                   </td>
                 </tr>
               ) : null}

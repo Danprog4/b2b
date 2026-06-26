@@ -4,6 +4,7 @@ import {
   CartesianGrid,
   Line,
   LineChart,
+  type YAxisTickContentProps,
   XAxis,
   YAxis,
 } from "recharts";
@@ -61,16 +62,6 @@ function formatTooltipDate(value: string) {
 
 function formatChartValue(value: number, mode: "currency" | "number") {
   if (mode === "currency") {
-    if (Math.abs(value) >= 1000) {
-      const compactValue = value / 1000;
-
-      return `${new Intl.NumberFormat("ru-RU", {
-        maximumFractionDigits: 1,
-      })
-        .format(compactValue)
-        .replace(",", ".")}к ₽`;
-    }
-
     return `${new Intl.NumberFormat("ru-RU", {
       maximumFractionDigits: 0,
     }).format(value)} ₽`;
@@ -81,14 +72,44 @@ function formatChartValue(value: number, mode: "currency" | "number") {
   }).format(value);
 }
 
-function getYAxisWidth(value: number, mode: "currency" | "number") {
-  const formattedValue = formatChartValue(value, mode);
-
+function formatAxisValue(value: number, mode: "currency" | "number") {
   if (mode === "currency") {
-    return formattedValue.includes("к") ? 56 : 48;
+    if (Math.abs(value) >= 1000) {
+      const compactValue = value / 1000;
+
+      return `${new Intl.NumberFormat("ru-RU", {
+        maximumFractionDigits: 1,
+      })
+        .format(compactValue)
+        .replace(",", ".")}к`;
+    }
+
+    return new Intl.NumberFormat("ru-RU", {
+      maximumFractionDigits: 0,
+    }).format(value);
   }
 
-  return formattedValue.length > 3 ? 52 : 36;
+  return new Intl.NumberFormat("ru-RU", {
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function renderYAxisTick(
+  props: YAxisTickContentProps,
+  mode: "currency" | "number",
+) {
+  return (
+    <text
+      className="fill-muted-foreground"
+      dy={4}
+      fontSize={12}
+      textAnchor="start"
+      x={0}
+      y={props.y}
+    >
+      {formatAxisValue(Number(props.payload.value), mode)}
+    </text>
+  );
 }
 
 export function DashboardLineChart({
@@ -113,8 +134,7 @@ export function DashboardLineChart({
   valueMode: "currency" | "number";
 }) {
   const totalValue = points.reduce((sum, point) => sum + point.value, 0);
-  const maxValue = Math.max(...points.map((point) => point.value), 0);
-  const yAxisWidth = getYAxisWidth(maxValue, valueMode);
+  const yAxisWidth = 44;
   const chartKey = `${points[0]?.date ?? "empty"}-${points[points.length - 1]?.date ?? "empty"}-${points.length}`;
   const chartConfig = {
     value: {
@@ -159,8 +179,8 @@ export function DashboardLineChart({
               allowDecimals={valueMode !== "number"}
               axisLine={false}
               tickLine={false}
-              tickMargin={8}
-              tickFormatter={(value) => formatChartValue(Number(value), valueMode)}
+              tickMargin={16}
+              tick={(props) => renderYAxisTick(props, valueMode)}
               width={yAxisWidth}
             />
             <XAxis

@@ -210,7 +210,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
             q={q}
             resetCategoryFiltersHref={resetCategoryFiltersHref}
             sort={sort}
-            subcategories={subcategories}
+            subcategories={mobileSubcategories}
             subcategorySlug={subcategorySlug}
           />
 

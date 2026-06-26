@@ -284,8 +284,8 @@ export default async function AdminProductsPage({
           className="mt-5 overflow-x-auto rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200"
           method="get"
         >
-          <div className="grid min-w-[1120px] gap-2 xl:grid-cols-[minmax(180px,1fr)_170px_180px_190px_130px_160px_auto]">
-            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
+          <div className="grid min-w-[1170px] items-end gap-3 xl:grid-cols-[220px_145px_145px_170px_105px_125px_180px]">
+            <label className="grid min-w-0 gap-1.5 text-xs font-bold text-slate-700">
               Поиск
               <div className="relative">
                 <Search
@@ -300,10 +300,10 @@ export default async function AdminProductsPage({
                 />
               </div>
             </label>
-            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
+            <label className="grid min-w-0 gap-1.5 text-xs font-bold text-slate-700">
               Продавец
               <select
-                className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
+                className="h-9 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
                 defaultValue={sellerId}
                 name="sellerId"
               >
@@ -315,10 +315,10 @@ export default async function AdminProductsPage({
                 ))}
               </select>
             </label>
-            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
+            <label className="grid min-w-0 gap-1.5 text-xs font-bold text-slate-700">
               Категория
               <select
-                className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
+                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
                 defaultValue={categoryId}
                 name="categoryId"
               >
@@ -330,10 +330,10 @@ export default async function AdminProductsPage({
                 ))}
               </select>
             </label>
-            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
+            <label className="grid min-w-0 gap-1.5 text-xs font-bold text-slate-700">
               Подкатегория
               <select
-                className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
+                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
                 defaultValue={subcategoryId}
                 name="subcategoryId"
               >
@@ -345,10 +345,10 @@ export default async function AdminProductsPage({
                 ))}
               </select>
             </label>
-            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
+            <label className="grid min-w-0 gap-1.5 text-xs font-bold text-slate-700">
               Активность
               <select
-                className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
+                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
                 defaultValue={activity}
                 name="activity"
               >
@@ -357,10 +357,10 @@ export default async function AdminProductsPage({
                 <option value="inactive">Неактивные</option>
               </select>
             </label>
-            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
-              Предложения
+            <label className="grid min-w-0 gap-1.5 text-xs font-bold text-slate-700">
+              Статус
               <select
-                className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
+                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
                 defaultValue={offerStatus}
                 name="offerStatus"
               >
@@ -372,9 +372,9 @@ export default async function AdminProductsPage({
                 ))}
               </select>
             </label>
-            <div className="flex items-end gap-2">
+            <div className="flex min-w-0 items-end gap-2">
               <button
-                className="inline-flex h-9 items-center justify-center rounded-lg bg-[#1157ff] px-3 text-sm font-bold text-white transition hover:bg-[#0b49e0]"
+                className="inline-flex h-9 flex-1 items-center justify-center rounded-lg bg-[#1157ff] px-3 text-sm font-bold text-white transition hover:bg-[#0b49e0]"
                 type="submit"
               >
                 Применить

@@ -79,7 +79,7 @@ export default async function AccountOrdersPage() {
                         {order.number}
                       </h2>
                       {order.isNew ? (
-                        <span className="rounded-full bg-[#1157ff] px-2.5 py-1 text-xs font-black text-white">
+                        <span className="inline-flex h-5 min-w-max shrink-0 items-center whitespace-nowrap rounded-full bg-[#1157ff] px-2 text-[10px] font-black leading-none text-white">
                           Не просмотрен
                         </span>
                       ) : null}

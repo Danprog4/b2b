@@ -12,7 +12,7 @@ import {
   or,
   sql,
 } from "drizzle-orm";
-import { Download, ExternalLink, FileText, Search, X } from "lucide-react";
+import { Download, FileText, Search, X } from "lucide-react";
 import Link from "next/link";
 
 import { OrderStatusBadge } from "@/components/orders/order-status-badge";
@@ -393,11 +393,11 @@ export default async function AdminOrdersPage({
         </div>
 
         <form
-          className="mt-5 overflow-x-auto rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200"
+          className="mt-5 rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200"
           method="get"
         >
-          <div className="grid min-w-[900px] gap-2 xl:grid-cols-[minmax(180px,1fr)_150px_170px_150px_auto]">
-            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-12">
+            <label className="grid min-w-0 gap-1.5 text-xs font-bold text-slate-700 xl:col-span-5">
               Поиск
               <div className="relative">
                 <Search
@@ -412,10 +412,10 @@ export default async function AdminOrdersPage({
                 />
               </div>
             </label>
-            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
+            <label className="grid min-w-0 gap-1.5 text-xs font-bold text-slate-700 xl:col-span-2">
               Статус
               <select
-                className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
+                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
                 defaultValue={status}
                 name="status"
               >
@@ -427,10 +427,10 @@ export default async function AdminOrdersPage({
                 ))}
               </select>
             </label>
-            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
+            <label className="grid min-w-0 gap-1.5 text-xs font-bold text-slate-700 xl:col-span-2">
               Продавец
               <select
-                className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
+                className="h-9 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
                 defaultValue={sellerId}
                 name="sellerId"
               >
@@ -442,10 +442,10 @@ export default async function AdminOrdersPage({
                 ))}
               </select>
             </label>
-            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
+            <label className="grid min-w-0 gap-1.5 text-xs font-bold text-slate-700 xl:col-span-1">
               Документы
               <select
-                className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
+                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
                 defaultValue={documentsFilter}
                 name="documents"
               >
@@ -454,7 +454,7 @@ export default async function AdminOrdersPage({
                 <option value="without">Без документов</option>
               </select>
             </label>
-            <div className="flex items-end gap-2">
+            <div className="flex min-w-0 items-end gap-2 xl:col-span-2">
               <button
                 className="inline-flex h-9 flex-1 items-center justify-center rounded-lg bg-[#1157ff] px-3 text-sm font-bold text-white transition hover:bg-[#0b49e0]"
                 type="submit"
@@ -469,59 +469,56 @@ export default async function AdminOrdersPage({
                 <X size={18} />
               </Link>
             </div>
-          </div>
-
-          <div className="mt-3 grid min-w-[900px] gap-2 md:grid-cols-2 xl:grid-cols-6">
-            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
+            <label className="grid min-w-0 gap-1.5 text-xs font-bold text-slate-700 xl:col-span-2">
               Компания
               <input
-                className="h-9 rounded-lg border border-slate-200 px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
+                className="h-9 w-full rounded-lg border border-slate-200 px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
                 defaultValue={company}
                 name="company"
                 placeholder="Название"
               />
             </label>
-            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
+            <label className="grid min-w-0 gap-1.5 text-xs font-bold text-slate-700 xl:col-span-2">
               ИНН
               <input
-                className="h-9 rounded-lg border border-slate-200 px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
+                className="h-9 w-full rounded-lg border border-slate-200 px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
                 defaultValue={inn}
                 name="inn"
                 placeholder="7702..."
               />
             </label>
-            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
+            <label className="grid min-w-0 gap-1.5 text-xs font-bold text-slate-700 xl:col-span-2">
               Дата от
               <input
-                className="h-9 rounded-lg border border-slate-200 px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
+                className="h-9 w-full rounded-lg border border-slate-200 px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
                 defaultValue={dateFrom}
                 name="dateFrom"
                 type="date"
               />
             </label>
-            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
+            <label className="grid min-w-0 gap-1.5 text-xs font-bold text-slate-700 xl:col-span-2">
               Дата до
               <input
-                className="h-9 rounded-lg border border-slate-200 px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
+                className="h-9 w-full rounded-lg border border-slate-200 px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
                 defaultValue={dateTo}
                 name="dateTo"
                 type="date"
               />
             </label>
-            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
+            <label className="grid min-w-0 gap-1.5 text-xs font-bold text-slate-700 xl:col-span-2">
               Сумма от
               <input
-                className="h-9 rounded-lg border border-slate-200 px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
+                className="h-9 w-full rounded-lg border border-slate-200 px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
                 defaultValue={amountFrom}
                 inputMode="numeric"
                 name="amountFrom"
                 placeholder="0"
               />
             </label>
-            <label className="grid gap-1.5 text-xs font-bold text-slate-700">
+            <label className="grid min-w-0 gap-1.5 text-xs font-bold text-slate-700 xl:col-span-2">
               Сумма до
               <input
-                className="h-9 rounded-lg border border-slate-200 px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
+                className="h-9 w-full rounded-lg border border-slate-200 px-2.5 text-sm font-semibold outline-none transition focus:border-[#1157ff]"
                 defaultValue={amountTo}
                 inputMode="numeric"
                 name="amountTo"
@@ -532,7 +529,7 @@ export default async function AdminOrdersPage({
         </form>
 
         <section className="mt-6 overflow-x-auto rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
-          <table className="w-full min-w-[1480px] border-collapse text-left">
+          <table className="w-full min-w-[1360px] border-collapse text-left">
             <thead className="bg-slate-50 text-xs uppercase text-slate-500">
               <tr>
                 <th className="px-5 py-4">Заказ</th>
@@ -545,13 +542,12 @@ export default async function AdminOrdersPage({
                 <th className="px-5 py-4">Комментарий</th>
                 <th className="px-5 py-4">Сумма</th>
                 <th className="px-5 py-4">Обновлен</th>
-                <th className="px-5 py-4">Действия</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm">
               {rows.length === 0 ? (
                 <tr>
-                  <td className="px-5 py-8 text-center text-slate-500" colSpan={11}>
+                  <td className="px-5 py-8 text-center text-slate-500" colSpan={10}>
                     Заказы не найдены.
                   </td>
                 </tr>
@@ -566,18 +562,18 @@ export default async function AdminOrdersPage({
                 <tr key={order.id} className="align-top hover:bg-slate-50">
                   <td className="p-0">
                     <Link
-                      className="flex px-5 py-4 font-black text-[#1157ff]"
+                      className="flex flex-col items-start gap-2 px-5 py-4 font-black text-[#1157ff]"
                       href={orderHref}
                     >
-                      <span className="inline-flex items-center gap-2">
-                        <FileText size={18} />
-                        {order.number}
-                        {order.isNew ? (
-                          <span className="whitespace-nowrap rounded-full bg-[#1157ff] px-2.5 py-1 text-xs font-black text-white">
-                            Не просмотрен
-                          </span>
-                        ) : null}
+                      <span className="inline-flex min-w-0 items-center gap-2">
+                        <FileText className="shrink-0" size={18} />
+                        <span className="break-words">{order.number}</span>
                       </span>
+                      {order.isNew ? (
+                        <span className="inline-flex h-5 min-w-max items-center whitespace-nowrap rounded-full bg-[#1157ff] px-2 text-[10px] font-black leading-none text-white">
+                          Не просмотрен
+                        </span>
+                      ) : null}
                     </Link>
                   </td>
                   <td className="p-0">
@@ -664,15 +660,6 @@ export default async function AdminOrdersPage({
                       href={orderHref}
                     >
                       {formatDateTime(order.updatedAt)}
-                    </Link>
-                  </td>
-                  <td className="p-0">
-                    <Link
-                      className="inline-flex items-center gap-2 px-5 py-4 font-bold text-[#1157ff]"
-                      href={orderHref}
-                    >
-                      <ExternalLink size={16} />
-                      Открыть
                     </Link>
                   </td>
                 </tr>

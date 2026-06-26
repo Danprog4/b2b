@@ -277,7 +277,7 @@ export default async function AdminPage({
       href: "/admin/commissions",
     },
     {
-      label: "Новые юзеры",
+      label: "Новые пользователи",
       value: newBuyerUsers,
       href: "/admin/users?role=buyer",
     },
@@ -351,7 +351,7 @@ export default async function AdminPage({
             periodStartParamName="usersFrom"
             periodStartValue={newBuyerPeriodStartValue}
             points={newBuyerPoints}
-            title="Новые юзеры"
+            title="Новые пользователи"
             valueMode="number"
           />
         </div>
