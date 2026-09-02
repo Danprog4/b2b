@@ -47,3 +47,23 @@ export function normalizePostgresConnectionString(value: string) {
     decodeRepeatedly(password),
   )}@${server}`;
 }
+
+export function getPostgresConnectionOptions() {
+  const host = process.env.POSTGRESQL_HOST?.trim();
+  const user = process.env.POSTGRESQL_USER?.trim();
+  const password = process.env.POSTGRESQL_PASSWORD;
+  const database = process.env.POSTGRESQL_DBNAME?.trim();
+
+  if (!host || !user || password === undefined || !database) {
+    return null;
+  }
+
+  return {
+    host,
+    port: Number(process.env.POSTGRESQL_PORT || 5432),
+    user,
+    password,
+    database,
+    ssl: "require" as const,
+  };
+}
