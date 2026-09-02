@@ -1,13 +1,16 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
+import { normalizePostgresConnectionString } from "./connection-string";
 import * as schema from "./schema";
 
-const connectionString = process.env.DATABASE_URL;
+const rawConnectionString = process.env.DATABASE_URL;
 
-if (!connectionString) {
+if (!rawConnectionString) {
   throw new Error("DATABASE_URL is required to initialize the database client.");
 }
+
+const connectionString = normalizePostgresConnectionString(rawConnectionString);
 
 type PostgresClient = ReturnType<typeof postgres>;
 
