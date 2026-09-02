@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "npm run db:migrate && next start",
+    "start": "next start",
     "lint": "eslint",
     "db:up": "docker-compose up -d db",
     "db:down": "docker-compose down",
